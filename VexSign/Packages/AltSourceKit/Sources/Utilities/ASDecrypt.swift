@@ -40,15 +40,24 @@ public class ASDecrypt {
 		return nil
 	}
 	
+	/// The bundled key, reachable from outside the module.
+	///
+	/// A public default argument may only name public API, and `esign_key` is
+	/// internal, so `key: [UInt8] = esign_key` below was a build error under
+	/// Xcode's Swift 6 language mode (SwiftPM's 5.8 manifest only warned about
+	/// it). Exposing the key changes nothing about who can read it — `decrypt()`
+	/// already uses it — and it keeps the default argument working.
+	public static var defaultKey: [UInt8] { esign_key }
+
 	public func decrypt() -> [String]? {
-		decrypt(key: esign_key, keyLength: esign_key_len)
+		decrypt(key: Self.defaultKey, keyLength: esign_key_len)
 	}
 	
 	public func decrypt(key: [UInt8], keyLength: Int) -> [String]? {
 		try? decryptValidated(key: key, keyLength: keyLength)
 	}
 
-	public func decryptValidated(key: [UInt8] = esign_key, keyLength: Int? = nil) throws -> [String] {
+	public func decryptValidated(key: [UInt8] = ASDecrypt.defaultKey, keyLength: Int? = nil) throws -> [String] {
 		guard _input.utf8.count <= Self._maxInputBytes else {
 			throw DecryptionError.inputTooLarge
 		}

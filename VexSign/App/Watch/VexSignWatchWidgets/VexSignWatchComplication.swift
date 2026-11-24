@@ -63,7 +63,7 @@ struct WatchComplicationView: View {
 			EmptyView()
 		} currentValueLabel: {
 			Text(entry.snapshot?.status.certLabel ?? "—")
-				.font(.system(size: 15, weight: .bold, design: .rounded))
+				.font(.system(.subheadline, design: .rounded, weight: .bold))
 				.minimumScaleFactor(0.5)
 		}
 		.gaugeStyle(.accessoryCircularCapacity)
@@ -76,16 +76,16 @@ struct WatchComplicationView: View {
 				Image(systemName: (entry.snapshot?.status.certRevoked ?? false) ? "xmark.seal.fill" : "checkmark.seal.fill")
 					.font(.system(size: 10))
 				Text("VexSign")
-					.font(.system(size: 11, weight: .semibold))
+					.font(.caption2.weight(.semibold))
 			}
 			.foregroundStyle(_tint)
 
 			Text(entry.snapshot?.status.certSummary ?? "Waiting for iPhone")
-				.font(.system(size: 13, weight: .bold))
+				.font(.footnote.weight(.bold))
 				.lineLimit(1)
 
 			Text(_detail)
-				.font(.system(size: 11))
+				.font(.caption2)
 				.foregroundStyle(.secondary)
 				.lineLimit(1)
 		}

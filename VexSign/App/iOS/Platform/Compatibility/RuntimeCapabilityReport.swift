@@ -70,6 +70,11 @@ struct RuntimeCapabilityReport: Equatable {
     enum Reason: String, Equatable {
         /// The ordinary app: the embedded runtime is a different build.
         case runtimeNotLoaded
+        /// A combined build whose host is loaded but incomplete: an older fork, or
+        /// one built before this version's entry points existed. Distinct from
+        /// `runtimeNotLoaded`, because the fix is a matching host, not a reinstall
+        /// of the same app.
+        case hostIncomplete
         /// The host is present but this layout never installs the relevant hooks.
         case notPartOfThisLayout
         /// The operation restarts the host process, which the caller has to consent to.
@@ -93,11 +98,20 @@ struct RuntimeCapabilityReport: Equatable {
         var isGuestBuild: Bool
         var isPrimaryHost: Bool
         var runtimeLoaded: Bool
+        /// Host entry points the loaded host does not answer. Empty for an
+        /// ordinary install and for a host that implements the whole contract.
+        var missingHostSelectors: [String]
 
-        init(isGuestBuild: Bool, isPrimaryHost: Bool, runtimeLoaded: Bool) {
+        init(
+            isGuestBuild: Bool,
+            isPrimaryHost: Bool,
+            runtimeLoaded: Bool,
+            missingHostSelectors: [String] = []
+        ) {
             self.isGuestBuild = isGuestBuild
             self.isPrimaryHost = isPrimaryHost
             self.runtimeLoaded = runtimeLoaded
+            self.missingHostSelectors = missingHostSelectors
         }
     }
 
@@ -153,6 +167,13 @@ struct RuntimeCapabilityReport: Equatable {
             return environment == .combinedGuestPrototype ? .unavailable(.notPartOfThisLayout) : .available
         }
         guard facts.runtimeLoaded, environment != .standalone else {
+            // A combined build whose host answered but is missing an entry point is
+            // not the same failure as an ordinary install with no host: telling
+            // that user "the runtime is not loaded" sends them to reinstall the
+            // app they already have.
+            if environment != .standalone, !facts.missingHostSelectors.isEmpty {
+                return .unavailable(.hostIncomplete)
+            }
             return .unavailable(.runtimeNotLoaded)
         }
 
@@ -197,6 +218,42 @@ struct RuntimeCapabilityReport: Equatable {
             "environment": environment.rawValue,
             "operations": operations
         ]
+    }
+}
+
+// MARK: - Explaining a missing capability
+
+extension RuntimeCapabilityReport.Reason {
+    /// The sentence a screen shows when a control is unavailable, or `nil` when the reason is
+    /// already carried by that control's own copy.
+    ///
+    /// The reason codes were only ever exported to diagnostics: a standalone build simply
+    /// omitted the "Built-in apps" section and left the user to conclude the feature was broken
+    /// or their device was at fault. Nothing was missing from the device — the embedded runtime
+    /// is a different build — and that is worth saying where the user looks for the feature.
+    var explanation: String? {
+        switch self {
+        case .runtimeNotLoaded:
+            return .localized("LiveContainer and SideStore ship in the combined build, not in an ordinary install. This copy signs and installs apps; it cannot host them, and nothing is missing from your device.")
+        case .hostIncomplete:
+            return .localized("This is a combined build, and its host is an older or different version than this app expects. One of the two needs updating; reinstalling this app alone will not change it.")
+        case .notPartOfThisLayout:
+            return .localized("This layout of the combined app deliberately does not install that hook, so the operation restarts nothing and leaves no state behind.")
+        case .restartsHost:
+            return nil
+        case .unsupportedByDesign:
+            return .localized("VexSign never hands an import to a separately installed container: a detected URL handler does not prove that container would accept the file.")
+        }
+    }
+}
+
+extension RuntimeCapabilityReport {
+    /// The explanation for the runtime operations this build cannot reach, in operation order.
+    var unavailableExplanations: [(operation: Operation, explanation: String)] {
+        Operation.allCases.compactMap { operation in
+            guard let reason = reason(for: operation), let explanation = reason.explanation else { return nil }
+            return (operation, explanation)
+        }
     }
 }
 

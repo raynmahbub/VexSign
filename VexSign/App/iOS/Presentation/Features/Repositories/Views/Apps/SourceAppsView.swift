@@ -442,7 +442,7 @@ struct SourceAppsView: View {
             // every app on the main actor (that second pass was part of the freeze).
             _localUpdateCount = updateChecker.updateCount
 
-            withAnimation(.easeIn(duration: 0.2)) {
+            withAppAnimation(.easeIn(duration: 0.2)) {
                 isLoading = false
             }
         }

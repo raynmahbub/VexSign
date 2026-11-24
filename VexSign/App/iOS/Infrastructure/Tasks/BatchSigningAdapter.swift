@@ -14,7 +14,13 @@ final class BatchSigningAdapter: BatchSigningProviding {
         guard runner == nil else { throw ArchitectureDomainError.duplicateOrBusyOperation }
         let rows = try request.apps.map { try repository.storage.managedApp(matching: $0) }
         let snapshots = try rows.map { try repository.appRecord($0) }
-        sourceApps = Dictionary(uniqueKeysWithValues: snapshots.compactMap { app in app.workspaceIdentity.map { ($0, app) } })
+        // Two rows can describe the same workspace (the same app selected twice, or a
+        // signed copy of an imported one). `uniqueKeysWithValues:` would trap here,
+        // before the batch starts; one entry per workspace is what the runner reads.
+        sourceApps = Dictionary(
+            snapshots.compactMap { app in app.workspaceIdentity.map { ($0, app) } },
+            uniquingKeysWith: { first, _ in first }
+        )
         let certificate = try request.certificateID.map { try repository.storage.managedCertificate(id: $0) }
         runner = BatchJobRunner(apps: rows, mode: request.mode, options: request.options, overrides: request.overrides,
             icons: request.icons, certificate: certificate, resignsSigned: request.resignsSigned)

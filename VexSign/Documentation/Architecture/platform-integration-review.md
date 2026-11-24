@@ -1,6 +1,6 @@
 # Platform integration review
 
-This is a partial engineering review of checkout `f05d4a1bd0fc7b27d9013e301870207b8806e354` on `arena/6978685a-vexsign`, not a completion report for the requested platform. The checkout was clean at the start of the review. The requested alternate branch name is not the active session branch.
+This is a partial engineering review of checkout `f05d4a1bd0fc7b27d9013e301870207b8806e354`, not a completion report for the requested platform. The checkout was clean at the start of the review, and the review covers only what that commit contained.
 
 ## Repository map
 

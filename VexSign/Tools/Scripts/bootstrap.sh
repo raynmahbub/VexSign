@@ -53,9 +53,7 @@ step "Resolve Swift packages"
 xcodebuild \
     -workspace VexSign.xcworkspace \
     -scheme VexSign \
-    -resolvePackageDependencies \
-    -skipPackagePluginValidation \
-    -skipMacroValidation
+    -resolvePackageDependencies
 
 step "Ready"
 cat <<'TXT'

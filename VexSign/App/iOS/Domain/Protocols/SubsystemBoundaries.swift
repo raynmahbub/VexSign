@@ -76,6 +76,13 @@ protocol AppPrivacyManaging: AnyObject {
 }
 
 @MainActor
+protocol StoreRecoveryReporting: AnyObject {
+    /// Non-nil only in the session where an unreadable store was quarantined.
+    var pendingLibraryRecovery: LibraryRecoveryNotice? { get }
+    func acknowledgeLibraryRecovery()
+}
+
+@MainActor
 protocol CertificateCatalogProviding: AnyObject {
     func certificateOptions() -> [CertificateOptionItem]
     func signedAppsCount() -> Int

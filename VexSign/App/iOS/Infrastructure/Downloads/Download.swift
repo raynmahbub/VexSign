@@ -10,6 +10,17 @@ import UserNotifications
 import BackgroundTasks
 import ActivityKit
 
+/// One row in the download list.
+///
+/// `@unchecked Sendable` is a promise the compiler cannot check, so here is what it rests
+/// on: every write to a row happens on the main queue. `DownloadManager` builds both
+/// sessions with `delegateQueue: .main`, its decision and import paths are main-queue entry
+/// points, and the background work it starts (hashing, unpacking) hands its results back
+/// with `DispatchQueue.main.async` instead of writing into the row. `@Published` therefore
+/// never needs a lock — but nothing in this type says so, which is why the conformance is
+/// `@unchecked` and not free. Making it provable means moving progress reporting behind an
+/// actor; until then the invariant is documented here and exercised by the main-queue
+/// assertions in the package-import path.
 class Download: Identifiable, @unchecked Sendable {
     let importControl = ImportControl()
     let recoveryID: UUID

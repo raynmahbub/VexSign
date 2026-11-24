@@ -1,0 +1,19 @@
+{
+  "TV": 3,
+  "Vision": 1,
+  "Watch": 3,
+  "WidgetExtension": 5,
+  "iOS/Presentation/Features/About": 1,
+  "iOS/Presentation/Features/Accounts": 6,
+  "iOS/Presentation/Features/Certificates": 5,
+  "iOS/Presentation/Features/Downloads": 8,
+  "iOS/Presentation/Features/Home": 18,
+  "iOS/Presentation/Features/Library": 8,
+  "iOS/Presentation/Features/Onboarding": 1,
+  "iOS/Presentation/Features/Repositories": 2,
+  "iOS/Presentation/Features/Settings": 7,
+  "iOS/Presentation/Features/Signing": 4,
+  "iOS/Presentation/Features/Tasks": 2,
+  "iOS/Presentation/Features/Updates": 4,
+  "iOS/Presentation/Shared": 3
+}

@@ -1,5 +1,6 @@
 import XCTest
 import ZIPFoundation
+import IDeviceSwift
 @testable import VexSign
 
 final class ImportAndInstallationTests: XCTestCase {
@@ -27,9 +28,12 @@ final class ImportAndInstallationTests: XCTestCase {
         defer { try? manager.removeItem(at: root) }
         try manager.createSymbolicLink(at: root.appendingPathComponent("escape"), withDestinationURL: root.deletingLastPathComponent())
         XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(relativePath: "escape/outside", root: root))
-        for path in ["/Payload/", "../escape", "Payload/../escape", "C:/escape", "", "./Payload"] {
+        for path in ["/Payload/", "../escape", "Payload/../escape", "C:/escape", ""] {
             XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(relativePath: path, root: root))
         }
+        // A `./` prefix names the same file, and packers disagree about writing it. Refusing it
+        // rejected ordinary archives at the first entry; only `..` can leave the destination.
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDestination(relativePath: "./Payload", root: root))
     }
 
     func testArchiveDestinationAcceptsPayloadDirectoryAndFiles() throws {
@@ -49,9 +53,9 @@ final class ImportAndInstallationTests: XCTestCase {
     // MARK: - Duplicate output paths
 
     /// Two entries resolving to one output path. `IPAExtractor` rejects these while writing, but
-    /// `TweakExtractor` and `IPAWorkspace` hand the same validated archive to
-    /// `Zip.unzipFile(overwrite: true)`, which lets the last entry win — so the rule has to live
-    /// in the validator every backend shares, not in one backend.
+    /// the ZIP spec does not forbid them and a reader that lets the last entry win would extract a
+    /// different file than the one that was inspected — so the rule has to live in the validator
+    /// every backend shares, not in one backend.
     func testArchiveRejectsTwoEntriesClaimingTheSameOutputPath() {
         var claimed = Set<String>()
         XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate("Payload/Test.app/Info.plist", in: &claimed))
@@ -185,7 +189,9 @@ final class ImportAndInstallationTests: XCTestCase {
         let prefix = (0..<40).map { "d\($0)" }.joined(separator: "/")
         XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(
             relativePath: prefix + "/../../escape", root: root))
-        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(
+        // `.` names the file beside it, so it is normalized rather than refused: a packer that
+        // writes `d0/./file.txt` is describing `d0/file.txt`.
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDestination(
             relativePath: prefix + "/./file.txt", root: root))
     }
 
@@ -494,7 +500,7 @@ final class ImportAndInstallationTests: XCTestCase {
     }
 
     @MainActor
-    func testInstallQueueAdvanceSchedulerCancelsStaleAutomaticAdvance() async {
+    func testInstallQueueAdvanceSchedulerCancelsStaleAutomaticAdvance() async throws {
         let scheduler = InstallQueueAdvanceScheduler()
         var advances = 0
 
@@ -502,7 +508,9 @@ final class ImportAndInstallationTests: XCTestCase {
         scheduler.cancel()
         scheduler.schedule(after: 0.02) { advances += 1 }
 
-        try? await Task.sleep(nanoseconds: 120_000_000)
+        // Wait for the event the test is about, not for a duration: a loaded runner can
+        // deliver the timer later than any fixed sleep, and 120 ms used to be the guess.
+        try await AsyncWait.until("the automatic advance fires") { advances == 1 }
         XCTAssertEqual(advances, 1, "A stale completion timer must not advance a later install.")
     }
 

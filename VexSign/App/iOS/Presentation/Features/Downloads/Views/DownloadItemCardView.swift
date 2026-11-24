@@ -23,7 +23,7 @@ struct DownloadItemCardView: View {
                     if !download.isManual {
                         Button(action: {
                             DownloadNavigationHelper.handleAppNameTap(for: download)
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 isOverlayPresented = false
                             }
                         }) {
@@ -106,7 +106,7 @@ struct DownloadItemCardView: View {
                 } else if model.showsByteCount {
                     HStack(spacing: 4) {
                         Text(model.bytesDownloaded.formattedByteCount)
-                            .animation(.easeOut(duration: 0.2), value: model.bytesDownloaded)
+                            .appAnimation(.easeOut(duration: 0.2), value: model.bytesDownloaded)
                         Text("of")
                         Text(model.totalBytes.formattedByteCount)
                         if let eta = DownloadPreferences.etaString(

@@ -73,7 +73,7 @@ struct VexSignApp: App {
                             .onOpenURL(perform: _handleURL)
                             .zIndex(0)
                     }
-                    .animation(
+                    .appAnimation(
                         appearance.animationsEnabled ? .spring(response: 0.4, dampingFraction: 0.8) : nil,
                         value: hasActiveDownloads
                     )
@@ -109,7 +109,21 @@ struct VexSignApp: App {
                         .zIndex(99)
                 }
             }
-            .animation(.easeInOut(duration: 0.18), value: appLock.isLocked)
+            .overlay {
+                // The switcher snapshot is taken on the way to `.background`, i.e.
+                // before App Lock engages. Obscure at `.inactive`, one phase earlier,
+                // so the frame iOS keeps is never the Library.
+                // The lock screen is already opaque and already the right thing to
+                // show, so the cover only fills the gap between `.inactive` and it.
+                if scenePhase != .active,
+                   appLock.isMasterLockEnabled,
+                   !appLock.isLocked,
+                   !appLock.isAuthenticating {
+                    PrivacySnapshotCover()
+                        .zIndex(100)
+                }
+            }
+            .appAnimation(.easeInOut(duration: 0.18), value: appLock.isLocked)
             .onReceive(NotificationCenter.default.publisher(for: .heartbeatInvalidHost)) { _ in
                 DispatchQueue.main.async {
                     UIAlertController.showAlertWithOk(
@@ -162,23 +176,8 @@ struct VexSignApp: App {
             // The offer the router staged is presented from a modifier that observes
             // the inbox itself, so this scene's chain stays type-checkable.
             .modifier(SharedBackupPresentation(inbox: appContainer.sharedBackups))
-            .environmentObject(appContainer)
-            .environmentObject(appContainer.cloudConfiguration)
-            .environmentObject(appContainer.tasks)
-            .environmentObject(appContainer.appleAccount)
-            .environmentObject(appContainer.workspace)
-            .environmentObject(appContainer.sources)
-            .environmentObject(appContainer.certificates)
-            .environmentObject(appContainer.signingPreferences)
-            .environmentObject(appContainer.discovery)
-            .environmentObject(appContainer.installationQueue)
-            .environmentObject(appContainer.files)
-            .environmentObject(appContainer.tweaks)
-            .environmentObject(appContainer.entitlements)
-            .environmentObject(appContainer.repositoryBuilder)
-            .environmentObject(appContainer.fileBrowser)
-            .environment(\.appContainer, appContainer)
-            .environmentObject(appearance)
+            // One injection point for the whole graph; see AppEnvironment.
+            .modifier(AppEnvironment(container: appContainer, appearance: appearance))
         }
     }
 
@@ -197,6 +196,8 @@ struct VexSignApp: App {
     }
 
     private func _handleURL(_ url: URL) {
-        appContainer.makeDeepLinkRouter().handle(url)
+        // Router entry point for the scene; the container holds the command while
+        // the lock covers the app and replays it after unlock.
+        appContainer.handleExternalURL(url)
     }
 }

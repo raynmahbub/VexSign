@@ -233,7 +233,7 @@ extension AppStoreView {
                             .fill(Color.userTint.opacity(0.12))
                             .frame(width: 36, height: 36)
                         Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.callout.weight(.semibold))
                             .foregroundStyle(Color.userTint)
                     }
 
@@ -271,19 +271,19 @@ extension AppStoreView {
                 }
                 .buttonStyle(.plain)
             } else {
-                VStack(spacing: 10) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(Color.userTint)
-                    Text(.localized("All Apps Are Up to Date"))
-                        .font(.headline)
-                    Text(.localized("Your installed applications are on the latest versions from your sources."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 36)
+                EmptyStateView(
+                    systemImage: "checkmark.circle.fill",
+                    title: String.localized("All Apps Are Up to Date"),
+                    message: String.localized("Your installed applications are on the latest versions from your sources."),
+                    tone: .accent,
+                    action: (
+                        title: String.localized("Check Again"),
+                        systemImage: "arrow.clockwise",
+                        tint: Color.userTint,
+                        perform: { Task { await viewModel.fetchSources(sources, refresh: true) } }
+                    )
+                )
+                .padding(.vertical, 18)
                 .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         }
@@ -295,7 +295,7 @@ extension AppStoreView {
                 ZStack {
                     Circle().fill(Color.userTint.opacity(0.14)).frame(width: 44, height: 44)
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(Color.userTint)
                 }
                 VStack(alignment: .leading, spacing: 2) {

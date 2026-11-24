@@ -58,9 +58,9 @@ final class UIKitPlatformAdapter: PlatformSystemAdapting {
         UIAlertController.showErrorWithCopy(title: title, message: message)
     }
 
+    /// Routed through `Haptics`: the platform adapter used to be a second implementation of
+    /// the same feedback, with its own `prepare()` and its own main-thread assumption.
     func triggerHapticFeedback(success: Bool) {
-        let generator = UINotificationFeedbackGenerator()
-        generator.prepare()
-        generator.notificationOccurred(success ? .success : .error)
+        if success { Haptics.success() } else { Haptics.error() }
     }
 }

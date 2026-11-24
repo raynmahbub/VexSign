@@ -28,7 +28,7 @@ struct TweakRowLabel: View {
 	var body: some View {
 		HStack(spacing: 12) {
 			Image(systemName: tweak.activeVersion?.fileType.systemImage ?? "wrench.and.screwdriver")
-				.font(.system(size: 17))
+				.font(.body)
 				.foregroundStyle(.tint)
 				.frame(width: 30)
 

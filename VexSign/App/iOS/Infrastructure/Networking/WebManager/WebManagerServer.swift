@@ -281,11 +281,20 @@ final class WebManagerUploadFile {
     private var committed = false
     private var ownsTemporary = false
     private let replace: (URL, URL) throws -> Void
+    /// Bytes accepted for this file, and the ceiling for the whole file. A streamed body
+    /// is not covered by `defaultMaxBodySize`, so this is the only bound that exists.
+    private let maximumBytes: Int
+    private(set) var written = 0
 
-    init(destination: URL, replace: @escaping (URL, URL) throws -> Void = WebManagerFileTransaction.rename) throws {
+    init(
+        destination: URL,
+        maximumBytes: Int = WebManagerTransferLimits.inbox,
+        replace: @escaping (URL, URL) throws -> Void = WebManagerFileTransaction.rename
+    ) throws {
         let fm = FileManager.default
         try fm.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
         self.destination = destination
+        self.maximumBytes = maximumBytes
         self.temporary = destination.deletingLastPathComponent().appendingPathComponent(".vexupload-\(UUID().uuidString).partial")
         self.replace = replace
         let descriptor = temporary.path.withCString { Darwin.open($0, O_CREAT | O_EXCL | O_WRONLY, mode_t(0o600)) }
@@ -294,9 +303,18 @@ final class WebManagerUploadFile {
         self.ownsTemporary = true
     }
 
+    /// Whether the next buffer still fits inside the file's ceiling.
+    ///
+    /// Checked before the write rather than after it, so a body that exceeds the limit
+    /// never leaves an oversized partial file behind for `abort()` to clean up.
+    func willAccept(_ count: Int) -> Bool {
+        WebManagerTransferLimits.accepts(current: written, incoming: count, limit: maximumBytes)
+    }
+
     func write(_ data: Data) throws {
         guard let handle, !committed else { throw CocoaError(.fileWriteUnknown) }
         try handle.write(contentsOf: data)
+        written += data.count
     }
 
     func commit() throws {
@@ -518,7 +536,8 @@ final class WebManagerServer {
 			serverNames: [advertisedHost, "127.0.0.1", "localhost"] + overlayHosts
 		)
 
-		// Streaming uploads still bypass this collected-body cap, as before.
+		// This caps *collected* bodies only. Every upload route streams, so the bound that
+		// matters there is `WebManagerTransferLimits` (per-file ceiling, free-space reserve).
 		return try await ServerApplicationFactory.make(environment: ServerInstaller.env, threads: 2,
 			hostname: bindHost, bindHost: bindHost, port: port, transport: .https(tls),
 			bodyLimit: "32mb", caseInsensitive: true)
@@ -550,13 +569,33 @@ final class WebManagerServer {
 	}
 
 	/// Streams a request body to a file, then optionally routes + reports it.
+	///
+	/// `maximumBytes` is the file's ceiling: the body is refused with `413` as soon as it
+	/// would cross it, and refused up front with `507` when the volume could not hold a
+	/// file that size even if the client behaved. See `WebManagerTransferLimits` for why a
+	/// streamed body needs its own bound.
 	func streamToFile(
 		_ request: Request,
 		destination: URL,
 		route: Bool,
 		report: Bool = true,
-		successStatus: HTTPResponseStatus
+		successStatus: HTTPResponseStatus,
+		maximumBytes: Int = WebManagerTransferLimits.inbox
 	) -> EventLoopFuture<Response> {
+        // Require the reserve, plus the declared body when the client sent a length. A body
+        // without one is bounded as it arrives by `spaceCheckInterval` below.
+        // `HTTPHeaders.contentLength` is internal in Vapor; the public read is the header itself.
+        let declared = request.headers.first(name: .contentLength).flatMap(Int.init) ?? 0
+        let expected = declared > 0 ? min(declared, maximumBytes) : 0
+        guard WebManagerTransferLimits.hasRoom(
+            freeBytes: WebManagerTransferLimits.availableBytes(),
+            requiredBytes: expected
+        ) else {
+            return request.eventLoop.makeSucceededFuture(
+                Response(status: .insufficientStorage,
+                         body: .init(string: WebManagerTransferLimits.noSpaceMessage))
+            )
+        }
         let workLease: AppOperationRegistry.Lease
         do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
         catch {
@@ -564,24 +603,53 @@ final class WebManagerServer {
                 body: .init(string: "Cleanup is in progress. Retry the upload.")))
         }
         let upload: WebManagerUploadFile
-        do { upload = try WebManagerUploadFile(destination: destination) }
+        do { upload = try WebManagerUploadFile(destination: destination, maximumBytes: maximumBytes) }
         catch {
             Logger.misc.error("Web upload could not start: \(error.localizedDescription)")
             return request.eventLoop.makeSucceededFuture(Response(status: .internalServerError))
         }
         let promise = request.eventLoop.makePromise(of: Response.self)
         var finished = false
+        var nextSpaceCheck = WebManagerTransferLimits.spaceCheckInterval
 
         request.body.drain { part in
             defer { withExtendedLifetime(workLease) {} }
             guard !finished else { return request.eventLoop.makeSucceededFuture(()) }
             switch part {
             case .buffer(let buffer):
+                guard upload.willAccept(buffer.readableBytes) else {
+                    finished = true
+                    upload.abort()
+                    promise.succeed(
+                        Response(status: .payloadTooLarge,
+                                 body: .init(string: WebManagerTransferLimits.tooLargeMessage))
+                    )
+                    return request.eventLoop.makeSucceededFuture(())
+                }
                 do { try upload.write(Data(buffer.readableBytesView)) }
                 catch {
                     finished = true
                     upload.abort()
                     promise.fail(error)
+                    return request.eventLoop.makeSucceededFuture(())
+                }
+                // The cap bounds the file; this bounds the device. Re-read the volume as the
+                // file grows, so a client cannot fill the container between the preflight and
+                // the end of a streamed body.
+                if upload.written >= nextSpaceCheck {
+                    nextSpaceCheck = upload.written + WebManagerTransferLimits.spaceCheckInterval
+                    guard WebManagerTransferLimits.hasRoom(
+                        freeBytes: WebManagerTransferLimits.availableBytes(),
+                        requiredBytes: 0
+                    ) else {
+                        finished = true
+                        upload.abort()
+                        promise.succeed(
+                            Response(status: .insufficientStorage,
+                                     body: .init(string: WebManagerTransferLimits.noSpaceMessage))
+                        )
+                        return request.eventLoop.makeSucceededFuture(())
+                    }
                 }
             case .error(let error):
                 finished = true

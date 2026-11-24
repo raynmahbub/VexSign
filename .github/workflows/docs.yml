@@ -32,8 +32,9 @@ concurrency:
 
 jobs:
   links:
-    if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public'
+    # Not gated on public visibility, unlike the macOS jobs: it consumes no paid
+    # runner minutes, and gating it meant a private repository (or a private fork)
+    # silently skipped every validation while the check went green.
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

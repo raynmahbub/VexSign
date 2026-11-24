@@ -103,7 +103,7 @@ extension LogsView {
 		let count = _count(of: kind)
 
 		Button {
-			withAnimation(.snappy) { _filter = isSelected ? nil : kind }
+			withAppAnimation(.snappy) { _filter = isSelected ? nil : kind }
 		} label: {
 			HStack(spacing: 5) {
 				Image(systemName: systemImage)
@@ -130,30 +130,36 @@ extension LogsView {
 	private func _tint(for kind: LogKind?) -> Color {
 		switch kind {
 		case .none: .white
-		case .info: Color(red: 0.40, green: 0.64, blue: 1.00)
-		case .success: Color(red: 0.34, green: 0.86, blue: 0.60)
-		case .warn: Color(red: 1.00, green: 0.78, blue: 0.34)
-		case .error: Color(red: 1.00, green: 0.45, blue: 0.47)
-		case .detail: Color(red: 0.62, green: 0.65, blue: 0.72)
+		case .info: Theme.LogLevel.info
+		case .success: Theme.LogLevel.success
+		case .warn: Theme.LogLevel.warning
+		case .error: Theme.LogLevel.error
+		case .detail: Theme.LogLevel.detail
 		}
 	}
 
 	@ViewBuilder
 	private var _emptyState: some View {
 		if _visible.isEmpty {
-			VStack(spacing: 6) {
-				Image(systemName: _log.entries.isEmpty ? "text.alignleft" : "line.3.horizontal.decrease.circle")
-					.font(.title3)
-				Text(verbatim: _log.entries.isEmpty ? String.localized("No logs yet") : String.localized("Nothing matches this filter"))
-					.font(.footnote)
-				if _log.entries.isEmpty {
-					Text(.localized("Sign, install or download something and it shows up here as it happens."))
-						.font(.caption2)
-						.multilineTextAlignment(.center)
-						.opacity(0.7)
-				}
-			}
-			.foregroundStyle(.white.opacity(0.4))
+			EmptyStateView(
+				systemImage: _log.entries.isEmpty ? "text.alignleft" : "line.3.horizontal.decrease.circle",
+				title: _log.entries.isEmpty
+					? String.localized("No logs yet")
+					: String.localized("Nothing matches this filter"),
+				message: _log.entries.isEmpty
+					? String.localized("Sign, install or download something and it shows up here as it happens.")
+					: nil,
+				tone: .onDark,
+				compact: true,
+				// "Nothing matches this filter" with no way to drop the filter is a dead end the
+				// user has to solve by finding the chip again.
+				action: _log.entries.isEmpty ? nil : (
+					title: String.localized("Show All Logs"),
+					systemImage: "line.3.horizontal.decrease.circle",
+					tint: Color.userTint,
+					perform: { withAppAnimation(.snappy) { _filter = nil } }
+				)
+			)
 			.padding(.horizontal, 32)
 		}
 	}

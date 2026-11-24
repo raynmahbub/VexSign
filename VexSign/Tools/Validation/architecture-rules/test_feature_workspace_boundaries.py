@@ -34,18 +34,26 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
 
     def test_root_environment_wraps_overlays_and_presented_sheets(self):
         shell = code("App/VexSignApp.swift")
-        scope = shell.index(".environmentObject(appContainer)")
-        # SwiftUI environment modifiers only reach their wrapped subtree. The
-        # always-built queue pill used to be appended outside that subtree and
-        # trapped on its first read of InstallationQueueModel, even when idle.
+        # The whole graph is injected by one modifier, applied once at the end of
+        # the scene's subtree. SwiftUI environment modifiers only reach their
+        # wrapped subtree, and the always-built queue pill used to be appended
+        # outside it, trapping on its first read of InstallationQueueModel.
+        scope = shell.index(".modifier(AppEnvironment(container: appContainer")
         for child in ["InstallQueuePill()", "AppLockScreenView()", "OnboardingView()", "SelfUpdateSheet(release: release)"]:
             self.assertLess(shell.index(child), scope, child + " must be inside the root dependency scope")
-        for model in ["appContainer", "appContainer.installationQueue", "appContainer.tweaks",
-                      "appContainer.files", "appContainer.workspace", "appearance"]:
-            token = ".environmentObject(" + model + ")"
-            self.assertEqual(shell.count(token), 1, "Use the same outer root scope for every presentation")
-            self.assertGreaterEqual(shell.index(token), scope)
-        self.assertGreater(shell.index(".environment(\\.appContainer, appContainer)"), scope)
+        self.assertEqual(shell.count("AppEnvironment(container: appContainer"), 1,
+                         "Use the same outer root scope for every presentation")
+        self.assertNotIn(".environmentObject(appContainer)", shell,
+                         "the chain lives in AppEnvironment, not in the scene")
+        environment = self.require("App/Composition/AppEnvironment.swift",
+            ".environmentObject(container)",
+            ".environmentObject(container.installationQueue)", ".environmentObject(container.tweaks)",
+            ".environmentObject(container.files)", ".environmentObject(container.workspace)",
+            ".environmentObject(appearance ?? AppearanceStore.shared)",
+            ".environment(\\.appContainer, container)")
+        self.assertIsNotNone(environment)
+        self.require("App/Composition/AppContainer.swift",
+            ".modifier(AppEnvironment(container: container))")
         self.require("Presentation/Features/Library/Views/Install/InstallQueueWindow.swift",
             "@EnvironmentObject private var queue: InstallationQueueModel")
 
@@ -326,8 +334,11 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
 
     def test_profile_regeneration_requires_separate_opt_in_before_handoff(self):
         self.require("Domain/Protocols/AppleAccountWorkspaceProviding.swift", "var approveRegeneration = false")
+        # The three approvals live in `ProvisioningConsentState` now; what this
+        # pins is that the renewal opt-in still has to be checked against the app
+        # and the later-profile flag before the request is built.
         self.require("Presentation/Features/Accounts/Views/ProvisioningFlowView.swift",
-                     "approveRegeneration: app.isSigned && requireLaterProfile && approveRegeneration")
+                     "approveRegeneration: app.isSigned && consent.laterProfile && consent.regeneration")
         adapter = self.require("Infrastructure/Accounts/AppleAccountWorkspaceAdapter.swift",
                                "if request.approveRegeneration, let baseline", "baselineDigest: baseline.digest")
         self.assertLess(adapter.index("profile.expiresAt <= baseline.expiry"), adapter.index("pendingProfiles[receipt.id]"))
@@ -354,9 +365,11 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         for forbidden in (".provision(", ".sign(", "InstallQueue", "approveRegeneration"):
             self.assertNotIn(forbidden, intent)
         view = code("Presentation/Features/Accounts/Views/ProvisioningFlowView.swift")
-        submission = view.split("private func runProvisioning() async", 1)[1]
+        # The wizard's steps live in `ProvisioningFlowView+Steps.swift`; this check is about the
+        # submission path, which stays with the flow that owns it.
+        submission = view.split("func runProvisioning() async", 1)[1]
         self.assertLess(submission.index("!DownloadPreferences.cellularPathAvailable"), submission.index("await manager.provision("))
-        self.assertIn("!app.isSigned || !approveRegeneration", submission)
+        self.assertIn("!app.isSigned || !consent.regeneration", submission)
 
     def test_backup_boundary_contains_only_allowlisted_preview_metadata(self):
         domain = code("Domain/Entities/BackupWorkspace.swift")

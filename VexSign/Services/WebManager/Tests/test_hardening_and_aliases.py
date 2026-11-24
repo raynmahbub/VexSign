@@ -127,7 +127,7 @@ def test_signer_validates_tls_trust_inputs_and_defaults_to_https_8080(client):
 
 
 def test_signer_malformed_redirect_location_never_escapes_as_500(client, monkeypatch):
-    def empty_host_factory():
+    def empty_host_factory(**kwargs):
         return httpx.Client(
             transport=httpx.MockTransport(
                 lambda _req: httpx.Response(302, headers={"location": "//"})
@@ -141,7 +141,7 @@ def test_signer_malformed_redirect_location_never_escapes_as_500(client, monkeyp
     )
     assert res_empty_host.status_code == 422
 
-    def bad_ipv6_factory():
+    def bad_ipv6_factory(**kwargs):
         return httpx.Client(
             transport=httpx.MockTransport(
                 lambda _req: httpx.Response(302, headers={"location": "http://[::1"})

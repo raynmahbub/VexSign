@@ -39,6 +39,38 @@ final class DeepLinkBase64StagingTests: XCTestCase {
         XCTAssertNil(staged(payload, maxBytes: 16))
     }
 
+    /// The cap must be applied to the *encoded* text, before whitespace filtering, the
+    /// base64url substitutions and the decode allocate copies of the payload. A payload
+    /// many times the limit stands in for the hostile link this guards against.
+    func testGrosslyOversizedPayloadIsRejectedWithoutDecoding() {
+        let payload = String(repeating: "A", count: 8 << 20)
+        XCTAssertNil(staged(payload, maxBytes: 16))
+    }
+
+    func testPayloadAtTheLimitIsAcceptedAndOneByteOverIsRejected() throws {
+        let exact = Data(repeating: 0x41, count: 32)
+        let accepted = try XCTUnwrap(staged(exact.base64EncodedString(), maxBytes: 32))
+        defer { try? FileManager.default.removeItem(at: accepted) }
+        XCTAssertEqual(try Data(contentsOf: accepted), exact)
+
+        let over = Data(repeating: 0x41, count: 33)
+        XCTAssertNil(staged(over.base64EncodedString(), maxBytes: 32))
+    }
+
+    func testLineWrappedLinkIsStillAccepted() throws {
+        // Senders wrap certificate links at 64 characters; the whitespace slack in the
+        // encoded-length guard must not turn a legitimate link into a rejection.
+        let body = Data(repeating: 0x42, count: 4_096).base64EncodedString()
+        let wrapped = stride(from: 0, to: body.count, by: 64).map { offset -> String in
+            let start = body.index(body.startIndex, offsetBy: offset)
+            let end = body.index(start, offsetBy: min(64, body.count - offset))
+            return String(body[start..<end])
+        }.joined(separator: "\n")
+        let url = try XCTUnwrap(staged(wrapped, maxBytes: 4_096))
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertEqual(try Data(contentsOf: url).count, 4_096)
+    }
+
     func testInvalidBase64IsRejected() {
         XCTAssertNil(staged("%%not-base64%%"))
         XCTAssertNil(staged(""))

@@ -54,7 +54,7 @@ device acceptance — the caveats in each section still apply.
 <summary><strong>🧩 Customization & IPA tools</strong></summary>
 
 
-- **Tweak injection** for `.dylib`, `.deb`, `.framework`, `.bundle` and `.appex` inputs, with ElleKit support.
+- **Tweak injection** for `.dylib`, `.deb`, `.framework`, `.bundle` and `.appex` inputs, with ElleKit support. A `.deb` payload may be uncompressed or compressed as `.xz`, `.lzma`, `.gz`, `.bz2` or `.zst`; the same list is what the refusal message names, and `ArchiveFormat` is its single source.
 - **Tweak management** to organize injection components, with dependency-aware ElleKit injection and legacy Substrate replacement.
 - **Mach-O thinning** to remove non-target architectures from supported universal binaries.
 - **Document picker fixes**, keychain isolation and optional JIT entitlement settings. Entitlements alone do not guarantee JIT availability on a device.
@@ -84,7 +84,7 @@ device acceptance — the caveats in each section still apply.
 - **Last-known-good source retention** when refreshes fail, plus opt-in startup/background refresh.
 - **Per-app update rules** — ignore a version, ignore or prefer a source, pin a certificate, disable automatic updates and preserve custom signing options across updates.
 - **Premium activation, restore and device recovery** through the configured backend, with premium catalog filters.
-- **App self-update checking**, with a one-time local notification when a newer release appears, and controls for skipped source updates.
+- **App self-update checking**, with a one-time local notification when a newer release appears, and controls for skipped source updates. Updating VexSign itself is done in place: sign the release in Library with the certificate the installed build was signed with, and the update sheet serves it from this device so iOS replaces the bundle. No certificate, key or password is ever sent to an updater, and paired self-replacement stays gated.
 
 </details>
 
@@ -128,6 +128,7 @@ Available from **Settings → Ecosystem**.
 - **Certificate Dashboard** with profile payloads, entitlements, team information, expiry countdowns and device/bundle scope.
 - **Local trust / OCSP checks**, status indicators and opt-in best-effort daily checks and alerts.
 - **Local HTTPS trust setup** using a device-generated TLS identity; no shared certificate pack is downloaded by the normal build.
+- **Optional community certificate catalogue** (hosted by a third party, off until you read and accept its warning). It imports a shared identity whose password is published, so anyone can sign apps that claim to come from it and its owner can revoke it at any time — fine for trying the workflow, not for anything you care about. See [security](VexSign/Documentation/Security/THREAT_MODEL.md).
 - **P12 password recovery tools** for your own password-protected certificates.
 - **Face ID / passcode app lock** when the app leaves the foreground.
 - **Keychain-backed secret storage and migration** for supported passwords and API credentials.
@@ -284,7 +285,8 @@ Read [Free Apple ID setup](VexSign/Documentation/Security/FREE_APPLE_ID_SETUP.md
 ## Build & test
 
 Use macOS and an Xcode with the SDK required by the current branch (the app uses
-iOS 26 SDK APIs). `make bootstrap` validates your environment and resolves packages.
+iOS 26 SDK APIs; the minimum deployment target is iOS 17.0, and newer APIs are behind
+availability checks). `make bootstrap` validates your environment and resolves packages.
 
 ```bash
 git clone https://github.com/raynmahbub/VexSign.git

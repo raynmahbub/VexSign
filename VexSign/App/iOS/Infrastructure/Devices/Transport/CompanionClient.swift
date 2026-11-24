@@ -307,10 +307,16 @@ private final class CompanionURLSessionDelegate: NSObject, URLSessionDelegate, U
 		self._expectedFingerprint = expectedFingerprint
 	}
 
-	var recordedFailure: CompanionClientError? {
+	/// Returns the failure recorded since the last read and clears it.
+	///
+	/// Sessions are reused now, so the delegate outlives one request: a trust failure
+	/// from an earlier poll must not be reported against a later, successful one.
+	func takeFailure() -> CompanionClientError? {
 		_stateLock.lock()
 		defer { _stateLock.unlock() }
-		return _recordedFailure
+		let failure = _recordedFailure
+		_recordedFailure = nil
+		return failure
 	}
 
 	func urlSession(
@@ -584,20 +590,61 @@ struct CompanionClient {
 			throw CompanionClientError.invalidAddress
 		}
 
+		let cached = Self._sessions.session(for: url, pinned: pinned, expectedFingerprint: expectedFingerprint)
+		do {
+			let response = try await cached.session.data(for: request)
+			if let failure = cached.delegate.takeFailure() { throw failure }
+			return response
+		} catch {
+			if let failure = cached.delegate.takeFailure() { throw failure }
+			throw error
+		}
+	}
+
+	/// One session per origin *and* pinned fingerprint.
+	///
+	/// A session owns a connection pool and a TLS session cache; building and then
+	/// invalidating one per request made every companion poll pay for a fresh
+	/// handshake. Keying on the fingerprint keeps a rotated or forgotten certificate
+	/// from reusing trust decisions that were recorded against the old one.
+	private static let _sessions = CompanionSessionStore()
+}
+
+private final class CompanionSessionStore {
+	private let lock = NSLock()
+	private var sessions: [String: (session: URLSession, delegate: CompanionURLSessionDelegate)] = [:]
+	/// A companion is one host with one pin; the ceiling only matters if pins are
+	/// rotated repeatedly in one run of the app.
+	private let limit = 8
+
+	func session(
+		for url: URL,
+		pinned: CompanionCertificateTrust.Pin?,
+		expectedFingerprint: String?
+	) -> (session: URLSession, delegate: CompanionURLSessionDelegate) {
+		let key = "\(url.scheme ?? "")://\(url.host ?? ""):\(url.port ?? -1)"
+			+ "|\(pinned?.fingerprint ?? "unpinned")"
+			+ "|\(expectedFingerprint ?? "-")"
+
+		lock.lock()
+		defer { lock.unlock() }
+
+		if let existing = sessions[key] { return existing }
+
+		if sessions.count >= limit {
+			// `finishTasksAndInvalidate` lets in-flight work complete; the sessions are
+			// only dropped because new pins keep arriving, which is not a steady state.
+			for stale in sessions.values { stale.session.finishTasksAndInvalidate() }
+			sessions.removeAll()
+		}
+
 		let delegate = CompanionURLSessionDelegate(
 			origin: url,
 			pinned: pinned,
 			expectedFingerprint: expectedFingerprint
 		)
 		let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
-		defer { session.invalidateAndCancel() }
-		do {
-			let response = try await session.data(for: request)
-			if let failure = delegate.recordedFailure { throw failure }
-			return response
-		} catch {
-			if let failure = delegate.recordedFailure { throw failure }
-			throw error
-		}
+		sessions[key] = (session, delegate)
+		return (session, delegate)
 	}
 }

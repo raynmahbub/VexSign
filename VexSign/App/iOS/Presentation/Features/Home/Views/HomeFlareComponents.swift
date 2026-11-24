@@ -16,10 +16,10 @@ enum FlarePalette {
     private static var isWeb: Bool { visualTheme == .flare }
 
     static var background: Color {
-        isBase ? Theme.background : Color(red: 0.025, green: 0.022, blue: 0.045)
+        isBase ? Theme.background : Theme.Flare.background
     }
     static var card: Color {
-        isBase ? Theme.card : (isWeb ? Theme.card : Color(red: 0.065, green: 0.065, blue: 0.095))
+        isBase ? Theme.card : (isWeb ? Theme.card : Theme.Flare.card)
     }
     static var border: Color {
         isBase ? Theme.separator : (isWeb ? Theme.separator : Color.white.opacity(0.10))
@@ -27,21 +27,21 @@ enum FlarePalette {
     static var grid: Color {
         if isBase { return .clear }
         if isWeb { return Theme.separator.opacity(0.8) }
-        return Color(red: 0.42, green: 0.025, blue: 0.19).opacity(0.52)
+        return Theme.Flare.grid.opacity(0.52)
     }
     static var muted: Color {
-        isBase ? Theme.secondary : Color(red: 0.49, green: 0.47, blue: 0.55)
+        isBase ? Theme.secondary : Theme.Flare.muted
     }
     static var text: Color {
         isBase ? Theme.primary : .white
     }
     static var pink: Color {
-        isBase ? Theme.tint : (isWeb ? Theme.websiteAccent : Color(red: 1.0, green: 0.12, blue: 0.34))
+        isBase ? Theme.tint : (isWeb ? Theme.websiteAccent : Theme.Flare.pink)
     }
     static var purple: Color {
-        isWeb ? Theme.websiteAccentSecondary : Color(red: 0.62, green: 0.20, blue: 1.0)
+        isWeb ? Theme.websiteAccentSecondary : Theme.Flare.purple
     }
-    static var green: Color { Color(red: 0.03, green: 0.76, blue: 0.50) }
+    static var green: Color { Theme.Flare.green }
 }
 
 struct FlareGridBackground: View {
@@ -105,12 +105,12 @@ struct HomeMetricCard: View {
                     .frame(height: 30)
 
                 Text(value)
-                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                    .font(.system(.title2, design: .monospaced, weight: .bold))
                     .foregroundStyle(FlarePalette.text)
                     .monospacedDigit()
 
                 Text(title)
-                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .font(.system(.footnote, design: .monospaced, weight: .medium))
                     .foregroundStyle(FlarePalette.muted)
             }
             .frame(maxWidth: .infinity)
@@ -138,12 +138,12 @@ struct HomeFeatureRow: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(title)
-                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .font(.system(.title3, design: .monospaced, weight: .bold))
                     .foregroundStyle(FlarePalette.text)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 Text(subtitle)
-                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .font(.system(.footnote, design: .monospaced, weight: .medium))
                     .foregroundStyle(FlarePalette.muted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)

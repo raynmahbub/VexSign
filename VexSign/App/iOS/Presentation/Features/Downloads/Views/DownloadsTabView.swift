@@ -156,7 +156,7 @@ private struct DownloadsTabContent: View {
                 HStack(spacing: 12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.tintSoft).frame(width: 44, height: 44)
-                        Image(systemName: "arrow.down.circle.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.tint)
+                        Image(systemName: "arrow.down.circle.fill").font(.title2.weight(.semibold)).foregroundStyle(Theme.tint)
                             .accessibilityHidden(true)
                     }
                     VStack(alignment: .leading, spacing: 2) {
@@ -204,7 +204,7 @@ private struct DownloadsTabContent: View {
                     ForEach(Filter.allCases) { f in
                         let selected = filter == f
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { filter = f }
+                            withAppAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { filter = f }
                         } label: {
                             HStack(spacing: 6) {
                                 Circle().fill(color(for: f)).frame(width: 7, height: 7)
@@ -375,18 +375,19 @@ private struct DownloadsTabContent: View {
 
     private var emptyState: some View {
         Section {
-            VStack(spacing: 12) {
-                Image(systemName: filter == .all ? "arrow.down.circle" : "tray")
-                    .font(.system(size: 44)).foregroundStyle(.secondary).padding(.top, 8)
-                Text(verbatim: filter == .all ? String.localized("No downloads") : String.localized("No %@ downloads", arguments: filter.rawValue.lowercased()))
-                    .font(.headline)
-                Text(.localized("Download apps from the App Store tab or paste a direct IPA link.")).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal)
-                Button { showAddSheet = true } label: {
-                    Label(.localized("Download from URL"), systemImage: "link").font(.subheadline.weight(.semibold))
-                }
-                .buttonStyle(.borderedProminent).tint(Color.userTint).padding(.top, 4)
-            }
-            .frame(maxWidth: .infinity).padding(.vertical, 18)
+            EmptyStateView(
+                systemImage: filter == .all ? "arrow.down.circle" : "tray",
+                title: filter == .all
+                    ? String.localized("No downloads")
+                    : String.localized("No %@ downloads", arguments: filter.rawValue.lowercased()),
+                message: String.localized("Download apps from the App Store tab or paste a direct IPA link."),
+                action: (
+                    title: String.localized("Download from URL"),
+                    systemImage: "link",
+                    tint: Color.userTint,
+                    perform: { showAddSheet = true }
+                )
+            )
             .listRowBackground(Color(uiColor: .secondarySystemGroupedBackground))
         }
     }
@@ -432,6 +433,7 @@ private struct DownloadsTabContent: View {
                                     .foregroundStyle(Color.userTint)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(Text(.localized("Paste")))
                         }
                     }
                 } header: {
@@ -450,6 +452,7 @@ private struct DownloadsTabContent: View {
                     .disabled(addURLText.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
+            .dismissableKeyboard()
             .navigationTitle(.localized("Download from URL"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

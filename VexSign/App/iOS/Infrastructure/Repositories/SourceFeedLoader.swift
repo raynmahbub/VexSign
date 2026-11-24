@@ -72,7 +72,7 @@ struct SourceFeedLoader: Sendable {
 		switch await fetcher(requestURL, requestHeaders) {
 		case .failure(let error):
 			Logger.misc.error(
-				"Source fetch FAILED \(url.absoluteString, privacy: .public): \(error.localizedDescription, privacy: .public)"
+				"Source fetch FAILED \(url.logSafeDescription, privacy: .public): \(error.localizedDescription, privacy: .public)"
 			)
 
 			return SourceFeedResult(
@@ -116,7 +116,7 @@ struct SourceFeedLoader: Sendable {
 
 			if case .claimedButInvalid(let reason) = provenance {
 				Logger.misc.error(
-					"Source signature REJECTED \(url.absoluteString, privacy: .public): \(reason, privacy: .public)"
+					"Source signature REJECTED \(url.logSafeDescription, privacy: .public): \(reason, privacy: .public)"
 				)
 				return SourceFeedResult(
 					identifier: identifier,

@@ -80,7 +80,8 @@ treated as empty. TLS trust is stored separately with `SecureSecretStore`.
 
 **What it reads:** `GET /api/status`, `GET /api/library`, `GET /api/updates` —
 the automation endpoints that already existed. No new server surface was added
-for the companions.
+for the companions. The full endpoint reference (auth headers, gates, WebDAV
+methods) is in [Web tools §6](WEBTOOLS.md#6-on-device-web-manager-api).
 
 **Refresh:** on appear, on demand, and every 30 seconds by default
 (`autoRefreshInterval`, settable in the store). A failed refresh keeps the last
@@ -177,3 +178,9 @@ the watch pair with it.
 - **Not device-tested here.** These targets compile in CI (macOS runners) but the
   layout, focus behaviour, complication sizing and WatchConnectivity hand-off
   still need a run on real hardware or simulators.
+- **Not unit-tested either.** `VexSignTests` is an iOS target; the four companion targets
+  (~2,500 lines: `VexSign/App/TV`, `VexSign/App/Vision`, `VexSign/App/Watch`,
+  `VexSign/App/WidgetExtension`) have no tests of their own, so `platform-check` proves they
+  compile and nothing more. Logic that is worth pinning — snapshot encode/decode, staleness
+  arithmetic, WatchConnectivity command serialisation, widget timeline entries — belongs in a
+  type moved into shared code and covered from `VexSignTests`, not in the view body.

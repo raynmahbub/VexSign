@@ -71,12 +71,63 @@ do not change historical feed or commit-pinned URLs by mass substitution.
 ## Validate changes
 
 ```bash
+make hooks        # once: pre-push runs the fast gate (undo: git config --unset core.hooksPath)
 make verify
 make test
+make test-packages  # the SideSign and NativeSigning test targets
 make lint        # when SwiftLint is installed
 ```
 
-`make verify` runs repository checks without Xcode. `make test` selects an available iPhone simulator. Do not hard-code simulator names in automation.
+`make hooks` points `core.hooksPath` at `.githooks/` in this clone only. The pre-push
+hook runs `quick_check.py` and `sync-strings.py --check` — a few seconds, and it catches
+the failures nobody wants to learn about from a 30-minute CI run (an unparseable Swift
+file, a resource missing from the project, a literal with no catalogue key). `make verify`
+is still the real gate, and CI runs both.
+
+`make test` runs the whole simulator suite (~2,300 tests, ~30 minutes). While iterating,
+name the suites you are changing:
+
+```bash
+make test SUITE=RenewalScheduleTests
+make test SUITE=RenewalScheduleTests,WebManagerAccessTests
+```
+
+`make verify` runs repository checks without Xcode — every gate, in one pass, with the
+failures listed together at the end. Swift syntax is parsed when a `swiftc` is installed;
+without one the step reports a skip instead of failing. `make test` selects an available
+iPhone simulator. Do not hard-code simulator names in automation.
+
+`make verify` is green without compiling anything, so a passing run is not evidence that
+the app builds. On macOS with Xcode installed, `make typecheck` runs `xcodebuild` in Debug
+with code signing off and fails on the first type error; use it before pushing a change to
+Swift, or expect CI's `build` job to be the first to notice.
+
+The two service suites are the same story in the other direction: `make verify` cannot run
+them (they need `pip` and `npm` installs), so a backend change — the install server in
+`VexSign/Services/WebManager` or the cloud API in `VexSign/Services/Cloud` — needs
+`make verify-services` as well. That is the pair that keeps the request and response shapes
+documented in [WEBTOOLS.md](VexSign/Documentation/Development/WEBTOOLS.md) honest.
+
+The on-device Web Manager's routes and their authentication are documented in
+[web-manager.md](VexSign/Documentation/Workflows/web-manager.md); adding or removing an
+endpoint fails `make verify` until that table is updated (`test_webmanager_doc_routes.py`).
+
+`make test` builds once and then runs the selection, so the second and later runs are
+the cheap ones. Test code is compiled into one target, so a file's suite name is its
+class name, not its folder. [TESTS.md](VexSign/Documentation/Development/TESTS.md) is the
+inventory: what each folder holds, the conventions a new test follows, and the areas that are
+still untested with the reason each one is open.
+
+Two CI gates are deliberately not in `make verify` because they need a tool most machines
+do not have and fail rather than skip: `check-swift-format-drift.py` (the pinned
+`swiftformat`) and `test_native_signing_core.py` (OpenSSL 3 and the sanitizers). Everything
+else the `quick` job runs, `make verify` runs too.
+
+CI itself is split by cost: the macOS jobs (`build`, `tests`, `concurrency`, `Platform
+check`, the combined build, the release pipeline) only run on a **public** repository,
+because those minutes are billed at a premium; the Linux validation jobs (`quick`,
+`docs`, `Service checks`) run for private repositories and private forks too. Only the
+macOS half is therefore absent from a private clone's pull requests.
 
 Changes under `VexSign/Services/` have their own entry points:
 
@@ -89,7 +140,15 @@ make test-cloud    # cloud signing service (build, tests, OpenAPI contract diff)
 plus `pytest`; see that component's README for the venv setup. Neither target
 needs macOS or Xcode.
 
-Before merging, manually dispatch **CI → full** on the branch. Run **Platform check**, **Server tests**, or **Ecosystem contracts** when those components change. CI runs automatically on relevant `main` pushes; it does not replace physical-device validation for installation, Keychain, provisioning, background execution, or hardware-specific behavior.
+Dependency pinning differs by ecosystem, on purpose:
+
+| Ecosystem | Where | How |
+| --- | --- | --- |
+| Python (Premium API) | `VexSign/Services/WebManager/Configuration/requirements.txt` | exact `==` pins; a floating version could break a Render deploy with no commit |
+| npm (cloud signing) | `VexSign/Services/Cloud/package.json` + `package-lock.json` | caret ranges resolved by the lockfile; CI installs with `npm ci` |
+| Swift (app) | `project.pbxproj`, `Package.swift`, both `Package.resolved` | exact versions, re-recorded by `check-package-graph.py`; `make audit-packages` covers the pbxproj graph, which Dependabot cannot read |
+
+Before merging, manually dispatch **CI → full** on the branch. Run **Platform check** when the app shell, signing settings or project settings change; **Service checks** when anything under `VexSign/Services/` changes; and **Combined native host · build only** for the embedded-container path. CI runs automatically on relevant `main` pushes; it does not replace physical-device validation for installation, Keychain, provisioning, background execution, or hardware-specific behavior.
 
 ## Known build warnings
 

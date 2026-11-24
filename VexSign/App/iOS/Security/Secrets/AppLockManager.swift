@@ -13,6 +13,18 @@ import LocalAuthentication
 import SwiftUI
 import NimbleExtensions
 
+/// Keychain coordinates for the encrypted vault blob.
+///
+/// They sit outside `AppLockManager` because that class is main-actor isolated while
+/// the storage closures below are not: reading an actor-isolated `static let` from a
+/// nonisolated closure is a Swift 6 error ("main actor-isolated static property
+/// 'vaultAccount' can not be referenced from a nonisolated context"), and the
+/// closures are the only readers that matter.
+private enum VaultKeychain {
+	static let service = "com.vexsign.security.applock"
+	static let account = "appLock.vaultState.v1"
+}
+
 @MainActor
 final class AppLockManager: ObservableObject {
 	struct VaultState: Codable, Equatable {
@@ -27,8 +39,8 @@ final class AppLockManager: ObservableObject {
 		var write: (Data) throws -> Void
 
 		static let keychain = VaultStorage(
-			read: { try SecureSecretStore.read(AppLockManager.vaultAccount, service: AppLockManager.vaultService) },
-			write: { try SecureSecretStore.write($0, account: AppLockManager.vaultAccount, service: AppLockManager.vaultService) }
+			read: { try SecureSecretStore.read(VaultKeychain.account, service: VaultKeychain.service) },
+			write: { try SecureSecretStore.write($0, account: VaultKeychain.account, service: VaultKeychain.service) }
 		)
 	}
 
@@ -43,8 +55,6 @@ final class AppLockManager: ObservableObject {
 	private static let lockedAppsKey = "VexSign.security.lockedAppUUIDs"
 	private static let hiddenAppsKey = "VexSign.security.hiddenAppUUIDs"
 	static let strictHidingKey = "VexSign.security.strictHiding"
-	private static let vaultService = "com.vexsign.security.applock"
-	private static let vaultAccount = "appLock.vaultState.v1"
 
 	/// True while the master lock overlay should cover the UI.
 	@Published private(set) var isLocked: Bool
@@ -102,6 +112,7 @@ final class AppLockManager: ObservableObject {
 		self.lockedAppUUIDs = state.lockedAppUUIDs
 		self.hiddenAppUUIDs = state.hiddenAppUUIDs
 		self.strictHidingEnabled = state.strictHidingEnabled
+		_publishStrictSnapshot()
 	}
 
 	private static func _loadOrMigrateState(defaults: UserDefaults, storage: VaultStorage) -> VaultState {
@@ -148,6 +159,7 @@ final class AppLockManager: ObservableObject {
 	}
 
 	private func _persistState() {
+		_publishStrictSnapshot()
 		let state = VaultState(
 			enabled: isMasterLockEnabled,
 			lockedAppUUIDs: lockedAppUUIDs,
@@ -162,7 +174,20 @@ final class AppLockManager: ObservableObject {
 		}
 	}
 
-	static func defaultPolicyEvaluator(_ localizedReason: String, completion: @escaping (Bool, Error?) -> Void) -> Bool {
+	/// Mirrors the vault into `StrictHidingSnapshot` for the surfaces that are not
+	/// views (the widget payload and the backup writer). Strict-ness is mirrored
+	/// without `isRevealingHiddenApps`: an open vault shows rows on screen, it does
+	/// not licence a Home Screen tile or an exported backup to name hidden apps.
+	private func _publishStrictSnapshot() {
+		StrictHidingSnapshot.shared.update(
+			isEnabled: strictHidingEnabled,
+			hiddenAppUUIDs: hiddenAppUUIDs
+		)
+	}
+
+	/// Nonisolated because it is the default value of a nonisolated function type
+	/// (`PolicyEvaluator`); it touches no actor state, only LocalAuthentication.
+	nonisolated static func defaultPolicyEvaluator(_ localizedReason: String, completion: @escaping (Bool, Error?) -> Void) -> Bool {
 		let context = LAContext()
 		context.localizedCancelTitle = String.localized("Cancel")
 		var error: NSError?

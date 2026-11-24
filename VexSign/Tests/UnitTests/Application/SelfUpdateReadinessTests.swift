@@ -66,6 +66,68 @@ final class SelfUpdateReadinessTests: XCTestCase {
         XCTAssertFalse(plan(.server, download: false).canInstall)
     }
 
+	// MARK: - The route that can run
+
+	func testASignedNewerCopyInTheLibraryIsTheOneInstallablePlan() {
+		for method in [SelfUpdateMethod.server, .idevice] {
+			let result = SelfUpdateManager.plan(
+				preferred: method,
+				isPrimaryHost: false,
+				serverConfigured: false,
+				hasPairing: false,
+				hasDownload: true,
+				selfReplacement: nil
+			)
+			XCTAssertTrue(result.canInstall, "\(method) must not hide a copy the user already signed")
+			XCTAssertNil(result.blocker)
+			XCTAssertNil(result.selfReplacement)
+			XCTAssertTrue(result.usesInPlaceUpdate)
+		}
+	}
+
+	func testTheRemoteMethodsKeepTheirRefusalsWhenTheLibraryHasNoUsableCopy() {
+		for reason in [SelfReplacementBlocker.missing, .notSigned, .notNewer, .differentApp] {
+			let result = SelfUpdateManager.plan(
+				preferred: .server,
+				isPrimaryHost: false,
+				serverConfigured: true,
+				hasPairing: true,
+				hasDownload: true,
+				selfReplacement: reason
+			)
+			XCTAssertFalse(result.canInstall)
+			XCTAssertEqual(result.blocker, .remoteSigningDisabled)
+			XCTAssertEqual(result.selfReplacement, reason)
+			XCTAssertFalse(result.usesInPlaceUpdate)
+		}
+	}
+
+	func testACombinedHostCannotBeReplacedEvenWithASignedCopy() {
+		let result = SelfUpdateManager.plan(
+			preferred: .server,
+			isPrimaryHost: true,
+			serverConfigured: true,
+			hasPairing: true,
+			hasDownload: true,
+			selfReplacement: nil
+		)
+		XCTAssertFalse(result.canInstall, "A standalone IPA still cannot replace the combined runtime")
+		XCTAssertEqual(result.blocker, .combinedHost)
+	}
+
+	func testNoPlanReachesTheRemoteMethodsByConfiguration() {
+		// The in-place route needs a library copy, never a setting.
+		for configured in [false, true] {
+			for pairing in [false, true] {
+				XCTAssertFalse(
+					plan(.server, server: configured, pairing: pairing).canInstall,
+					"A configured server must not become an installer"
+				)
+				XCTAssertFalse(plan(.idevice, server: configured, pairing: pairing).canInstall)
+			}
+		}
+	}
+
 	// MARK: - Combined host
 
 	func testCombinedHostIsFinalWhateverIsConfigured() {

@@ -80,7 +80,14 @@ enum TabEnum: String, CaseIterable, Hashable, Codable {
         case .sources:      SourcesView()
         case .logs:         LogsView()
         case .tweaks:       TweaksView()
-        case .certificates: NBNavigationView(.localized("Certificates")) { CertificatesView() }
+        case .certificates:
+            NBNavigationView(.localized("Certificates")) {
+                VStack(spacing: 0) {
+                    WorkspaceLoadFailureBanner()
+                        .padding()
+                    CertificatesView()
+                }
+            }
         }
     }
 

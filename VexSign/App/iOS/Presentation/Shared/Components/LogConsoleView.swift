@@ -14,7 +14,7 @@ struct LogConsoleView: UIViewRepresentable {
 	// .console: fixed dark surface regardless of system appearance. .transparent: no background, adaptive text.
 	enum Style: Equatable { case console, transparent }
 
-	static let consoleBackgroundColor = UIColor(white: 0.095, alpha: 1)
+	static let consoleBackgroundColor = UIColor(Theme.Console.background)
 
 	let entries: [LogEntry]
 	var showCategory = false
@@ -124,12 +124,12 @@ extension LogConsoleView {
 		}
 
 		private static let _consolePalette = _Palette(
-			info: UIColor(red: 0.90, green: 0.91, blue: 0.96, alpha: 1),
-			dim: UIColor(red: 0.62, green: 0.65, blue: 0.72, alpha: 1),
-			meta: UIColor(red: 0.56, green: 0.60, blue: 0.72, alpha: 1),
-			success: UIColor(red: 0.34, green: 0.86, blue: 0.60, alpha: 1),
-			warn: UIColor(red: 1.00, green: 0.78, blue: 0.34, alpha: 1),
-			error: UIColor(red: 1.00, green: 0.45, blue: 0.47, alpha: 1)
+			info: UIColor(Theme.Console.text),
+			dim: UIColor(Theme.Console.dim),
+			meta: UIColor(Theme.Console.meta),
+			success: UIColor(Theme.Console.success),
+			warn: UIColor(Theme.Console.warning),
+			error: UIColor(Theme.Console.error)
 		)
 		private static let _transparentPalette = _Palette(
 			info: .label,

@@ -246,3 +246,75 @@ network.
 ```sh
 make test-server                 # from the repository root, with dependencies installed
 ```
+
+## 6. On-device Web Manager API
+
+The browser tools above are a Python service; the Web Manager itself runs inside the
+app (`VexSign/App/iOS/Infrastructure/Networking/WebManager/`) and is what the Apple TV,
+Vision Pro, scripts and WebDAV clients talk to. This section is the endpoint reference
+for that server. It listens on loopback until **Allow This Network** is enabled, serves
+HTTPS with the device identity, and fails closed when that identity is unavailable.
+
+**Auth:** HTTP Basic (`username:password` from *Settings → Web Manager*) or
+`X-VexSign-Token: <token>`; `Authorization: Bearer <token>` is also accepted. When
+*Require Password* is on with an empty password the server refuses to start.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/status`, `/api/library`, `/api/updates` | Read-only companion snapshot |
+| `GET` | `/api/apps`, `/api/apps/:uuid/download` | Library inventory and artifact download |
+| `GET` | `/api/files`, `/download/:name` | Inbox listing and download |
+| `POST` | `/upload/:name` (streamed body) | Write into the inbox through a private staging file, replaced atomically at the end |
+| `GET` | `/api/tweaks`, `/api/tweaks/:id/download` | Tweak list and download |
+| `DELETE` | `/api/tweaks/:id`, `/api/files/:name`, `/api/apps/:uuid`, `/api/certs/:uuid` | Destructive routes — always behind the sensitive gate, and they report what happened |
+| `GET`/`POST` | `/api/certs`, `/api/certs/:uuid/download` | Certificate list, import and export (sensitive gate) |
+| `POST` | `/api/sign` (streamed multipart) | Sign an IPA, streamed back as `Signed-<name>.ipa` (sensitive gate) |
+| `POST` | `/api/cleanup`, `/api/widget` | Cleanup sweep and widget refresh |
+| WebDAV | `/` and any other path | `OPTIONS`, `PROPFIND`, `PROPPATCH`, `GET`/`HEAD`, `PUT`, `MKCOL`, `DELETE`, `MOVE`, `COPY`, `LOCK`/`UNLOCK` |
+
+Gates that apply to every row:
+
+- `Host` must be the bound host and `Origin`, when present, must match it. This is the
+  DNS-rebinding defence; a request that fails it never reaches the credential check.
+- `POST /api/sign`, `/api/cleanup`, every `/api/certs…` route and **every** `DELETE`
+  require the password or API token even when the server runs without a password.
+- The **Hidden Apps Vault is honoured here, not only on `/api/library`**. `GET /api/apps`,
+  `GET /api/apps/:uuid/download` and `DELETE /api/apps/:uuid` read the same filtered
+  inventory, so a vaulted app is absent from the listing and `404` by UUID whether the
+  caller is the browser page, a script or the Apple TV companion. Shortcuts asks the same
+  rule (`AutomationVisibility`) before it offers an app, so hiding cannot hold on one
+  surface and leak on another.
+- A destructive route answers with the work it actually did: `204` removed, `404` no such
+  app, tweak or certificate (a vaulted app counts as absent), `409` the record exists but
+  the change could not be saved. A `204` is never sent for a no-op.
+### Response shapes these clients parse
+
+`Resources/WebManager.html`, the Apple TV/Vision companion (`CompanionModels.swift`) and user
+scripts all read these payloads, so they are a contract, not an implementation detail.
+
+`GET /api/apps` → an array of:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `uuid` | string | `""` for a row the store never gave an identity; such a row cannot be downloaded or deleted by UUID |
+| `name`, `version`, `identifier` | string | Empty string when the row has none |
+| `added` | string | Localised date text for display, not for parsing |
+| `ts` | number | The same instant as a Unix timestamp; `0` when unknown |
+| `size` | number | Bytes, summed by walking the bundle. This is the expensive field: every request re-walks every app (off the main actor, but still proportional to the library). Poll `/api/library` for lists; read this one when a person is looking at the screen |
+| `signed` | boolean | Whether the row was produced by signing rather than importing |
+
+`GET /api/library` and `GET /api/updates` return the companion snapshot
+(`CompanionModels.swift`). All three read the same filtered inventory, so a vaulted app is
+absent from each of them.
+
+Numbered status codes for the destructive routes are in the gates list above;
+`GET /api/apps/:uuid/download` answers `404` for an unknown or vaulted UUID and `409` when the
+app is in use.
+
+- No CORS headers are sent, so a cross-origin `fetch` cannot read a response. Use the
+  same-origin relay in §1 instead of adding CORS to a server that accepts Basic auth.
+- WebDAV `LOCK`/`UNLOCK` are stubs that keep Finder and Windows Explorer happy; they do
+  not enforce exclusive editing.
+
+WebDAV clients usually need the device CA trusted, or the client's "accept self-signed"
+option; see [Platforms](PLATFORMS.md) for the CA fingerprint pairing flow.

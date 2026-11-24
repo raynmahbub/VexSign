@@ -238,7 +238,7 @@ struct StorageUsageBar: View {
 					.foregroundStyle(.secondary)
 			}
 		}
-		.animation(.snappy, value: report?.total)
+		.appAnimation(.snappy, value: report?.total)
 	}
 
 	private var _bar: some View {

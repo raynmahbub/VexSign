@@ -54,7 +54,7 @@ struct AntiRevokeSettingsView: View {
                         .fill((hasGeneratedProfile ? Color.green : Color.secondary).opacity(0.15))
                         .frame(width: 44, height: 44)
                     Image(systemName: hasGeneratedProfile ? "doc.badge.gearshape.fill" : "shield.slash.fill")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.title2.weight(.semibold))
                         .foregroundStyle(hasGeneratedProfile ? Color.green : Color.secondary)
                 }
 

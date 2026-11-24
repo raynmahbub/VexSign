@@ -48,10 +48,20 @@ MUTATING = [
 
 @pytest.fixture(autouse=True)
 def isolated_keys(tmp_path, monkeypatch):
-    """Every test starts with an empty key table and a known admin token."""
+    """Every test starts with an empty key table, a known token and a full budget.
+
+    The admin limiter is process-wide and this module makes many admin calls, so without
+    the reset the suite itself spends the 20/minute budget and later tests see 429.
+    """
     monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "keys.db"))
     monkeypatch.setattr(admin, "ADMIN_TOKEN", TOKEN)
+    monkeypatch.delenv("ADMIN_TOKEN_FILE", raising=False)
+    limiter = rate_limit.current_admin()
+    limiter.reset()
+    limiter.limit = rate_limit.ADMIN_LIMIT
+    limiter.window = rate_limit.ADMIN_WINDOW
     yield
+    limiter.reset()
 
 
 @pytest.fixture
@@ -138,17 +148,130 @@ def test_mint_defaults_to_one_key(client):
     assert response.json()["count"] == 1
 
 
+def _reveal(client, key_id):
+    response = client.post("/api/admin/keys/reveal", json={"id": key_id}, headers=HEADERS)
+    assert response.status_code == 200, response.text
+    return response.json()["key"]
+
+
 def test_listing_reports_fresh_used_and_disabled_states(client):
     fresh, used, disabled = mint(client, 3)
     db.consume_key(used, "device-uuid")
     db.set_key_disabled(disabled, True)
 
-    rows = {row["key"]: row for row in client.get("/api/admin/keys", headers=HEADERS).json()["keys"]}
+    listed = client.get("/api/admin/keys", headers=HEADERS).json()["keys"]
+    rows = {_reveal(client, row["id"]): row for row in listed}
     assert rows[fresh]["status"] == "fresh"
     assert rows[used]["status"] == "used"
     assert rows[used]["device_uuid"] == "device-uuid"
     # Disabled wins over used in the reported status.
     assert rows[disabled]["status"] == "disabled"
+
+
+# ---------------------------------------------------------------------------
+# The list is not a key dump
+# ---------------------------------------------------------------------------
+
+MASK = re.compile(r"^\*{4}-\*{4}-[A-Z2-9]{4}$")
+
+
+def test_listing_withholds_key_material(client):
+    """One authenticated GET used to return every customer's working key.
+
+    `SEED_KEYS` is set by another test module at import time, so the table may hold more
+    rows than this test minted; the assertions are about the minted ones.
+    """
+    minted = mint(client, 4)
+    listed = client.get("/api/admin/keys", headers=HEADERS).json()["keys"]
+
+    assert {row["key"] for row in listed}.isdisjoint(minted)
+    for row in listed:
+        assert MASK.match(row["key"]), row["key"]
+        assert re.match(r"^[0-9a-f]{12}$", row["id"]), row["id"]
+    # The mask keeps the tail, which is what matches a customer's screenshot.
+    tails = tuple(key[-4:] for key in minted)
+    assert len([row for row in listed if row["key"].endswith(tails)]) >= len(minted)
+
+
+def test_ids_are_stable_and_distinct(client):
+    mint(client, 3)
+    first = [row["id"] for row in client.get("/api/admin/keys", headers=HEADERS).json()["keys"]]
+    second = [row["id"] for row in client.get("/api/admin/keys", headers=HEADERS).json()["keys"]]
+    assert first == second
+    assert len(set(first)) == len(first)
+
+
+def test_reveal_returns_one_key_and_accepts_the_key_itself(client):
+    key = mint(client)[0]
+    key_id = client.get("/api/admin/keys", headers=HEADERS).json()["keys"][0]["id"]
+
+    assert _reveal(client, key_id) == key
+    response = client.post("/api/admin/keys/reveal", json={"key": key}, headers=HEADERS)
+    assert response.json()["key"] == key
+
+
+def test_reveal_refuses_an_unknown_selector(client):
+    assert client.post("/api/admin/keys/reveal", json={"id": "0" * 12},
+                       headers=HEADERS).status_code == 404
+    assert client.post("/api/admin/keys/reveal", json={}, headers=HEADERS).status_code == 400
+    assert client.post("/api/admin/keys/reveal", json={"id": "0" * 12}).status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Audit trail
+# ---------------------------------------------------------------------------
+
+def test_mutations_and_reveals_are_audited_but_reads_are_not(client):
+    key = mint(client)[0]
+    key_id = client.get("/api/admin/keys", headers=HEADERS).json()["keys"][0]["id"]
+    client.post("/api/admin/keys/disable", json={"key": key}, headers=HEADERS)
+    client.post("/api/admin/keys/reveal", json={"id": key_id}, headers=HEADERS)
+
+    actions = client.get("/api/admin/audit", headers=HEADERS).json()["actions"]
+    names = [row["action"] for row in actions]
+    assert "key.minted" in names and "key.disabled" in names and "key.revealed" in names
+    # Listing the keys must not fill the trail.
+    assert "key.listed" not in names
+    for row in actions:
+        assert row["key_id"] is None or re.match(r"^[0-9a-f]{12}$", row["key_id"]), row["key_id"]
+        assert key not in (row["key_id"] or "")
+
+
+def test_audit_requires_the_token(client):
+    assert client.get("/api/admin/audit").status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Rotation without a redeploy
+# ---------------------------------------------------------------------------
+
+def test_a_token_list_accepts_either_secret(monkeypatch):
+    monkeypatch.setattr(admin, "ADMIN_TOKEN", "old-token,new-token")
+    assert admin.is_valid_admin_token("old-token") is True
+    assert admin.is_valid_admin_token("new-token") is True
+    assert admin.is_valid_admin_token("other") is False
+
+
+def test_a_token_file_is_read_per_request_and_wins(monkeypatch, tmp_path):
+    path = tmp_path / "admin-token"
+    path.write_text("file-token\n", encoding="utf-8")
+    monkeypatch.setattr(admin, "ADMIN_TOKEN", "import-token")
+    monkeypatch.setenv("ADMIN_TOKEN_FILE", str(path))
+
+    assert admin.is_valid_admin_token("file-token") is True
+    assert admin.is_valid_admin_token("import-token") is False
+
+    # Rotation is a file write, not a redeploy.
+    path.write_text("rotated-token\n", encoding="utf-8")
+    assert admin.is_valid_admin_token("rotated-token") is True
+    assert admin.is_valid_admin_token("file-token") is False
+
+
+def test_an_unreadable_token_file_disables_the_surface(monkeypatch, tmp_path):
+    """Falling back to the previous secret would defeat the point of rotating it."""
+    monkeypatch.setenv("ADMIN_TOKEN_FILE", str(tmp_path / "missing"))
+    assert admin.admin_enabled() is False
+    assert admin.is_valid_admin_token(TOKEN) is False
 
 
 # ---------------------------------------------------------------------------

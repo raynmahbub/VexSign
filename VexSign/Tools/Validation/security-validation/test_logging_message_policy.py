@@ -21,6 +21,11 @@ Two properties are pinned:
      Console — so the diagnostic this audit added specifically to stop failures
      being silent would itself be unreadable. `FileLogger` sets the same thing on
      the one path that writes user-visible text.
+  3. A log call names a URL by its host (`url.logSafeDescription`), never by
+     `url.absoluteString`. Query strings carry premium-feed and signed-download
+     tokens, and a path can name a private repository. `privacy: .public` makes the
+     text readable, which is the point — it must therefore not be the whole URL.
+     The file logger is held to the same rule: its output is exported by the user.
 
 Scope is `Logger.<level>(` calls only. String concatenation elsewhere is normal.
 
@@ -48,6 +53,9 @@ SWIFT_ROOTS = [ROOT / "VexSign/App/iOS", ROOT / "VexSign/Packages/NativeSigning"
 LOG_CALL = re.compile(r"\bLogger\.\w+\.(?:trace|debug|info|notice|warning|error|fault|critical)\s*\(")
 # The OSLog levels, used to find the end of the argument list.
 LEVELS = ("trace", "debug", "info", "notice", "warning", "error", "fault", "critical")
+# The file logger writes into a file the user can export from diagnostics, so the same
+# rule applies to it.
+FILE_LOG_CALL = re.compile(r"\bFileLogger\.(?:log|error|warn)\s*\(")
 
 SKIP_DIRS = {"Vendor", ".build", "build", "DerivedData", "Pods", "node_modules", ".git"}
 
@@ -173,6 +181,17 @@ def private_redactions(text: str) -> list[str]:
     return findings
 
 
+def full_url_logs(text: str) -> list[str]:
+    """Log calls that interpolate a whole URL instead of its host."""
+    findings: list[str] = []
+    for pattern in (LOG_CALL, FILE_LOG_CALL):
+        for match in pattern.finditer(text):
+            args = log_call_arguments(text, match.end() - 1)
+            if "absoluteString" in args:
+                findings.append(f"{match.group(0)} … interpolates `absoluteString`")
+    return findings
+
+
 class LoggingMessagePolicyTests(unittest.TestCase):
     def test_container_path_redaction_preserves_error_codes_and_public_urls(self):
         source = (ROOT / 'VexSign/App/iOS/Infrastructure/Diagnostics/LogRedaction.swift').read_text()
@@ -204,6 +223,21 @@ class LoggingMessagePolicyTests(unittest.TestCase):
             [],
             "an OSLog call joins its message with `+`; OSLogMessage is built by "
             "interpolation, so this does not compile:\n  " + "\n  ".join(offenders),
+        )
+
+    def test_logs_name_the_host_instead_of_the_whole_url(self):
+        # Query strings carry premium and signed-download tokens, and paths can name a
+        # private repository. `URL.logSafeDescription` keeps the scheme/host/port that a
+        # diagnostic actually needs.
+        offenders = []
+        for path in swift_files():
+            text = strip_comments(path.read_text(encoding="utf-8", errors="replace"))
+            for finding in full_url_logs(text):
+                offenders.append(f"{path.relative_to(ROOT)}: {finding}")
+        self.assertEqual(
+            offenders,
+            [],
+            "log `url.logSafeDescription` instead of `url.absoluteString`:\n  " + "\n  ".join(offenders),
         )
 
     def test_redacted_descriptions_are_public_in_oslog(self):

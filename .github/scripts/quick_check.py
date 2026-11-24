@@ -106,11 +106,14 @@ OWNERSHIP_ROOTS = {"VexSign"} | {
     ("App", "Integrations", "Packages", "Resources", "Services", "Tools", "Documentation", "Configuration")
 }
 APP_ROOT = "VexSign/App/iOS"
+# Wrappers that used to nest one directory deeper than the layout allows. They are declared
+# even though the directories are gone: if one is reintroduced, the same "Redundant app
+# wrapper" finding fires again. `VexSign/App/Extensions` was dropped from every tree, so an
+# entry for it would only ever describe a path Xcode cannot be asked about.
 LEGACY_APP_WRAPPERS = {
     APP_ROOT + "/VexSign": APP_ROOT,
     "VexSign/App/TV/VexSignTV": "VexSign/App/TV",
     "VexSign/App/Vision/VexSignVision": "VexSign/App/Vision",
-    "VexSign/App/Extensions": "VexSign/App",
 }
 PRESERVED_DIRECTORY_WRAPPERS = {
     "VexSign.xcodeproj/project.xcworkspace/xcshareddata": (
@@ -340,13 +343,21 @@ def swift_files_for(root: Path, module_dir: str) -> list[Path]:
     return [p for p in iter_files(base, {".swift"})]
 
 
-def check_swift_syntax(root: Path, report: Report, swiftc: str | None, *, intentionally_skipped: bool = False) -> None:
+def check_swift_syntax(root: Path, report: Report, swiftc: str | None, *,
+                       intentionally_skipped: bool = False, require_swiftc: bool = False) -> None:
     if intentionally_skipped:
         report.stats["swift_syntax_skipped"] = 1
         return
     if not swiftc:
-        report.add(Finding("swift-syntax", "warning",
-                           "swiftc not found - the Swift syntax check was skipped (run inside the swift container)."))
+        # A skipped parser is not the same as a clean parse. On Linux this is expected;
+        # in a job that promises to parse Swift it has to be an error, or a green run
+        # says nothing about the files that were never read.
+        report.add(Finding(
+            "swift-syntax",
+            "error" if require_swiftc else "warning",
+            "swiftc not found - the Swift syntax check was skipped "
+            "(install a Swift toolchain, set SWIFTC, or pass --no-swiftc to accept the skip).",
+        ))
         return
     total = 0
     module_dirs: dict[str, list[str]] = {name: [d] for name, d in SWIFT_MODULES.items()}
@@ -595,6 +606,10 @@ def render_summary(report: Report, swiftc_version: str) -> str:
     if report.stats.get("swift_syntax_skipped"):
         out.append("Swift syntax **not checked** (explicit `--no-swiftc`); native/compiler validation is separate.")
         out.append(f"Checked {report.stats.get('resources_checked', 0)} resource files.")
+    elif not swiftc_version and not report.stats.get("swift_files_parsed"):
+        out.append("Swift syntax **not checked**: no `swiftc` in this environment "
+                   "(use a Swift toolchain or `--require-swiftc` to make that fatal).")
+        out.append(f"Checked {report.stats.get('resources_checked', 0)} resource files.")
     else:
         out.append(f"Parsed {report.stats.get('swift_files_parsed', 0)} Swift files with `swiftc -parse` "
                    f"({swiftc_version or 'swiftc unavailable'}), checked {report.stats.get('resources_checked', 0)} resource files.")
@@ -795,6 +810,8 @@ def main() -> int:
     parser.add_argument("--root", default=".", help="repository root")
     parser.add_argument("--json", help="write findings as JSON to this path")
     parser.add_argument("--no-swiftc", action="store_true", help="skip the swiftc -parse check")
+    parser.add_argument("--require-swiftc", action="store_true",
+                        help="fail instead of warning when swiftc is unavailable (use in jobs that promise the parse check)")
     parser.add_argument("--summary", default=os.environ.get("GITHUB_STEP_SUMMARY"))
     parser.add_argument("--no-annotations", action="store_true")
     args = parser.parse_args()
@@ -816,7 +833,9 @@ def main() -> int:
     paths = check_repository_layout(root, report)
     check_tool_syntax(root, paths, report)
     check_conflict_markers(root, report)
-    check_swift_syntax(root, report, swiftc, intentionally_skipped=args.no_swiftc)
+    check_swift_syntax(root, report, swiftc,
+                       intentionally_skipped=args.no_swiftc,
+                       require_swiftc=args.require_swiftc)
     check_duplicate_types(root, report)
     check_duplicate_filenames(root, report)
     check_cross_module_imports(root, report)

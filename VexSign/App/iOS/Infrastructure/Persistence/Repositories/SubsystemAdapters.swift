@@ -194,6 +194,30 @@ final class DiagnosticsRepositoryAdapter: DiagnosticsProviding {
     }
 }
 
+// MARK: - Store Recovery Adapter
+
+/// Bridges the Core Data recovery notice into the library UI.
+///
+/// `Storage` records the notice when it quarantines an unreadable store; before
+/// this adapter nothing read it, so the only visible symptom was an empty
+/// library. The adapter is a pass-through on purpose: the storage layer owns the
+/// fact, the UI owns the wording.
+@MainActor
+final class StoreRecoveryAdapter: StoreRecoveryReporting {
+    var pendingLibraryRecovery: LibraryRecoveryNotice? {
+        guard let notice = Storage.shared.recoveryNotice else { return nil }
+        return LibraryRecoveryNotice(
+            id: notice.quarantineFolderName,
+            recoveredAt: notice.recoveredAt,
+            summary: notice.summary
+        )
+    }
+
+    func acknowledgeLibraryRecovery() {
+        Storage.shared.acknowledgeRecoveryNotice()
+    }
+}
+
 // MARK: - App Privacy Adapter
 
 @MainActor

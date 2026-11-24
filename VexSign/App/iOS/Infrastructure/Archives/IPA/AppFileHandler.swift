@@ -100,17 +100,15 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 
 	/// Rejects a container this app cannot unpack, before copying it into the
 	/// workspace and before extraction fails with an unrelated message.
+	///
+	/// The sentences come from `PackageArchiveType.rejectionReason(at:)` so the
+	/// shared-file path and this one cannot describe the same bytes differently.
+	/// Some providers hand over a zero-byte or still-downloading file; that case
+	/// has its own "could not be read" wording rather than being called a broken
+	/// ZIP the user never wrote.
 	private func _requireReadableContainer(at url: URL) throws {
-		switch PackageArchiveType.detect(at: url) {
-		case .zip:
-			return
-		case .tarGzip:
-			throw _error(.copy, reason: .localized("This archive is compressed as .tar.gz, which VexSign cannot unpack. Extract it and import the .ipa or .tipa inside."))
-		case .unsupported, .none:
-			// Some providers hand over a zero-byte or still-downloading file; both
-			// are reported as unreadable rather than as a broken ZIP.
-			throw _error(.copy, reason: .localized("This file is not an IPA, TIPA or ZIP archive. Import the app package exactly as it was downloaded."))
-		}
+		guard let reason = PackageArchiveType.rejectionReason(at: url) else { return }
+		throw _error(.copy, reason: reason)
 	}
 
 	/// Check the temporary copy separately from extraction. The extractor validates
@@ -325,54 +323,98 @@ enum IPAImportPayload {
     /// repacked by a tool that writes the bundle at the top level, was refused as
     /// "does not contain an app bundle in its Payload folder" after a full
     /// extraction, with nothing the user could act on. The standard layout still
-    /// wins, and the search only runs when that layout is genuinely absent.
+    /// wins, then a bundle one folder deep, and the search only runs when neither
+    /// applies.
     static func application(in payload: URL) throws -> URL {
         let manager = FileManager.default
 
-        func oneApp(in directory: URL, recursive: Bool) throws -> URL? {
+        /// App bundles directly inside `directory`, not deeper: a nested watch app or an
+        /// app extension inside the bundle is not a second candidate.
+        func appsDirectly(in directory: URL) throws -> [URL] {
             let entries = (try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] // try? ok: unreadable directory holds no app bundle
-            let apps = entries.filter { $0.pathExtension.lowercased() == "app" }
+            return entries.filter { $0.pathExtension.lowercased() == "app" }
+        }
+
+        /// The one app among `apps`, refusing the ambiguous cases instead of picking by
+        /// directory order.
+        func onlyApp(of apps: [URL]) throws -> URL? {
             if apps.count > 1 { throw ValidationError.multipleApps }
-            if let app = apps.first {
-                var isDirectory: ObjCBool = false
-                guard manager.fileExists(atPath: app.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-                    throw ValidationError.invalidApp
-                }
-                return app
+            guard let app = apps.first else { return nil }
+            var isDirectory: ObjCBool = false
+            guard manager.fileExists(atPath: app.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+                throw ValidationError.invalidApp
             }
-            guard recursive else { return nil }
-            // Only one folder deep, and only into the first folder that can hold the
-            // payload: these packages keep the bundle in a single directory beside
-            // their metadata.
+            return app
+        }
+
+        /// Every app bundle one folder below `directory`, skipping the metadata folder a
+        /// macOS zip adds.
+        func appsOneLevelDown(in directory: URL) throws -> [URL] {
+            let entries = (try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] // try? ok: unreadable directory holds no app bundle
+            var found: [URL] = []
             for entry in entries.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
                 var isDirectory: ObjCBool = false
                 guard manager.fileExists(atPath: entry.path, isDirectory: &isDirectory), isDirectory.boolValue else { continue }
                 if entry.lastPathComponent.lowercased() == "__macosx" { continue }
-                if let app = try oneApp(in: entry, recursive: false) { return app }
+                if let app = try onlyApp(of: try appsDirectly(in: entry)) { found.append(app) }
             }
-            return nil
+            return found
+        }
+
+        /// Every app bundle inside a `Payload` folder that is itself wrapped in another folder:
+        /// `Root/Wrapped/Payload/App.app`, which is what zipping the directory an archive was
+        /// extracted into produces. Returned as a list so two of them stay ambiguous.
+        func appsInsideWrappedPayloads(in container: URL) throws -> [URL] {
+            let entries = (try? manager.contentsOfDirectory(at: container, includingPropertiesForKeys: nil)) ?? [] // try? ok: unreadable directory holds no app bundle
+            var found: [URL] = []
+            for entry in entries.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                var isDirectory: ObjCBool = false
+                guard manager.fileExists(atPath: entry.path, isDirectory: &isDirectory), isDirectory.boolValue else { continue }
+                if entry.lastPathComponent.lowercased() == "__macosx" { continue }
+                let wrappedPayload = entry.appendingPathComponent("Payload", isDirectory: true)
+                var payloadIsDirectory: ObjCBool = false
+                guard manager.fileExists(atPath: wrappedPayload.path, isDirectory: &payloadIsDirectory),
+                      payloadIsDirectory.boolValue else { continue }
+                found.append(contentsOf: try appsDirectly(in: wrappedPayload))
+            }
+            return found
         }
 
         // A standard IPA: `Payload/App.app`.
-        if let app = try oneApp(in: payload, recursive: false) { return app }
+        if let app = try onlyApp(of: try appsDirectly(in: payload)) { return app }
 
-        // Anything else: search the extracted root. `payload` is normally
-        // `<work>/Payload`, so the root is its parent; when this is called on a
-        // directory that holds the bundle directly (the library copy), the first
-        // pass above has already answered.
-        // Only when there is no `Payload` folder at all. An archive that claims that
-        // layout and leaves it empty is malformed, not a differently packed app: the
-        // search must not reach sideways for some unrelated bundle beside it.
-        let root = payload.lastPathComponent == "Payload" ? payload.deletingLastPathComponent() : payload
-        let hasPayloadFolder = payload.lastPathComponent == "Payload" && manager.fileExists(atPath: payload.path)
-        if root.path != payload.path, !hasPayloadFolder, let app = try oneApp(in: root, recursive: true) {
-            return app
+        // Not the standard layout. A directory *named* `Payload` that exists and is empty is
+        // malformed, not a differently packed app: the search must not reach sideways for some
+        // unrelated bundle beside it.
+        let namedPayload = payload.lastPathComponent == "Payload"
+        if namedPayload, manager.fileExists(atPath: payload.path) {
+            throw ValidationError.missingApp
         }
-        guard payload.lastPathComponent == "Payload" else { throw ValidationError.missingApp }
-        // No `Payload` folder and no bundle found: say so rather than blaming a
-        // Payload that was never there.
-        if !manager.fileExists(atPath: payload.path) { throw ValidationError.missingPayload }
-        throw ValidationError.missingApp
+
+        // A `Payload` that was never extracted from the archive means the package is packed
+        // differently: a plain `.zip`, a repack, or a tool that wrapped the app in a folder.
+        // Those keep the bundle beside the metadata, so the search starts at the directory the
+        // extraction produced (`Payload`'s parent) rather than at the missing folder itself.
+        let container = namedPayload ? payload.deletingLastPathComponent() : payload
+
+        // Top level: `Root/App.app` beside `iTunesMetadata.plist`.
+        if let app = try onlyApp(of: try appsDirectly(in: container)) { return app }
+
+        // A folder wrapped around the standard layout: `Root/Wrapped/Payload/App.app`. Zipping
+        // the directory an archive was extracted into is an ordinary thing to do in Files, and
+        // the one-level search below sees only a directory called `Payload` — a directory is
+        // not a bundle, so the archive was refused after a full extraction.
+        if let app = try onlyApp(of: try appsInsideWrappedPayloads(in: container)) { return app }
+
+        // One folder deep: `Root/Release/App.app`. Two bundles in different folders are still
+        // ambiguous: choosing one by directory order is what this function exists to avoid.
+        let nested = try appsOneLevelDown(in: container)
+        guard nested.count <= 1 else { throw ValidationError.multipleApps }
+        guard let app = nested.first else {
+            // Say "no Payload folder" rather than blaming an empty Payload that is not there.
+            throw namedPayload ? ValidationError.missingPayload : ValidationError.missingApp
+        }
+        return app
     }
 
     /// Check the same minimum bundle metadata needed by the signing pipeline,

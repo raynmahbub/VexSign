@@ -11,12 +11,18 @@ versioned with the code.
 | [Free Apple ID setup](Security/FREE_APPLE_ID_SETUP.md) | You are signing with a free Apple ID and need the provisioning walkthrough. |
 | [Platforms](Development/PLATFORMS.md) | You need to know what works on iPhone, iPad, Apple TV, Watch and Vision Pro. |
 | [Companion signing](Workflows/COMPANION_SIGNING.md) | You are signing or installing for another device. |
+| [How VexSign works](Architecture/HOW_IT_WORKS.md) | You have never read this codebase and want the import → sign → install path end to end. |
 
 ## Understand the system
 
 | Guide | Use it when |
 | --- | --- |
-| [Architecture](Architecture/ARCHITECTURE.md) | You are changing the app shell, task pipeline, storage or packages. |
+| [Architecture](Architecture/ARCHITECTURE.md) · [repository map](Architecture/repository-map.png) | You are changing the app shell, task pipeline, storage or packages, or you want the layers, the layout and the gates in one picture. |
+| [Data architecture](Architecture/DATA_ARCHITECTURE.md) | You are changing the library store and need its actual invariants, not its intentions. |
+| [Accessibility](Development/ACCESSIBILITY.md) | You are adding a screen or reviewing one, and need the Dynamic Type/VoiceOver rule and the gate that enforces it. |
+| [Deletion](Development/DELETION.md) | You are adding or reviewing a reset/clear action and need the order (lease, rows, files, memory) it must follow. |
+| [Cloud and companion services](Workflows/CLOUD_SERVICES.md) | You need to know which optional services exist, which code calls them, and what is experimental. |
+| [Feature map against references](Architecture/feature-map-against-references.md) · [Platform integration review](Architecture/platform-integration-review.md) | You need the subsystem-by-subsystem status read from the source, with its review caveats. |
 | [Repository layout audit](Architecture/repository-layout-audit.md) | You need every flattened directory, retained tool-layout exception and current layout-verification limit. |
 | [Dependency rules and diagrams](Architecture/dependency-rules.md) | You need the physical layer/feature owners, inward dependency direction, diagrams or drift-ratchet rules. |
 | [Feature-layer migration](Architecture/feature-layout-migration.md) · [ADR-0001](Decisions/ADR-0001-feature-layered-source-tree.md) | You need the current main-source layout, complete original-file mapping, preserved compatibility and native/device acceptance limits. |
@@ -29,6 +35,7 @@ versioned with the code.
 | [Free Apple ID handoff](Security/NATIVE_SIGNING_HANDOFF.md) | You are wiring (or reviewing) the join between native provisioning and the signer — read this before promising a Free Apple ID flow. |
 | [Signing and import reliability](Decisions/History/native-signing-and-import.md) | You need native execution ownership, input validation, extraction guarantees and their acceptance tests. |
 | [Web tools](Development/WEBTOOLS.md) | You are integrating with the browser manager, API or WebDAV. |
+| [Web Manager routes](Workflows/web-manager.md) | You are adding or reviewing a `/api/…` endpoint, a WebDAV method or an auth gate, and need the route table and what each one exposes. |
 | [Source signing](Architecture/SOURCE_SIGNING.md) | You publish a repository and want signed source metadata. |
 | [Distribution architecture and audit](Workflows/architecture.md) | You need the iOS bootstrap/signing feasibility matrix and phased repository map. |
 | [iPhone-only bootstrap](Workflows/bootstrap.md) | You need to understand which initial installation routes are actually available. |
@@ -36,6 +43,8 @@ versioned with the code.
 | [Apple account limitations](Workflows/apple-account-limitations.md) · [security](Workflows/security.md) | You need Personal Team limits, trust boundaries and security requirements. |
 | [GitHub Actions / releases / device acceptance](Workflows/github-actions.md) · [release process](Workflows/release-process.md) · [device testing](Workflows/device-testing.md) | You are configuring CI, cutting a release or planning physical-device validation. |
 | [Distribution troubleshooting](Workflows/troubleshooting.md) | You need help diagnosing download, profile, signing or installation failures. |
+| [Embedded host (LiveContainer and SideStore)](Workflows/embedded-host.md) | You are reasoning about the combined build: which layout is running, what each one can do, why a capability is missing, and what a host must implement. |
+| [Updating VexSign itself](Workflows/updates.md) | You are changing the update sheet, the self-replacement policy or the build export, or answering "why can't it update itself?" |
 
 ## Operate and ship
 
@@ -45,6 +54,9 @@ versioned with the code.
 | [Earlier ownership-root migration](Decisions/History/root-layout-migration.md) | You need the historical eight-root move; the current layout is in the feature-layer migration above. |
 | [Streaming backup format](Decisions/History/backup-streaming-format.md) | You need backup container framing, compatibility and limits. |
 | [Signing code audit](Decisions/History/signing-code-audit.md) | You need the signing review's scope and device handoff. |
+| [Automation](Development/AUTOMATION.md) | You are wiring automation and need what it may not do unattended. |
+| [Beta readiness](DeviceTesting/BETA_READINESS.md) | You are distributing a controlled beta and must state its limits accurately. |
+| [End-to-end integration matrix](DeviceTesting/QA_INTEGRATION_MATRIX.md) | You are qualifying a release and need what each subsystem exchange has evidence for. |
 | [Device acceptance](DeviceTesting/DEVICE_TESTING.md) | You are validating installation on a physical iPhone/iPad. |
 | [Releasing](Release/RELEASING.md) | You are cutting a stable tag, using the nightly pre-release or running a build-only dispatch. |
 | [Maintenance](Development/MAINTENANCE.md) | You are reviewing dependency updates, automated issues or repository hygiene. |
@@ -65,6 +77,9 @@ versioned with the code.
 - New screens use the tokens in `VexSign/App/iOS/Presentation/DesignSystem/Colors/Theme.swift` and the
   components in `VexSign/App/iOS/Presentation/`.
 - Third-party source lives in `VexSign/Packages/Vendor/` with its licence and pinned commit.
+- Dated research and history notes in `Decisions/` name the agent workspace branch they were
+  written on (`arena/<id>-vexsign`). Those branches are ephemeral: read them as records of the
+  date and commit they cite, never as refs you can fetch.
   See [VexSign/Packages/Vendor/README.md](../Packages/Vendor/README.md).
 
 ## Component guides

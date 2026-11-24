@@ -152,9 +152,11 @@ final class TweakInjectionDefaultsTests: XCTestCase {
 			}
 		}
 		expect(["debian-binary", "control.tar.gz"], .missing)
-		expect(["data.tar.zst"], .unsupported("data.tar.zst"))
+		expect(["data.tar.lz4"], .unsupported("data.tar.lz4"))
 		expect(["data.tar.gz", "data.tar.zst"], .multiple)
 		expect(["data.tar", "data.tar.xz"], .multiple)
+		// The compression modern packages use, and the one a repository switched to first.
+		XCTAssertNoThrow(try DebianDataMember.select(from: ["data.tar.zst"]))
 	}
 
 	func testUncompressedDebianTarExtractsInOnePass() throws {
@@ -261,13 +263,13 @@ final class TweakInjectionDefaultsTests: XCTestCase {
 		func field(_ value: String, _ width: Int) -> String {
 			value + String(repeating: " ", count: width - value.utf8.count)
 		}
-		let header = field("data.tar.zst/", 16) + field("0", 12) + field("0", 6) + field("0", 6)
+		let header = field("data.tar.lz4/", 16) + field("0", 12) + field("0", 6) + field("0", 6)
 			+ field("100644", 8) + field("2", 10) + "`\n"
 		let deb = root.appendingPathComponent("unsupported.deb")
 		try (Data("!<arch>\n".utf8) + Data(header.utf8) + Data([1, 2])).write(to: deb)
 		let preview = await TweakAnalyzer.analyze(fileURL: deb, type: .deb)
 		XCTAssertTrue(preview.blocksInjection)
-		XCTAssertTrue(preview.warnings.contains { $0.contains("data.tar.zst") })
+		XCTAssertTrue(preview.warnings.contains { $0.contains("data.tar.lz4") })
 		XCTAssertFalse(preview.warnings.contains { $0.contains("No dylibs/frameworks/bundles") })
 		let file = TweakInjectionFile(fileURL: deb, fileName: deb.lastPathComponent, fileType: .deb, config: .default)
 		var options = Options.defaultOptions
@@ -276,7 +278,7 @@ final class TweakInjectionDefaultsTests: XCTestCase {
 			try await TweakHandler(app: app, options: options).getInputFiles()
 			XCTFail("Unsupported compression must not be reported as a successful injection")
 		} catch let error as TweakInjectionFailure {
-			XCTAssertEqual(error.underlying as? DebianDataMember.SelectionError, .unsupported("data.tar.zst"))
+			XCTAssertEqual(error.underlying as? DebianDataMember.SelectionError, .unsupported("data.tar.lz4"))
 		} catch {
 			XCTFail("Expected a named injection failure, got \(error)")
 		}

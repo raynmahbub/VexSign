@@ -135,12 +135,12 @@ enum LogFormat {
 
 	static func color(forCategory category: String) -> UIColor {
 		switch category.lowercased() {
-		case "sign": UIColor(red: 0.40, green: 0.64, blue: 1.00, alpha: 1)
-		case "analyze": UIColor(red: 1.00, green: 0.69, blue: 0.30, alpha: 1)
-		case "inject": UIColor(red: 0.78, green: 0.58, blue: 1.00, alpha: 1)
-		case "install": UIColor(red: 0.35, green: 0.80, blue: 0.76, alpha: 1)
-		case "update": UIColor(red: 1.00, green: 0.55, blue: 0.72, alpha: 1)
-		default: UIColor(red: 0.65, green: 0.65, blue: 0.70, alpha: 1)
+		case "sign": Theme.LogPhase.sign
+		case "analyze": Theme.LogPhase.analyze
+		case "inject": Theme.LogPhase.inject
+		case "install": Theme.LogPhase.install
+		case "update": Theme.LogPhase.update
+		default: Theme.LogPhase.other
 		}
 	}
 }

@@ -40,13 +40,7 @@ struct CompanionSigningWorkflowView: View {
     var body: some View {
         NBList(.localized("SideStore & LiveContainer")) {
             if embedded { EmbeddedContainerControls().disabled(preparingIPA) }
-            if EmbeddedContainerRuntime.isGuestBuild && !embedded {
-                Section {
-                    Label(.localized("Embedded runtime unavailable"), systemImage: "exclamationmark.triangle")
-                    Text(.localized("Launch this guest from the compatible VexSign Container in main-process mode. External app launchers are not substituted for a missing embedded runtime."))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
+            EmbeddedRuntimeAvailabilityNote()
             Section {
                 DisclosureGroup(.localized("How the apps work together")) {
                     VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
@@ -103,6 +97,19 @@ struct CompanionSigningWorkflowView: View {
                 }
                 Button(.localized("Send hosted IPA to SideStore")) { confirmHandoff = true }
                     .disabled(!sideStoreAvailable || installLink == nil)
+                // The link is still useful where SideStore is not installed: it can
+                // be pasted into SideStore on another device, or after installing it
+                // here. Copying says exactly that and claims no install.
+                if let installLink {
+                    Button {
+                        UIPasteboard.general.string = installLink.absoluteString
+                        Toast.success(.localized("Install link copied"), systemImage: "doc.on.doc")
+                    } label: {
+                        Label(.localized("Copy install link"), systemImage: "doc.on.doc")
+                    }
+                    Text(.localized("Paste the link into SideStore on a device where it is set up. Copying does not start an install or confirm that one succeeded."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             } header: { Text(.localized("2. Install or refresh the container")) } footer: {
                 Text(.localized("Use a trusted LiveContainer IPA URL or another IPA you intend to install. SideStore performs authentication, signing and installation. Sending a link is not proof of success; verify the result in SideStore. Only apps managed by SideStore can be renewed by it."))
             }
@@ -240,11 +247,11 @@ struct CompanionSigningWorkflowView: View {
                 .localized("SideStore will receive the complete URL, including any query tokens. Use only a trusted IPA host. VexSign cannot confirm download, signing or installation there.")
             ].joined(separator: "\n\n"))
         }
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: [UTType(filenameExtension: "ipa") ?? .data]) { result in
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: UTType.packageArchives) { result in
             do {
                 let url = try result.get()
-                guard url.pathExtension.lowercased() == "ipa" else {
-                    errorMessage = .localized("Choose an IPA file, not a certificate or provisioning profile.")
+                guard PackageArchiveType.pickerExtensions.contains(url.pathExtension.lowercased()) else {
+                    errorMessage = .localized("Choose an app package (.ipa, .tipa or .zip), not a certificate or provisioning profile.")
                     return
                 }
                 stageSelectedIPA(url)

@@ -292,9 +292,12 @@ class FeatureRepositoryLayoutTests(unittest.TestCase):
     def test_bridging_header_includes_resolve_inside_the_flat_ios_root(self):
         header = SOURCE / "Configuration/Build/iOS/VexSign-Bridging-Header.h"
         includes = re.findall(r'^\s*#(?:include|import)\s+"([^"]+)"', header.read_text(), re.M)
-        self.assertEqual(len(includes), 3)
+        # The count is asserted so a header that silently stops being included is caught; the
+        # set below is what actually has to resolve.
+        self.assertEqual(len(includes), 4, includes)
         resolved = {(header.parent / relative).resolve() for relative in includes}
         self.assertEqual(resolved, {
+            APP / "Infrastructure/Archives/Extraction/Zstd/VexZstd.h",
             APP / "Infrastructure/Archives/IPA/MachO/MachOUtils.h",
             APP / "Platform/Apple/Device/iconPoc.h",
             APP / "Platform/Compatibility/EmbeddedContainerRuntime.h",

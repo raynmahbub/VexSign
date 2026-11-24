@@ -15,6 +15,24 @@ import IDeviceSwift
 import OSLog
 import NimbleExtensions
 
+/// One place for the limits applied to third-party repository traffic.
+///
+/// These numbers used to be repeated per call site, which is how the GitHub path ended up with an
+/// explicit 20 s timeout and 16 MB cap while the generic feed and the download probe used
+/// `URLSession.shared` with no stated budget. `NBFetchService` still enforces its own 20 MB cap for
+/// streamed feeds; this type is the policy the *callers* share.
+enum RepositoryNetworkPolicy {
+    /// Feed and release metadata requests. A source that cannot answer in this window is broken
+    /// for the user, and waiting on the session default only delays the error.
+    static let requestTimeout: TimeInterval = 20
+    /// Plain-text repository feeds are JSON; anything past this is not one.
+    static let maxFeedBytes = 16 * 1024 * 1024
+    /// HEAD probes are per app and run in small batches, so they can be shorter than a feed fetch.
+    static let probeTimeout: TimeInterval = 15
+    /// Concurrent probes per batch: enough to feel immediate, few enough not to look like an attack.
+    static let maxConcurrentProbes = 4
+}
+
 enum RepositoryCatalogService {
     // MARK: - Premium repository API key wiring
 
@@ -187,8 +205,11 @@ enum RepositoryCatalogService {
                 request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
                 // Adding a source must fail visibly; it must not sit on a spinner while the
                 // session's 60 s default runs out, once per redirect hop.
-                request.timeoutInterval = 20
-                let (data, response) = try await URLSession.shared.data(for: request)
+                request.timeoutInterval = RepositoryNetworkPolicy.requestTimeout
+                let (data, response) = try await BoundedResponseFetch.fetch(
+                    request,
+                    maximumBytes: Int64(RepositoryNetworkPolicy.maxFeedBytes)
+                )
                 guard let response = response as? HTTPURLResponse else {
                     throw GitHubReleaseSource.Failure.malformedRelease
                 }
@@ -201,7 +222,7 @@ enum RepositoryCatalogService {
                 guard (200..<300).contains(response.statusCode) else {
                     throw GitHubReleaseSource.Failure.httpStatus(response.statusCode)
                 }
-                guard data.count <= 16 * 1024 * 1024 else {
+                guard data.count <= RepositoryNetworkPolicy.maxFeedBytes else {
                     throw GitHubReleaseSource.Failure.malformedRelease
                 }
                 let repository = try GitHubReleaseSource.repository(from: data, sourceURL: sourceURL)
@@ -251,7 +272,7 @@ enum RepositoryCatalogService {
                 try SourceURLPolicy.validate(url)
                 return true
             } catch {
-                Logger.security.warning("Skipping insecure repository: \(url.absoluteString, privacy: .public)")
+                Logger.security.warning("Skipping insecure repository: \(url.logSafeDescription, privacy: .public)")
                 return false
             }
         }

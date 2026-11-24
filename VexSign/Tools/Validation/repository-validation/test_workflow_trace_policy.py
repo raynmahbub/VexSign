@@ -84,8 +84,14 @@ class WorkflowTracePolicyTests(unittest.TestCase):
                         wrapper.index('withDeviceSession'))
 
     def test_ota_observation_failure_does_not_trigger_reinstall(self):
+        # The three "no evidence" verdicts are classified in one place (`InstallVerdictPolicy`) and
+        # the installer switches on that classification. Both halves are checked: the grouping, and
+        # the arm that must not turn a filtered probe into a broken install or a reinstall.
         source = self.text('VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift')
-        failure = source.split('case .notInstalled, .timedOutWaiting, .timedOutVerifying:', 1)[1].split('private func _confirmIdeviceInstall', 1)[0]
+        policy = self.text('VexSign/App/iOS/Infrastructure/Devices/Installation/InstallVerdictPolicy.swift')
+        self.assertIn('case .notInstalled, .timedOutWaiting, .timedOutVerifying:', policy)
+        self.assertIn('return .notConfirmed', policy)
+        failure = source.split('case .notConfirmed:', 1)[1].split('private func _confirmIdeviceInstall', 1)[0]
         self.assertIn('_finish(.failure(error))', failure)
         self.assertNotIn('viewModel.status = .broken', failure)
 
@@ -425,7 +431,9 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertNotIn('contents(of: fm.webManagerInbox)', leftovers)
         server = self.text('VexSign/App/iOS/Infrastructure/Networking/WebManager/WebManagerServer.swift')
         self.assertNotIn('Self.stagedCopy(of: url) ?? url', server)
-        self.assertIn('WebManagerUploadFile(destination: destination)', server)
+        # The ceiling is passed alongside the destination (WebManagerTransferLimits); the
+        # transfer must still go through WebManagerUploadFile rather than a raw FileHandle.
+        self.assertRegex(server, r'WebManagerUploadFile\(destination: destination, maximumBytes: maximumBytes\)')
         self.assertIn('try upload.commit()', server)
         self.assertIn('WebManagerRouter.route(staged, lease:', server)
         dav = self.text('VexSign/App/iOS/Infrastructure/Networking/WebManager/WebManagerServer+WebDAV.swift')

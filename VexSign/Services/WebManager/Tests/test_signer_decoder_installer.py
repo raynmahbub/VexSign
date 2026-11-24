@@ -45,7 +45,7 @@ def client():
 def mock_factory(handler, seen: list[httpx.Request] | None = None):
     """Swap a module's client factory for a MockTransport-backed one."""
 
-    def factory():
+    def factory(**kwargs):  # mirrors `_make_client(ca_cert_pem=, tls_cert_sha256=)`
         transport = httpx.MockTransport(
             (lambda request: (seen.append(request), handler(request))[1]) if seen is not None else handler
         )

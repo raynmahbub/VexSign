@@ -9,6 +9,7 @@
 import SwiftUI
 import UIKit
 import NimbleViews
+import UniformTypeIdentifiers
 import NimbleExtensions
 
 // MARK: - Tab wrapper
@@ -235,10 +236,10 @@ struct TweakLibraryList: View {
 		} message: {
 			_alertMessage
 		}
-		.animation(.smooth, value: manager.tweaks)
-		.animation(.smooth, value: manager.folders)
-		.animation(.smooth, value: _isEditing)
-		.animation(.smooth, value: _selection)
+		.appAnimation(.smooth, value: manager.tweaks)
+		.appAnimation(.smooth, value: manager.folders)
+		.appAnimation(.smooth, value: _isEditing)
+		.appAnimation(.smooth, value: _selection)
 	}
 
 	// MARK: - Alert content
@@ -323,7 +324,9 @@ struct TweakLibraryList: View {
 
 	private func _pickIPA() {
         guard !_isImporting else { return }
-		DocumentPicker.open([.ipa, .tipa, .zip], folder: .apps) { urls in
+		DocumentPicker.open(UTType.packageArchives, folder: .apps, onUnavailable: {
+			Toast.error(.localized("The file picker could not open because another sheet is on screen. Close it and try again."), duration: .long)
+		}) { urls in
 			guard let url = urls.first else { return }
 			_show(.ipaExtract(url))
 		}
@@ -627,7 +630,7 @@ extension TweakLibraryList {
 		} label: {
 			HStack(spacing: 12) {
 				Image(systemName: "folder.fill")
-					.font(.system(size: 17))
+					.font(.body)
 					.foregroundStyle(.tint)
 					.frame(width: 30)
 				Text(folder.name)

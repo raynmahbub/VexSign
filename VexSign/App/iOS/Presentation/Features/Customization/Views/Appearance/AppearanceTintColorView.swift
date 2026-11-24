@@ -105,10 +105,10 @@ struct AppearanceTintColorView: View {
         )
         .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onTapGesture {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+            withAppAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
                 _selectedColorHex = option.hex
             }
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.lightImpact()
         }
         .accessibilityLabel(Text(option.name))
         .accessibilityAddTraits(isSelected ? .isSelected : [])

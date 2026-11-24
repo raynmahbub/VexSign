@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Foundation
+import NimbleExtensions
 
 struct DownloadBubbleOverlayContainer: View {
     @ObservedObject var downloadManager: DownloadManager
@@ -34,7 +35,7 @@ struct DownloadBubbleOverlayContainer: View {
             }
         }
         // Animate only on active-count change, not every child update
-        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: hasActiveDownloads)
+        .appAnimation(.spring(response: 0.5, dampingFraction: 0.7), value: hasActiveDownloads)
     }
 }
 
@@ -73,7 +74,7 @@ struct DownloadBubbleView: View {
                                     } else {
                                         VStack(spacing: 0) {
                                             Text(verbatim: "\(Int(model.summary.progress * 100))")
-                                                .font(.system(size: 12, weight: .semibold))
+                                                .font(.caption.weight(.semibold))
                                                 .foregroundColor(.primary)
                                                 .id(Int(model.summary.progress * 100))
 
@@ -101,6 +102,12 @@ struct DownloadBubbleView: View {
                         .onTapGesture {
                             showOverlay = true
                         }
+                        // The bubble is a drawn ring with a fixed-size percentage inside it, so there
+                        // is no text for VoiceOver to read: name the action and give the value.
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel(Text(.localized("Downloads")))
+                        .accessibilityValue(Text(verbatim: "\(Int(model.summary.progress * 100))%"))
                         .frame(width: 56, height: 56)
                         .padding(0)
                         .position(dragAmount ?? CGPoint(x: geometry.size.width - 40, y: geometry.size.height - 100))
@@ -126,7 +133,7 @@ struct DownloadBubbleView: View {
 
                                     currentPosition.y = min(max(currentPosition.y, topPadding), geometry.size.height - bottomPadding)
 
-                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    withAppAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                                         dragAmount = currentPosition
                                     }
 

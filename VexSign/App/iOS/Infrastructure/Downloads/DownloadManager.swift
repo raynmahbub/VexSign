@@ -17,6 +17,8 @@ class DownloadManager: NSObject, ObservableObject {
 	static let shared = DownloadManager()
 
 	protocol ErrorDelegate: AnyObject {
+		/// `title` and both option labels arrive already localized (`.localized("…")`), so a
+		/// conformer presents them as given rather than looking them up again.
 		func showUIErrorMessage(title: String, message: String)
 
 		/// The same message with one explicit choice. Used where doing nothing is not a safe default
@@ -154,10 +156,16 @@ class DownloadManager: NSObject, ObservableObject {
 
 		requestNotificationPermissions()
 
+		// `didEnterBackground`, not `willResignActive`: the latter also fires for the
+		// app switcher, Control Center and an incoming call, and this flag selects the
+		// background URLSession and the completion notifications. Treating a
+		// notification pull-down as "backgrounded" moved in-flight work onto the
+		// background session and announced "added to Library" for a download the user
+		// was still watching.
 		NotificationCenter.default.addObserver(
 			self,
-			selector: #selector(appWillEnterBackground),
-			name: UIApplication.willResignActiveNotification,
+			selector: #selector(appDidEnterBackground),
+			name: UIApplication.didEnterBackgroundNotification,
 			object: nil
 		)
 		
@@ -242,7 +250,7 @@ class DownloadManager: NSObject, ObservableObject {
 		UNUserNotificationCenter.current().delegate = self
 	}
 	
-	@objc private func appWillEnterBackground() {
+	@objc private func appDidEnterBackground() {
 		isAppInBackground = true
 		backgroundEntryTime = Date()
 
@@ -487,11 +495,10 @@ class DownloadManager: NSObject, ObservableObject {
 
 	func showUIErrorMessage(for download: Download, error: NSError) {
 		DispatchQueue.main.async {
-			let generator = UINotificationFeedbackGenerator()
-			generator.notificationOccurred(.error)
+			Haptics.error()
 
 			self.errorDelegate?.showUIErrorMessage(
-				title: "Failed to download ipa",
+				title: .localized("Failed to download IPA"),
 				message: error.localizedDescription
 			)
 		}
@@ -567,7 +574,7 @@ class DownloadManager: NSObject, ObservableObject {
 			download.isActive = false
 			download.isWaitingForSlot = false
 			let error = NSError(domain: "VexSign.Download", code: -1, userInfo: [NSLocalizedDescriptionKey: "Download sessions not initialized"])
-			DispatchQueue.main.async { self.errorDelegate?.showUIErrorMessage(title: "Download Failed", message: error.localizedDescription) }
+			DispatchQueue.main.async { self.errorDelegate?.showUIErrorMessage(title: .localized("Download failed"), message: error.localizedDescription) }
 			return download
 		}
 
@@ -576,7 +583,9 @@ class DownloadManager: NSObject, ObservableObject {
 		request.networkServiceType = .responsiveData
 		request.allowsExpensiveNetworkAccess = !DownloadPreferences.wifiOnly
 		request.allowsConstrainedNetworkAccess = !DownloadPreferences.wifiOnly
-		request.setValue("gzip, deflate, br", forHTTPHeaderField: "Accept-Encoding")
+		// `Accept-Encoding` is left to URLSession, which negotiates it and decodes
+		// the body itself. Setting it manually would hand the staging file
+		// compressed bytes and corrupt the IPA.
 
 		// Auth headers for premium sources.
 		VexSignAPI.applyAuthHeaders(to: &request)
@@ -594,9 +603,14 @@ class DownloadManager: NSObject, ObservableObject {
         if configureSystemServices {
             startProgressTimer()
             if isAppInBackground { ensureKeepAlive() }
-            if #available(iOS 19.0, *), let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+            // iOS 26: BGContinuedProcessingTask. Needs the continued-processing entitlement, which
+            // sideloaded profiles do not carry, so submit is a no-op there (see PLATFORMS.md).
+            if #available(iOS 26.0, *), let appDelegate = UIApplication.shared.delegate as? AppDelegate {
                 appDelegate.submitContinuedProcessingTask()
             }
+            // Arm the processing task (and, through it, the refresh fallback) so a download that
+            // outlives the foreground session is resumed by the system rather than only by the user.
+            (UIApplication.shared.delegate as? AppDelegate)?._scheduleBackgroundDownloadTask()
             startLiveActivityIfNeeded()
         }
 
@@ -625,14 +639,14 @@ class DownloadManager: NSObject, ObservableObject {
                         completion?(error)
                         return
                     }
-                    UINotificationFeedbackGenerator().notificationOccurred(.error)
+                    Haptics.error()
 
 					if let completion = completion {
 						// Caller owns the error UI; don't also fire the generic delegate alert.
 						DispatchQueue.main.async { completion(error) }
 					} else if !self.isAppInBackground {
 						self.errorDelegate?.showUIErrorMessage(
-							title: "Import Failed",
+							title: .localized("Import failed"),
 							message: error.localizedDescription
 						)
 					}

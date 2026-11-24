@@ -1,8 +1,8 @@
 {
  "schema": 1,
- "scope": "Vapor/Crypto/ASN1 promotion landed with the SideSign app integration (Vapor 4.122.3 permits Crypto 4.3.1). Baseline re-digested after normalising the workspace and project Package.resolved to one identical v2 pin file (42 versioned pins, content unchanged); the Xcode resolver remains the authority for transitive pins. Re-recorded when swift-http-types moved 1.5.1 -> 1.6.0: the pinned swift-nio-extras enables the FoundationURL trait, which 1.5.1 does not declare, so the app graph could not resolve at all. 1.6.0 declares it. Manifest digest was computed from the tagged upstream tree, and the method was validated against the previously recorded 1.5.1 digest before use.",
+ "scope": "Vapor/Crypto/ASN1 promotion landed with the SideSign app integration (Vapor 4.122.3 permits Crypto 4.3.1). Baseline re-digested after normalising the workspace and project Package.resolved to one identical v2 pin file (41 versioned pins after the unused marmelroy/Zip package was removed, no other pin changed); the Xcode resolver remains the authority for transitive pins. Re-recorded when swift-http-types moved 1.5.1 -> 1.6.0: the pinned swift-nio-extras enables the FoundationURL trait, which 1.5.1 does not declare, so the app graph could not resolve at all. 1.6.0 declares it. Manifest digest was computed from the tagged upstream tree, and the method was validated against the previously recorded 1.5.1 digest before use.",
  "app_pins_file": "VexSign.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
- "app_pins_sha256": "41550ab1856c225a6975b054cbe82153beaeb75c4921b47b1a21fa221cf10cbb",
+ "app_pins_sha256": "8eaae4b7ced3bbf45e8af1b176fed24bb5d7d713a7d756c088c8ab295fd6326f",
  "confirmed_blocker": {
   "identity": "vapor",
   "version": "4.122.3",
@@ -213,11 +213,6 @@
    "identity": "yams",
    "revision": "3d6871d5b4a5cd519adf233fbb576e0a2af71c17",
    "manifest_sha256": "597593e7a5bbefb6f753d15770463e3a91b1789400b9468a15ae90b140755537"
-  },
-  {
-   "identity": "zip",
-   "revision": "67fa55813b9e7b3b9acee9c0ae501def28746d76",
-   "manifest_sha256": "186b4942ea5183a2a1c81fd623dac8932ace6a0ca81507d37c5249811cc5294a"
   },
   {
    "identity": "zipfoundation",

@@ -1,0 +1,22 @@
+#!/bin/sh
+# Fast gate: syntax, resources, project structure, localisation keys.
+#
+# `make verify` is the real gate and takes minutes; this is the subset that
+# catches the failures nobody wants to learn about from a 30-minute CI run —
+# an unparseable Swift file, a resource missing from the project, a literal with
+# no catalogue key. Opt in once with `make hooks`.
+#
+# A pre-push hook is a convenience, not a policy: CI still runs everything.
+# Skip it deliberately with `git push --no-verify`.
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+
+# A hook that cannot run its checks must not block a push: install the tool or skip it.
+if ! command -v python3 >/dev/null 2>&1; then
+	echo "pre-push: python3 not found; skipping the fast gate (make verify is the full gate)"
+	exit 0
+fi
+
+echo "pre-push · fast gate (git push --no-verify skips it; make verify is the full gate)"
+python3 .github/scripts/quick_check.py --root .
+python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --check

@@ -128,8 +128,8 @@ final class DownloadAdmissionTests: XCTestCase {
     private func url(_ index: Int) -> URL { URL(string: "https://example.invalid/\(index).ipa")! }
 
     @MainActor
-    func testRepositoryOriginSurvivesDuplicateStart() throws {
-        try withManager { manager in
+    func testRepositoryOriginSurvivesDuplicateStart() {
+        withManager { manager in
             let repositoryURL = URL(string: "https://repo.example.invalid/catalog.json")!
             let first = manager.startDownload(from: url(70))
             let tagged = manager.startDownload(from: url(70), originURL: repositoryURL)

@@ -5,16 +5,19 @@ extension RepositoryValidator {
     /// A failed HEAD is 'unverified', not proof of revocation or a broken IPA.
     static func checkDownloads(_ doc: RepositoryDocument) async -> [RepositoryIssue] {
         var issues: [RepositoryIssue] = []
-        for start in stride(from: 0, to: doc.apps.count, by: 4) {
+        let width = RepositoryNetworkPolicy.maxConcurrentProbes
+        for start in stride(from: 0, to: doc.apps.count, by: width) {
             if Task.isCancelled { break }
-            let batch = doc.apps[start..<min(start + 4, doc.apps.count)]
+            let batch = doc.apps[start..<min(start + width, doc.apps.count)]
             await withTaskGroup(of: RepositoryIssue?.self) { group in
                 for app in batch {
                     group.addTask {
                         guard let url = webURL(app.downloadURL) else { return nil }
-                        var request = URLRequest(url: url, timeoutInterval: 15); request.httpMethod = "HEAD"
+                        var request = URLRequest(url: url, timeoutInterval: RepositoryNetworkPolicy.probeTimeout); request.httpMethod = "HEAD"
                         do {
-                            let (_, response) = try await URLSession.shared.data(for: request)
+                            // HEAD has no body to keep. `bytes(for:)` keeps that true for a
+                            // server that sends one anyway: the stream is dropped, not buffered.
+                            let (_, response) = try await URLSession.shared.bytes(for: request)
                             if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) { return nil }
                             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
                             return .init(appID: app.id, severity: status == 404 || status == 410 ? .error : .warning,

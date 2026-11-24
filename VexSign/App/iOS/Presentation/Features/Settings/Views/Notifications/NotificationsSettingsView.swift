@@ -38,7 +38,7 @@ struct NotificationsSettingsView: View {
                             .fill(Color.purple.opacity(0.18))
                             .frame(width: 32, height: 32)
                         Image(systemName: "bell.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.callout.weight(.semibold))
                             .foregroundStyle(.purple)
                     }
 
@@ -96,7 +96,7 @@ struct NotificationsSettingsView: View {
                             .fill(Color.pink.opacity(0.18))
                             .frame(width: 32, height: 32)
                         Image(systemName: "figure.run.circle")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.callout.weight(.semibold))
                             .foregroundStyle(.pink)
                     }
 
@@ -126,7 +126,7 @@ struct NotificationsSettingsView: View {
                             .fill(Color.pink.opacity(0.18))
                             .frame(width: 32, height: 32)
                         Image(systemName: "iphone")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.callout.weight(.semibold))
                             .foregroundStyle(.pink)
                     }
 

@@ -194,6 +194,12 @@ test('worker signs IPA, purges unreferenced S3 input objects, and prunes old web
 
   const queryHandler = async (sql: string, params: unknown[] = []) => {
     if (sql.startsWith('SELECT * FROM jobs')) return { rows: [jobRow] };
+    // The claim only wins while the row is still queued; the worker depends on that row count.
+    if (sql.startsWith("UPDATE jobs SET state='running'")) {
+      const won = jobRow.state === 'queued';
+      if (won) jobRow.state = 'running';
+      return { rows: [], rowCount: won ? 1 : 0 };
+    }
     if (sql.startsWith('SELECT object_key,sha256,bytes FROM assets')) {
       const a = assets[params[0] as string];
       return { rows: a ? [a] : [] };

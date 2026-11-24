@@ -22,10 +22,7 @@ struct InstallProgressView: View {
 		VStack(spacing: 12) {
 			_appIcon()
 				.scaleEffect(_reduceMotion ? 1 : (_isPulsing ? 0.85 : 0.81))
-				.animation(
-					_reduceMotion ? nil : .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
-					value: _isPulsing
-				)
+				.appAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: _isPulsing)
 				.onAppear {
 					_isPulsing = !_reduceMotion
 				}
@@ -50,10 +47,10 @@ struct InstallProgressView: View {
 						Circle().strokeBorder(Color.white, lineWidth: 4.5)
 						PieShape(progress: installation.overallProgress)
 							.scaleEffect(presentation == .installed || presentation == .operationCompleted ? 2.2 : 1)
-							.animation(_reduceMotion ? nil : .smooth, value: installation.isCompleted)
+							.appAnimation(.smooth, value: installation.isCompleted)
 					}
 				)
-				.animation(_reduceMotion ? nil : .smooth, value: installation.overallProgress)
+				.appAnimation(.smooth, value: installation.overallProgress)
 		}
 	}
 	

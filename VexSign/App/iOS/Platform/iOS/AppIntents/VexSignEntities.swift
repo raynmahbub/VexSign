@@ -36,8 +36,13 @@ struct VexSignAppEntity: AppEntity {
 		)
 	}
 
-	init(app: AppInfoPresentable) {
-		self.uuid = app.uuid ?? UUID().uuidString
+	/// Failable because the id *is* the library UUID: an entity built from a row
+	/// without one carried a fresh random UUID that no action could ever resolve,
+	/// so the shortcut showed "no longer in your library" for an app that is right
+	/// there.
+	init?(app: AppInfoPresentable) {
+		guard let uuid = app.uuid, !uuid.isEmpty else { return nil }
+		self.uuid = uuid
 		self.name = app.name ?? .localized("App")
 		self.bundleID = app.identifier ?? ""
 		self.version = app.version ?? ""
@@ -47,32 +52,46 @@ struct VexSignAppEntity: AppEntity {
 
 @available(iOS 17.0, *)
 struct VexSignAppQuery: EntityQuery {
+	/// The apps a Shortcut may see. The Hidden Apps Vault is opened with the device
+	/// owner's biometrics *inside* VexSign; a Shortcut has no equivalent prompt, so a
+	/// vaulted app is absent from the picker and cannot be resolved by a stale or
+	/// hand-edited shortcut — the same rule the Web Manager applies to `/api/library`.
+	@MainActor
+	static func visibleApps() -> [AppInfoPresentable] {
+		let hidden = AppLockManager.shared.hiddenAppUUIDs
+		return Storage.shared.getAllApps().filter {
+			AutomationVisibility.isVisible(uuid: $0.uuid, hiddenAppUUIDs: hidden)
+		}
+	}
+
 	/// The live object behind an entity, or nil when it was deleted since the
 	/// shortcut was configured. Every action re-resolves instead of trusting the
-	/// snapshot the entity carries.
+	/// snapshot the entity carries, so hiding an app also stops a shortcut that was
+	/// configured before it was hidden.
 	@MainActor
 	static func app(for uuid: String) -> AppInfoPresentable? {
-		Storage.shared.getAllApps().first { $0.uuid == uuid }
+		guard AutomationVisibility.isVisible(uuid: uuid, hiddenAppUUIDs: AppLockManager.shared.hiddenAppUUIDs) else { return nil }
+		return Storage.shared.getAllApps().first { $0.uuid == uuid }
 	}
 
 	@MainActor
 	func entities(for identifiers: [String]) async throws -> [VexSignAppEntity] {
-		let apps = Storage.shared.getAllApps()
+		let apps = Self.visibleApps()
 		return identifiers.compactMap { uuid in
-			apps.first { $0.uuid == uuid }.map(VexSignAppEntity.init(app:))
+			apps.first { $0.uuid == uuid }.flatMap(VexSignAppEntity.init(app:))
 		}
 	}
 
 	@MainActor
 	func suggestedEntities() async throws -> [VexSignAppEntity] {
 		// Unsigned apps first: they are the ones people sign from a shortcut.
-		Storage.shared.getAllApps()
+		Self.visibleApps()
 			.sorted { lhs, rhs in
 				if lhs.isSigned != rhs.isSigned { return !lhs.isSigned }
 				return (lhs.date ?? .distantPast) > (rhs.date ?? .distantPast)
 			}
 			.prefix(50)
-			.map(VexSignAppEntity.init(app:))
+			.compactMap(VexSignAppEntity.init(app:))
 	}
 
 	@MainActor

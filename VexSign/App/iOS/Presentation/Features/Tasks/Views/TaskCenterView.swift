@@ -235,7 +235,7 @@ private struct TaskRow: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 } else {
                     Image(systemName: task.kind.icon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.callout.weight(.semibold))
                         .foregroundStyle(phaseColor)
                 }
 			}

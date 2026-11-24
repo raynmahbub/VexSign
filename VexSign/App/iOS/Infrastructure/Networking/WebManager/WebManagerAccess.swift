@@ -89,6 +89,21 @@ enum WebManagerAccessPolicy {
 		return false
 	}
 
+	/// Whether the automation surface may name or count this app.
+	///
+	/// Hiding an app is a promise that the app is not visible, and the Hidden Apps
+	/// Vault is revealed with biometrics *inside* the app. There is no equivalent
+	/// gesture over HTTP, so a hidden app is absent from `/api/library`,
+	/// `/api/updates`, the `/api/status` counts and the `/api/cleanup` report —
+	/// exactly as its row is absent from the Library — instead of being named to
+	/// whoever holds the server password or API token.
+	///
+	/// Rows without a UUID cannot be matched against the vault, so they stay
+	/// visible: failing open here would hide unrelated apps from the owner.
+	static func isVisibleToAutomation(uuid: String?, hiddenAppUUIDs: Set<String>) -> Bool {
+		AutomationVisibility.isVisible(uuid: uuid, hiddenAppUUIDs: hiddenAppUUIDs)
+	}
+
 	/// Extracts an API token from `X-VexSign-Token` or `Authorization: Bearer <token>`.
 	static func extractProvidedToken(tokenHeader: String?, authorizationHeader: String?) -> String? {
 		if let tokenHeader {

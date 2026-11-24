@@ -14,7 +14,9 @@ final class GitHubIPAReleasesTests: XCTestCase {
             XCTAssertEqual(try GitHubIPAReleases.Repository(input), expected)
         }
         XCTAssertEqual(expected.request.url?.absoluteString,
-                       "https://api.github.com/repos/owner/project/releases?per_page=20")
+                       "https://api.github.com/repos/owner/project/releases?per_page=100&page=1")
+        XCTAssertEqual(expected.request(page: 3).url?.absoluteString,
+                       "https://api.github.com/repos/owner/project/releases?per_page=100&page=3")
         XCTAssertNil(expected.request.value(forHTTPHeaderField: "Authorization"))
     }
 

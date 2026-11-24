@@ -57,7 +57,7 @@ struct CertificatesInfoView: View {
 		}
 		.fileImporter(
 			isPresented: $_isImportingProfile,
-			allowedContentTypes: [UTType(filenameExtension: "mobileprovision") ?? .data],
+			allowedContentTypes: [.mobileProvision, .provisionProfile],
 			allowsMultipleSelection: false
 		) { result in
 			_importProfile(result)

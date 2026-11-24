@@ -122,13 +122,18 @@ struct ArchiveSafetyValidator {
                 throw ValidationError.traversalPath(path)
             }
 
-            let components = path.split(separator: "/", omittingEmptySubsequences: true)
-            guard !components.contains(where: { $0 == ".." || $0 == "." }) else {
+            let components = normalizedComponents(path)
+            // Only `..` can leave the destination. A `.` component is the same file spelled at
+            // greater length, and ZIP writers disagree about whether to prefix entries with it:
+            // refusing `./Payload/App.app/Info.plist` rejected a perfectly ordinary archive.
+            guard !components.contains(where: { $0 == ".." }) else {
                 throw ValidationError.traversalPath(path)
             }
             guard components.count <= limits.maxDepth else {
                 throw ValidationError.excessiveDepth(path)
             }
+            // `./`, `/.` or `/`: an entry that names no file. Nothing to claim or extract.
+            guard !components.isEmpty else { continue }
 
             if entry.type == .symlink {
                 throw ValidationError.symbolicLink(path)
@@ -159,11 +164,12 @@ struct ArchiveSafetyValidator {
     /// Rejects two entries that resolve to one output path.
     ///
     /// `IPAExtractor` already refuses these while writing, but it is not the only backend:
-    /// `TweakExtractor` and `IPAWorkspace` hand the same validated archive to
-    /// `Zip.unzipFile(overwrite: true)`, which resolves a conflict by letting the *last* entry
-    /// win. A crafted archive could then present one file to everything that inspects the
-    /// bundle and write a different one over it during extraction. Deciding here puts the rule
-    /// ahead of every backend instead of inside one of them.
+    /// `TweakExtractor` and `IPAWorkspace` extract the same validated archive with ZIPFoundation
+    /// (and the framework's payload with SWCompression). The ZIP spec does not forbid two entries
+    /// with one name, and a reader resolving a conflict by letting the *last* entry win would show
+    /// one file to everything that inspects the bundle and write a different one over it during
+    /// extraction. Deciding here puts the rule ahead of every backend instead of inside one of
+    /// them.
     ///
     /// The comparison is case-insensitive because the destination filesystem is: APFS on iOS
     /// treats `Info.plist` and `info.plist` as the same file, so entries differing only in case
@@ -188,9 +194,9 @@ struct ArchiveSafetyValidator {
     ///
     /// `Payload/App.app/Info.plist` implies `payload/app.app` is a directory. If another entry
     /// declares `Payload/App.app` as a *file*, the archive is ambiguous: a real filesystem
-    /// cannot hold both, and which entry wins depends on the backend (`unzipFile(overwrite:)`
-    /// and the streaming extractor resolve it differently). The archive is rejected instead
-    /// of letting the extraction order decide what the inspected bundle becomes.
+    /// cannot hold both, and which entry wins depends on the backend (ZIPFoundation's
+    /// `extract` and the streaming extractor resolve it differently). The archive is rejected
+    /// instead of letting the extraction order decide what the inspected bundle becomes.
     ///
     /// Parents are recorded too, so the rule holds whichever of the two entries comes first.
     struct ImpliedDirectories {
@@ -240,15 +246,28 @@ struct ArchiveSafetyValidator {
         return normalized.isEmpty ? nil : normalized
     }
 
+    /// The components of an entry name with the `.` components removed.
+    ///
+    /// `./Payload/App.app/Info.plist`, `Payload/./App.app/Info.plist` and
+    /// `Payload/App.app/Info.plist` all name one file, and the first is what several packers
+    /// write. Removing the `.` components here keeps a validation this file performs and the
+    /// path `IPAExtractor` writes describing the same file. `..` is left in place, so the
+    /// checks that refuse it stay the ones that decide.
+    static func normalizedComponents(_ path: String) -> [Substring] {
+        path.replacingOccurrences(of: "\\", with: "/")
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .filter { $0 != "." }
+    }
+
     /// Normalize the base before appending, so Foundation cannot resolve an
     /// alias such as /var -> /private/var on only one side of the comparison.
     /// Compare path components, not string prefixes ("work-other" is not "work").
     static func validateDestination(relativePath: String, root: URL) throws {
         let base = root.resolvingSymlinksInPath().standardizedFileURL
         let path = relativePath.replacingOccurrences(of: "\\", with: "/")
-        let parts = path.split(separator: "/", omittingEmptySubsequences: true)
+        let parts = normalizedComponents(path)
         guard !path.hasPrefix("/"), !path.hasPrefix("~"), !path.contains("\0"),
-              !parts.isEmpty, !parts.contains(where: { $0 == ".." || $0 == "." || $0.contains(":") }) else {
+              !parts.isEmpty, !parts.contains(where: { $0 == ".." || $0.contains(":") }) else {
             throw ValidationError.traversalPath(relativePath)
         }
 

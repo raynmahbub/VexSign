@@ -146,4 +146,51 @@ final class RuntimeCapabilityReportTests: XCTestCase {
         XCTAssertEqual(operations["guestKeychainHooks"], "unavailable:notPartOfThisLayout")
         XCTAssertEqual(operations["externalAppHandoff"], "unavailable:unsupportedByDesign")
     }
+
+    // MARK: - An incomplete host
+
+    func testACombinedBuildWhoseHostIsIncompleteSaysSo() {
+        // A host that renamed one of the entry points still answers the
+        // availability selector, so `runtimeLoaded` is false and the old report
+        // called this "the runtime is not loaded" — which is the ordinary app's
+        // sentence and sends a combined-build user to reinstall what they have.
+        let incomplete = RuntimeCapabilityReport.make(.init(
+            isGuestBuild: false,
+            isPrimaryHost: true,
+            runtimeLoaded: false,
+            missingHostSelectors: ["vexSignStageIPA:"]
+        ))
+        XCTAssertEqual(incomplete.environment, .combinedNativePrimary)
+        for operation in [RuntimeCapabilityReport.Operation.embeddedContainerUI, .guestImportStaging] {
+            XCTAssertEqual(incomplete.reason(for: operation), .hostIncomplete, "\(operation)")
+        }
+        // Background tasks belong to the app, not the host, and keep working.
+        XCTAssertTrue(incomplete.isAvailable(.scheduledGuestTasks))
+        XCTAssertNotNil(RuntimeCapabilityReport.Reason.hostIncomplete.explanation)
+        XCTAssertNotNil(incomplete.jsonObject["operations"])
+    }
+
+    func testTheGuestLayoutReportsAnIncompleteHostRatherThanAMissingOne() {
+        let incomplete = RuntimeCapabilityReport.make(.init(
+            isGuestBuild: true,
+            isPrimaryHost: false,
+            runtimeLoaded: false,
+            missingHostSelectors: ["launchToGuestAppWithURL:", "vexSignGuestInfo:"]
+        ))
+        XCTAssertEqual(incomplete.environment, .combinedGuestPrototype)
+        XCTAssertEqual(incomplete.reason(for: .embeddedContainerUI), .hostIncomplete)
+    }
+
+    func testAnOrdinaryInstallIsNeverCalledAnIncompleteHost() {
+        // The ordinary app reports the missing selectors too — it declares no host
+        // at all — and that must not turn into "your host is old".
+        let ordinary = RuntimeCapabilityReport.make(.init(
+            isGuestBuild: false,
+            isPrimaryHost: false,
+            runtimeLoaded: false,
+            missingHostSelectors: ["vexSignCombinedHostAvailable", "vexSignStageIPA:"]
+        ))
+        XCTAssertEqual(ordinary.environment, .standalone)
+        XCTAssertEqual(ordinary.reason(for: .embeddedContainerUI), .runtimeNotLoaded)
+    }
 }

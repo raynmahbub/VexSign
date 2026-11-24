@@ -168,3 +168,42 @@ def test_refusal_names_the_pins_that_have_to_be_revisited(monkeypatch):
     with pytest.raises(RuntimeError) as error:
         url_guard.public_http_client(timeout=5)
     assert "requirements.txt" in str(error.value)
+
+
+# ---------------------------------------------------------------------------
+# The relay client must carry the user's TLS trust through to the checked
+# transport. A silent fallback here would dial the phone with the system store
+# and no pin, i.e. exactly the configuration the user asked to tighten.
+# ---------------------------------------------------------------------------
+
+
+def test_relay_client_hands_the_users_pin_to_the_checked_transport(monkeypatch):
+    monkeypatch.delenv("VEXSIGN_PHONE_CA_FILE", raising=False)
+    monkeypatch.delenv("VEXSIGN_PHONE_CERT_SHA256", raising=False)
+    seen = {}
+
+    def factory(**kwargs):
+        seen.update(kwargs)
+        return httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200)))
+
+    monkeypatch.setattr(web_signer, "_make_client", factory)
+    pin = "SHA256:" + "ab" * 32
+    with web_signer._open_client(tls_cert_sha256=pin):
+        pass
+    assert seen.get("tls_cert_sha256") == pin
+
+
+def test_relay_client_does_not_downgrade_when_the_transport_rejects_trust(monkeypatch):
+    """Trust kwargs drifting out of `checked_http_client` must fail, not drop the pin."""
+    monkeypatch.delenv("VEXSIGN_PHONE_CA_FILE", raising=False)
+    monkeypatch.delenv("VEXSIGN_PHONE_CERT_SHA256", raising=False)
+    calls = []
+
+    def factory(**kwargs):
+        calls.append(kwargs)
+        raise TypeError("checked_http_client() got an unexpected keyword argument 'pinned_cert_sha256'")
+
+    monkeypatch.setattr(web_signer, "_make_client", factory)
+    with pytest.raises(TypeError):
+        web_signer._open_client(tls_cert_sha256="SHA256:" + "ab" * 32)
+    assert len(calls) == 1, "a retry without the pin would connect against the system store instead"

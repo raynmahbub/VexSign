@@ -54,12 +54,15 @@ final class CoreDataWorkspaceRepository: WorkspaceCatalogProviding, LibraryRepos
     init(storage: Storage) { self.storage = storage }
 
     func readWorkspace() throws -> WorkspaceSnapshot {
-        let signed = try storage.context.fetch(Signed.fetchRequest())
-        let imported = try storage.context.fetch(Imported.fetchRequest())
+        // Throwing reads: a store that cannot be read must say so. Flattening the failure into
+        // "no rows" renders an empty library, which is indistinguishable from one where nothing
+        // was ever imported. `WorkspaceViewModel.loadError` shows this sentence.
+        let signed = try storage.fetchOnQueueThrowing(Signed.fetchRequest())
+        let imported = try storage.fetchOnQueueThrowing(Imported.fetchRequest())
         let certificateRequest = CertificatePair.fetchRequest()
         certificateRequest.sortDescriptors = [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)]
-        let certificates = try storage.context.fetch(certificateRequest)
-        let sources = try storage.context.fetch(AltSource.fetchRequest())
+        let certificates = try storage.fetchOnQueueThrowing(certificateRequest)
+        let sources = try storage.fetchOnQueueThrowing(AltSource.fetchRequest())
         return WorkspaceSnapshot(
             signedApps: try signed.map { try appRecord($0) },
             importedApps: try imported.map { try appRecord($0) },

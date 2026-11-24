@@ -265,6 +265,7 @@ private struct AnisetteEndpointEditorView: View {
                     Text(.localized("Provider Identity"))
                 }
             }
+            .dismissableKeyboard()
             .navigationTitle(.localized("Anisette Provider"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

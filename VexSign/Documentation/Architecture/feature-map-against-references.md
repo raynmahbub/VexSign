@@ -1,7 +1,9 @@
 # VexSign — feature map against the reference projects
 
-Status of every subsystem in your mapping, read from the code on branch
-`arena/f807c4e1-vexsign`, not from the reference repositories' feature lists.
+Status of every subsystem in your mapping, read from this repository's code, not
+from the reference repositories' feature lists. (The original note named the agent
+workspace branch it was checked out on; that branch is gone, so the source tree is
+the reference.)
 
 Legend: **Built** = code path exists end to end · **Partial** = core exists, a stated
 piece is missing · **Adapted** = the capability exists but with a different, deliberately
@@ -95,11 +97,21 @@ provisioning profile) and it is solved with two packages plus a coordinator:
   stream, renewal, inventory), `AnisetteProvider`, `SigningModeManager`.
 - UI: `Presentation/Features/Accounts`.
 
-**Honest boundary:** authentication and certificate/profile issuance are implemented;
-whether a given account can *complete* a device install is a policy question decided by
-Apple, not by VexSign, and the app reports that instead of pretending success.
+**Honest boundary:** authentication and certificate/profile issuance are implemented, and the
+flow ends by *importing* what it obtained: `NativeSigningManager.exportToCertificateStore` writes
+the account's `.p12` and profile into the ordinary certificate store as a `CertificatePair`, which
+the imported-certificate engine then signs with. Two things are therefore separate, and used to be
+reported as one:
 
-### 4. Initial installation — Built for other apps, Absent for itself
+| Question | Answer | Evidence |
+| --- | --- | --- |
+| Can an account's certificate be used to sign here? | Yes, through the certificate store | `AppleAccountWorkspaceAdapter.importCertificate` → `exportToCertificateStore`; `Renewability.importedPair` |
+| Does this build sign *inside* the account engine? | No — `notIntegrated` | `SigningMethodCapabilities.nativeAppleAccountSigning`, enforced by `check-native-handoff.py` until `Documentation/DeviceTesting/evidence/native-signing-promotion.json` exists |
+
+Whether a given account can *complete* a device install is a policy question decided by Apple, not
+by VexSign, and the app reports that instead of pretending success.
+
+### 4. Installation — Built for other apps and for in-place updates, absent for a cold first boot
 
 Two delivery pipelines coexist behind `SigningModeManager`:
 
@@ -112,10 +124,18 @@ Both are guarded: `InstallEvidenceSummary` distinguishes "the device confirmed i
 "we did not get an answer", and an unconfirmed install demands a separate device check
 before it can be retried — that is what stops an install loop from hammering a device.
 
-**What is absent:** VexSign cannot install *itself* onto a device with no developer
-account. AltLoad/Impactor solve that with a computer-assisted first boot; there is no
-self-bootstrap path in this tree. If you want a computer-free first install, that is a
-genuine new subsystem, not a refactor of what is here.
+**In-place update — Built.** Updating VexSign is the same pipeline pointed at VexSign: the
+release IPA is imported and signed locally with the certificate the installed build was signed
+with, served from the app's own HTTPS installer, and handed to iOS through
+`.itms-services`, which replaces the bundle. `SelfReplacementPolicy` is the condition (same
+bundle identifier, signed, higher version by the comparator the update check uses) and
+`SelfUpdateManager` reports success only when the shared installer confirms it. No key is
+exported and no paired-device mutation is claimed, which is why this route is allowed where the
+two remote self-update routes are not.
+
+**What is absent:** a *cold first install* with no developer account. That needs a computer-assisted
+first boot; there is no self-bootstrap path in this tree, and it is a genuine new subsystem rather
+than a refactor of what is here.
 
 ### 5. Device pairing — Built
 

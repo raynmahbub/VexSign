@@ -48,7 +48,7 @@ struct TunnelPulseRing: View {
 				.frame(width: 10, height: 10)
 				.scaleEffect(1.0 - (0.5 * progress))
 				.opacity(1.0 - (0.7 * progress))
-				.animation(.easeInOut(duration: 0.3), value: lastHeartbeat)
+				.appAnimation(.easeInOut(duration: 0.3), value: lastHeartbeat)
 		}
 	}
 }

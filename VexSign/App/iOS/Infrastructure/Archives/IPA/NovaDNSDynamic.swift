@@ -38,6 +38,10 @@ public struct DynamicDNSRules: Codable, Sendable {
 }
 
 public enum NovaDNSDynamic: Sendable {
+	/// A rules file is a list of hostnames. The endpoint is third-party and the
+	/// response used to be read with no cap at all.
+	static let maximumRulesBytes: Int64 = 1024 * 1024
+
 	// MARK: Endpoints
 
 	/// The rule list VexSign used to fetch from unconditionally. It stays the default, but it is a
@@ -119,9 +123,11 @@ public enum NovaDNSDynamic: Sendable {
 
 		var request = URLRequest(url: url)
 		request.httpMethod = "POST"
+		// The answer is a status, and nothing used to bound either the wait or the body.
+		request.timeoutInterval = 10
 
 		do {
-			let (_, response) = try await URLSession.shared.data(for: request)
+			let (_, response) = try await BoundedResponseFetch.fetch(request, maximumBytes: Self.maximumRulesBytes)
 			let status = (response as? HTTPURLResponse)?.statusCode ?? -1
 			if !(200..<300).contains(status) {
 				FileLogger.warn("NovaDNS: \(endpoint) answered \(status) from \(url.host ?? "?")", category: "antirevoke")
@@ -148,7 +154,9 @@ public enum NovaDNSDynamic: Sendable {
 		do {
 			var request = URLRequest(url: url)
 			request.timeoutInterval = 10.0
-			let (data, response) = try await URLSession.shared.data(for: request)
+			// A rules file is a list of hostnames; a megabyte is generous for one, and
+			// this endpoint is third-party, so the body is bounded while it streams.
+			let (data, response) = try await BoundedResponseFetch.fetch(request, maximumBytes: Self.maximumRulesBytes)
 			guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
 				let status = (response as? HTTPURLResponse)?.statusCode ?? -1
 				FileLogger.warn("NovaDNS: rules request answered \(status) from \(url.host ?? "?")", category: "antirevoke")

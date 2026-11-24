@@ -73,8 +73,8 @@ struct SigningTweaksView: View {
 		}
 		.overlay { if _isImporting { ProgressView(.localized("Importing tweaks…")).padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
 		.onDisappear { _importTask?.cancel() }
-		.animation(.smooth, value: options.injectionFiles)
-		.animation(.smooth, value: options.tweakInjections)
+		.appAnimation(.smooth, value: options.injectionFiles)
+		.appAnimation(.smooth, value: options.tweakInjections)
 	}
 }
 
@@ -293,7 +293,7 @@ private struct SigningLibraryTweakPicker: View {
 				ToolbarItem(placement: .bottomBar) {
 					HStack {
 						Button(_selection == _allIds && !_allIds.isEmpty ? .localized("Deselect All") : .localized("Select All")) {
-							withAnimation(.smooth) {
+							withAppAnimation(.smooth) {
 								_selection = (_selection == _allIds) ? [] : _allIds
 							}
 						}

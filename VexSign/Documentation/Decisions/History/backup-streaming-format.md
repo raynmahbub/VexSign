@@ -30,6 +30,26 @@ use a password for migration. Backups containing certificates still require the
 existing minimum-length password. Concurrent passwordless key creation is locked
 to prevent one export from replacing another export's wrapping key.
 
+## What a restore applies
+
+`settings.plist` carries preferences from the app's own namespaces, and a restore writes
+each one straight into `UserDefaults`. That is why the filter is an allow-list, not a
+copy of the dictionary:
+
+- credentials (`VexSign.vault.*` and anything ending in `.apikey`, `.token`, `.secret`,
+  `.password` or `.passphrase`) are never written — they belong to this install's Keychain;
+- device-specific values (selected certificate index, import-folder bookmark, bubble
+  positions, certificate hashes) are dropped;
+- security switches are dropped as well: the Web Manager namespace
+  (`VexSign.webManager.*` — auth, bind mode, unauthenticated-LAN permission, certificate
+  export, keep-alive), the install method (`VexSign.serverMethod`), the loopback-only
+  switch (`VexSign.ipFix`) and the cleartext-repository opt-in
+  (`VexSign.sources.allowInsecureHTTP`).
+
+A backup is a file the user may have been handed. None of those switches may be
+pre-set by one, because they decide how much of the device is reachable from the
+network after the next launch.
+
 ## Exact framing
 
 All integer fields below are unsigned big-endian. No platform-native integer

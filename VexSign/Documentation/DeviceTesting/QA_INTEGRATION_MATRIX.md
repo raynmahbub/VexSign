@@ -141,7 +141,9 @@ silently removing the evidence again.
   the recorded outcome honest; distinguishing the three needs an outcome on
   `Download` and a signal to the center before removal.
 - **R3 — no Release archive has ever been produced or inspected in this repository.**
-  Entitlements, privacy manifests and the export path are unvalidated. No
+  Entitlements and the export path are unvalidated. Privacy manifests now exist for
+  every bundle (`PrivacyInfo.xcprivacy` in the app, widget, watch, TV and vision
+  targets), but no archive has shown them landing in the right bundle. No
   distribution build was attempted: the credentials are not available here, and an
   unproven archive must not be described as one.
 - **R4 — `Platform check` is failing on main** (run `43305902567`, and the previous

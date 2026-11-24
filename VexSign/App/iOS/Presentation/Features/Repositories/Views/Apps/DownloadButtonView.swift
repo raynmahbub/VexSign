@@ -68,7 +68,7 @@ class TabSelectionObserver: ObservableObject {
 		highlightTimer?.invalidate()
 		highlightTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
 			DispatchQueue.main.async {
-				withAnimation(.easeOut(duration: 0.3)) {
+				withAppAnimation(.easeOut(duration: 0.3)) {
 					self.highlightedAppUUID = nil
 				}
 			}
@@ -296,8 +296,8 @@ struct DownloadButtonView: View {
 		.onChange(of: importedApps.count) { _, _ in
 			checkIfInstalled()
 		}
-		.animation(hasAppeared ? .easeInOut(duration: 0.25) : nil, value: downloadManager.getDownload(by: app.currentUniqueId) != nil)
-		.animation(hasAppeared ? .easeInOut(duration: 0.25) : nil, value: installedApp != nil)
+		.appAnimation(hasAppeared ? .easeInOut(duration: 0.25) : nil, value: downloadManager.getDownload(by: app.currentUniqueId) != nil)
+		.appAnimation(hasAppeared ? .easeInOut(duration: 0.25) : nil, value: installedApp != nil)
 	}
 	
 	private func setupObserver() {

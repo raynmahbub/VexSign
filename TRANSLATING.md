@@ -7,6 +7,25 @@ currently represented locales include Arabic, Czech, German, Spanish, French,
 Indonesian, Italian, Polish, Russian, Turkish, Vietnamese, and Simplified
 Chinese. A locale can be improved or completed through a pull request.
 
+## Where coverage stands
+
+The catalogue is the source of truth, so ask it rather than this file:
+
+```sh
+python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --report
+```
+
+Run today, that prints twelve locales at roughly **20%** each (about 920 of 4,400 keys).
+Anything without a translation falls back to the English source string at runtime, so the
+app is usable in every declared locale but only partially translated in most of them. The
+same table is appended to the run summary of every CI run.
+
+Depth is worth more here than breadth: a locale at 100% is finished work, while a
+thirteenth locale at 20% adds a switch that mostly shows English. Completing an existing
+locale, or reviewing the machine-translated parts of one, is the most useful contribution
+this project can take. If a locale is better removed than left at a fifth, say so in an
+issue — `knownRegions` in `VexSign.xcodeproj/project.pbxproj` is the list to change.
+
 ## Contribute a translation
 
 1. Check the catalog and existing pull requests for the locale. Agree on a

@@ -209,19 +209,53 @@ enum VexSignAPI {
 		}
 	}
 
+	/// Whether a URL may be recorded as a premium source at all.
+	///
+	/// The list of premium URLs arrives over the network, so the host it names is not
+	/// something this app gets to assume: only an https URL with a host and no
+	/// credentials or fragment can be a premium repository. A cleartext one would be a
+	/// premium badge on a feed anyone on the path can rewrite.
+	static func isRecordablePremiumSource(_ url: URL) -> Bool {
+		guard url.scheme?.lowercased() == "https",
+			  let host = url.host, !host.isEmpty,
+			  url.user == nil, url.password == nil, url.fragment == nil
+		else { return false }
+		return true
+	}
+
 	static func registerPremiumSource(_ url: URL) {
-		guard let host = url.host?.lowercased() else { return }
+		guard isRecordablePremiumSource(url), let host = url.host?.lowercased() else { return }
 		var hosts = premiumSourceHosts
 		hosts.insert(host)
 		premiumSourceHosts = hosts
 	}
 
-	static func registerPremiumSources(_ urls: [URL]) {
+	/// Record the hosts behind activated premium sources.
+	///
+	/// `requireSecureTransport` is true for a list that arrived over the network. Local
+	/// mode (an operator's own `http://192.168.x.x/feed.json`) passes false: that URL was
+	/// typed into the configuration, not received from a server, so the user already made
+	/// the transport decision.
+	static func registerPremiumSources(_ urls: [URL], requireSecureTransport: Bool = true) {
 		var hosts = premiumSourceHosts
 		for url in urls {
-			if let host = url.host?.lowercased() {
+			if requireSecureTransport {
+				guard isRecordablePremiumSource(url), let host = url.host?.lowercased() else { continue }
+				hosts.insert(host)
+			} else if let host = url.host?.lowercased(), !host.isEmpty {
 				hosts.insert(host)
 			}
+		}
+		premiumSourceHosts = hosts
+	}
+
+	/// Drop hosts that no longer back a returning premium source, so a failed activation
+	/// cannot leave a "premium" badge behind.
+	static func unregisterPremiumSources(_ urls: [URL]) {
+		var hosts = premiumSourceHosts
+		for url in urls {
+			guard let host = url.host?.lowercased() else { continue }
+			hosts.remove(host)
 		}
 		premiumSourceHosts = hosts
 	}
@@ -306,6 +340,11 @@ enum VexSignAPI {
 
 	/// Executes an API request on an ephemeral session whose redirect delegate
 	/// strips credentials on cross-origin redirects and refuses TLS downgrades.
+	///
+	/// The body is bounded. Its one caller outside the app's own screens is a source feed
+	/// (`premium.json`), which the user did not write, so `data(for:)` let that host decide how
+	/// much memory the request was allowed to take. 16 MB is far past any feed and far short of
+	/// a problem.
 	static func performDataRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
 		let configuration = URLSessionConfiguration.ephemeral
 		configuration.timeoutIntervalForRequest = request.timeoutInterval > 0 ? request.timeoutInterval : 60
@@ -314,7 +353,7 @@ enum VexSignAPI {
 		let delegate = _VexSignRedirectDelegate()
 		let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
 		defer { session.finishTasksAndInvalidate() }
-		return try await session.data(for: request)
+		return try await BoundedResponseFetch.fetch(request, maximumBytes: 16 * 1024 * 1024, session: session)
 	}
 
 	// MARK: - Excluded Sources

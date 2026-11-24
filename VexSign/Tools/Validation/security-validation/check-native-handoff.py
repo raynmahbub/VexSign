@@ -32,7 +32,8 @@ claim that Free Apple ID renewal happens. `renewExpiringProfiles()`,
 picker copy each described a capability this build does not have.
 
 This check encodes the current, deliberate state. It is meant to be updated in
-the same change that implements the seam — see VexSign/Documentation/NATIVE_SIGNING_HANDOFF.md.
+the same change that implements the seam — see
+VexSign/Documentation/Security/NATIVE_SIGNING_HANDOFF.md.
 """
 
 from __future__ import annotations
@@ -47,7 +48,10 @@ ROOT = Path(__file__).resolve().parents[4]
 # Repository-relative so `evaluate` can run against a scratch checkout in tests.
 CAPABILITIES = Path("VexSign/App/iOS/Infrastructure/Signing/Execution/SigningMethodCapabilities.swift")
 MANAGER = Path("VexSign/App/iOS/Infrastructure/Accounts/NativeSigningManager.swift")
-FLOW = Path("VexSign/App/iOS/Presentation/Features/Accounts/Views/ProvisioningFlowView.swift")
+# The wizard is split across three files (`ProvisioningFlowView.swift`, `+Steps.swift` and
+# `ProvisioningFlowSupportingViews.swift`). The caveat copy this gate checks lives in the review
+# step, so the path names that file rather than the type's first one.
+FLOW = Path("VexSign/App/iOS/Presentation/Features/Accounts/Views/ProvisioningFlowView+Steps.swift")
 BACKEND = Path("VexSign/Packages/NativeSigning/Authentication/NativeAccountBackend.swift")
 AUTOMATION = Path("VexSign/App/iOS/Infrastructure/Tasks/BackgroundAutomation.swift")
 SIGNING_METHOD = Path("VexSign/App/iOS/Infrastructure/Signing/Execution/SigningMethod.swift")

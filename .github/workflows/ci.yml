@@ -142,8 +142,9 @@ jobs:
   # Fast gate: everything that can be decided without Xcode.
   # ---------------------------------------------------------------------------
   quick:
-    if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public'
+    # Not gated on public visibility, unlike the macOS jobs: it consumes no paid
+    # runner minutes, and gating it meant a private repository (or a private fork)
+    # silently skipped every validation while the check went green.
     name: quick · syntax, resources, gates
     outputs:
       native: ${{ steps.scope.outputs.native }}
@@ -196,10 +197,17 @@ jobs:
           python3 VexSign/Tools/Validation/repository-validation/test_repo_aliases.py
           python3 VexSign/Tools/Validation/architecture-rules/test_repository_layout.py
           python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --check
+          # Coverage, not just key presence: 12 locales are declared and each is
+          # about a fifth translated. The table goes to the run summary so the gap is
+          # visible before someone adds a thirteenth locale.
+          python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --report --markdown >> "$GITHUB_STEP_SUMMARY"
           python3 VexSign/Tools/Validation/repository-validation/test_sync_strings.py
           python3 VexSign/Tools/Validation/security-validation/error-discipline.py
           python3 VexSign/Tools/Validation/security-validation/singleton-freeze.py
           python3 VexSign/Tools/Validation/security-validation/concurrency-discipline.py
+          # Uncaught detached work is invisible to strict concurrency; the inventory is the
+          # only place a new site shows up before a device does.
+          python3 VexSign/Tools/Validation/repository-validation/test_detached_task_audit.py
           # A count is not a reason: every escape needs its invariant on record.
           python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py --self-test
           python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py
@@ -240,13 +248,12 @@ jobs:
           install "$RUNNER_TEMP/SwiftFormat/.build/release/swiftformat" /usr/local/bin/swiftformat
           swiftformat --version
 
-      # Report-only for now: the tree still mixes tab and space indentation, so a
-      # whole-tree lint lists hundreds of pre-existing files rather than anything
-      # this change did. The two configs no longer disagree about which is correct
-      # — .editorconfig and .swiftformat now both say spaces for Swift — so what is
-      # left is the one-time mechanical pass, not a decision. `make format FIX=1`
-      # is the adoption path and this step surfaces the count as an annotation
-      # until it lands; drop `continue-on-error` afterwards.
+      # Report-only, because 552 first-party files still indent with tabs: a whole-tree
+      # lint would fail every pull request over code it never touched. The enforcing
+      # halves are separate — `test_swift_indentation_ratchet.py` fails when the backlog
+      # grows and when it shrinks without being recorded, and the changed-lines drift gate
+      # below fails on the lines this diff owns. When the count reaches zero, replace this
+      # step with `swiftformat --lint .` and delete the ratchet.
       #
       # Kept ahead of the drift gate below on purpose: this step always completes,
       # so the backlog count is still reported on a pull request the gate fails.
@@ -280,6 +287,7 @@ jobs:
           python3 VexSign/Tools/Validation/security-validation/test_native_promotion_evidence.py
           python3 VexSign/Tools/Validation/security-validation/test_private_defaults_policy.py
           python3 VexSign/Tools/Validation/security-validation/test_archive_extraction_policy.py
+          python3 VexSign/Tools/Validation/security-validation/test_webmanager_wiring.py
           python3 VexSign/Tools/Validation/security-validation/test_network_timeout_policy.py
           python3 VexSign/Tools/Development/test_cloud_signing_contract.py
           python3 VexSign/Tools/Development/test_task_history_resilience.py
@@ -316,6 +324,26 @@ jobs:
           path: ${{ runner.temp }}/quick-check.json
           if-no-files-found: ignore
           retention-days: 3
+
+      # The macOS jobs below are gated on public visibility so a private mirror cannot spend the
+      # project's macOS runner budget (see `test_workflow_policy.py::test_free_only_workflow_policy`).
+      # A job that never starts leaves nothing in the check list but its absence, so say it here:
+      # a green pull request from a private fork must not read as a validated one.
+      - name: Say that the macOS jobs are skipped
+        if: github.event.repository.private == true || github.event.repository.visibility != 'public'
+        run: |
+          {
+            echo "### macOS build and tests were skipped"
+            echo
+            echo "This repository is private, so \`build\`, \`tests\`, \`concurrency\` and the"
+            echo "platform builds did not start — they are paid-runner jobs. The portable gates"
+            echo "in this job ran. Nothing here compiled the Swift in this change."
+            echo
+            echo "Policy: \`Tools/Validation/repository-validation/test_workflow_policy.py\`,"
+            echo "\`test_free_only_workflow_policy\`. Validate a change that must be compiled in a"
+            echo "public fork."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=macOS validation skipped::private repository; the app was not built and its tests did not run"
 
   # ---------------------------------------------------------------------------
   # Does it compile?
@@ -372,15 +400,18 @@ jobs:
           # before exiting so diagnostics never receive an "unknown" status.
           set +e
           set -uo pipefail
+          # `licenseplist` ships a build-tool plugin that Xcode wants a human to
+          # approve; the approval is per-user DerivedData, so a runner can never
+          # have it. The plugin still runs; only the trust prompt is skipped. Same
+          # flag as the Makefile targets, and the package is pinned exactly.
           xcodebuild \
+            -skipPackagePluginValidation \
             -workspace VexSign.xcworkspace \
             -scheme VexSign \
             -configuration Debug \
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$DERIVED_DATA" \
             -resultBundlePath "$RESULT_BUNDLE" \
-            -skipPackagePluginValidation \
-            -skipMacroValidation \
             VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -543,6 +574,14 @@ jobs:
           REQUESTED_XCODE: ${{ inputs.xcode || vars.BUILD_XCODE || '' }}
         run: bash .github/scripts/select_xcode.sh
 
+      # The quick gate runs on Linux, where there is no swiftc, so its syntax parse is
+      # skipped and a green run says nothing about the Swift it never read. This job has
+      # the toolchain: parse every first-party module here, before the slower test build,
+      # and make a missing toolchain fatal instead of a warning.
+      - name: Swift syntax parse · every module
+        run: |
+          SWIFTC="$(xcrun --find swiftc)" python3 .github/scripts/quick_check.py --root . --require-swiftc
+
       # Isolated macOS tests compile the exact production foundation sources.
       # No IDevice binary, network service, account, signing identity or iPhone.
       - name: Device foundation · parser, storage and executor
@@ -608,6 +647,7 @@ jobs:
           set +e
           set -uo pipefail
           xcodebuild \
+            -skipPackagePluginValidation \
             -workspace VexSign.xcworkspace \
             -scheme VexSignTests \
             -configuration Debug \
@@ -617,8 +657,7 @@ jobs:
             -only-testing:VexSignTests \
             -parallel-testing-enabled YES \
             -parallel-testing-worker-count 2 \
-            -skipPackagePluginValidation \
-            -skipMacroValidation \
+            -enableCodeCoverage YES \
             VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
             CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_REQUIRED=YES \
@@ -666,17 +705,42 @@ jobs:
             --title "Tests" \
             --workspace "$GITHUB_WORKSPACE"
 
-      # The shared VexSignTests scheme enables code coverage. Report the overall
-      # number and the least-covered first-party files so test work (and the
-      # try?/singleton burn-down) can be targeted instead of guessed at.
-      # Reporting only: this never turns a passing test run red.
+      # The shared VexSignTests scheme enables code coverage, and `-enableCodeCoverage
+      # YES` above repeats it on the command line because the scheme setting alone has
+      # been lost before: this step used to log "Could not read coverage … skipping" on
+      # every run, leaving an empty artifact and no least-covered list.
+      #
+      # Reporting only: a low number never turns a passing test run red. A *missing*
+      # number is different — coverage_report.py exits 1 so this step turns orange with
+      # xccov's own message, instead of looking like a clean step that did nothing.
       - name: Report coverage
+        id: coverage
         if: always() && steps.test.outcome != 'skipped'
         continue-on-error: true
         run: |
+          # The baseline turns the number into a trend. It is recorded from a green run
+          # (--update-baseline) and committed; a null baseline prints no delta rather than a
+          # made-up one, so the first run after this change is not a regression.
           python3 .github/scripts/coverage_report.py \
             --result-bundle "$RESULT_BUNDLE" \
-            --json "${RUNNER_TEMP}/coverage.json"
+            --json "${RUNNER_TEMP}/coverage.json" \
+            --fail-under 20 \
+            --baseline VexSign/Tools/Validation/repository-validation/coverage-baseline.json \
+            --github-output "$GITHUB_OUTPUT"
+
+      # The floor, as its own step so a *missing* number keeps the tolerant behaviour above
+      # (orange, with xccov's own message) while a *measured* number below the floor turns the
+      # job red. Twenty percent is a collapse detector, not a quality bar: a suite that stops
+      # running, or a target dropped from the scheme, lands here. Raise it after reading a real
+      # run rather than by guessing, and lower it only as a deliberate change to this file.
+      - name: Coverage floor
+        if: always() && steps.coverage.outputs.floor_status == 'below_floor'
+        env:
+          PERCENT: ${{ steps.coverage.outputs.percent }}
+          FLOOR: ${{ steps.coverage.outputs.floor }}
+        run: |
+          echo "::error::Line coverage ${PERCENT}% is below the ${FLOOR}% floor."
+          exit 1
 
       - name: Upload coverage report
         if: always() && steps.test.outcome != 'skipped'
@@ -684,8 +748,10 @@ jobs:
         with:
           name: coverage-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/coverage.json
+          # Longer than every other artifact: this is a trend, not a failure log, and the
+          # least-covered list is only useful while the previous run is still there.
           if-no-files-found: ignore
-          retention-days: 3
+          retention-days: 30
 
       # A failure is usually a destination or embedding problem, not an
       # assertion. Print what this runner actually offers.
@@ -723,7 +789,7 @@ jobs:
   concurrency:
     if: >-
       github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
-    name: concurrency · first-party packages (report)
+    name: concurrency · first-party packages (ratchet)
     needs: quick
     runs-on: macos-15
     timeout-minutes: 30
@@ -769,6 +835,19 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit "${status}"
+
+      # Its own step, without `continue-on-error`: a package that will not build stays tolerated
+      # above, but first-party diagnostics growing is a regression this job is supposed to catch.
+      # Vendored checkouts are outside the count — nobody here can fix them, and they used to be
+      # the reason the report could only ever be a report.
+      - name: Strict concurrency ratchet
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/strict_concurrency_ratchet.py \
+            --log "${RUNNER_TEMP}/strict-concurrency.log" \
+            --baseline VexSign/Tools/Validation/repository-validation/strict-concurrency-baseline.json \
+            --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Upload log
         if: always()

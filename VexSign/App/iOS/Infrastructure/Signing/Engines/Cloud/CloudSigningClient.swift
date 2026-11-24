@@ -394,13 +394,20 @@ final class CloudSigningClient: ObservableObject {
 	}
 
 	/// Sends a JSON request and either returns the body of a 2xx or throws a classified error.
+	/// Every endpoint this client talks to answers with a JSON document; the signed artifact is
+	/// never fetched here (`signRemotely` is gated). The cap keeps a misbehaving or hostile
+	/// service from setting the app's peak memory through a response the contract cannot use.
+	private static let _responseCap: Int64 = 8 * 1024 * 1024
+
 	private func _send(_ request: URLRequest, using session: URLSession = .shared) async throws -> Data {
 		let data: Data
 		let response: URLResponse
 		do {
-			(data, response) = try await session.data(for: request)
+			(data, response) = try await BoundedResponseFetch.fetch(request, maximumBytes: Self._responseCap, session: session)
 		} catch let error as URLError {
 			throw CloudServiceError(.unavailable(code: error.code))
+		} catch {
+			throw CloudServiceError(.malformedResponse)
 		}
 		guard let http = response as? HTTPURLResponse else {
 			throw CloudServiceError(.malformedResponse)

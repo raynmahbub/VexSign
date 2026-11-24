@@ -57,7 +57,7 @@ private struct SpecificAppLockContent: View {
                         .fill(Color.blue.opacity(0.15))
                         .frame(width: 48, height: 48)
                     Image(systemName: "lock.app.dashed")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.title2.weight(.bold))
                         .foregroundStyle(Color.blue)
                 }
 

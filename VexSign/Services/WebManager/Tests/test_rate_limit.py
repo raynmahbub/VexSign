@@ -122,6 +122,60 @@ def test_client_key_survives_a_missing_peer():
     assert rate_limit.client_key(_Request()) == "unknown"
 
 
+def test_explicit_hops_select_from_the_right(monkeypatch):
+    monkeypatch.setenv("VEXSIGN_TRUST_FORWARDED_FOR", "1")
+    monkeypatch.setenv("VEXSIGN_TRUSTED_PROXY_HOPS", "1")
+
+    class _Peer:
+        host = "10.0.0.1"
+
+    class _Request:
+        headers = {"x-forwarded-for": "203.0.113.9, 198.51.100.7"}
+        client = _Peer()
+
+    # One trusted proxy appends the address it saw, so that entry is the client.
+    assert rate_limit.client_key(_Request()) == "198.51.100.7"
+
+
+def test_a_short_forwarded_chain_falls_back_to_the_socket_peer(monkeypatch):
+    """A header shorter than the configured hop count did not cross every proxy.
+
+    Indexing it anyway clamps to entries[0] — the one value the caller controls — so a
+    direct request could pick a fresh bucket per attempt and defeat the limiter.
+    """
+    monkeypatch.setenv("VEXSIGN_TRUST_FORWARDED_FOR", "1")
+    monkeypatch.setenv("VEXSIGN_TRUSTED_PROXY_HOPS", "2")
+
+    class _Peer:
+        host = "10.0.0.1"
+
+    class _Request:
+        headers = {"x-forwarded-for": "203.0.113.9"}
+        client = _Peer()
+
+    assert rate_limit.client_key(_Request()) == "10.0.0.1"
+
+
+def test_a_flood_of_new_keys_cannot_reset_a_budget():
+    """Bounded state must fail closed, not recycle buckets.
+
+    With eviction, a caller who can vary their key resets their own budget simply by
+    creating enough new keys; the shared overflow bucket keeps one flood under one
+    budget instead.
+    """
+    limiter = rate_limit.SlidingWindowLimiter(limit=1, window=60, max_clients=2)
+    assert limiter.retry_after("attacker", now=0.0) is None
+    assert limiter.retry_after("attacker", now=0.0) is not None
+
+    # Fill the table, then keep creating keys: the attacker's bucket must survive.
+    assert limiter.retry_after("someone-else", now=0.0) is None
+    for index in range(20):
+        limiter.retry_after(f"flood-{index}", now=0.0)
+
+    assert limiter.retry_after("attacker", now=0.0) is not None
+    assert "attacker" in limiter._events
+
+
 # ---------------------------------------------------------------------------
 # The endpoints
 # ---------------------------------------------------------------------------

@@ -84,6 +84,7 @@ struct AppCloneSheet: View {
 					.disabled(_isCloning || !_isValid)
 				}
 			}
+			.dismissableKeyboard()
 			.toolbar {
 				NBToolbarButton(role: .cancel)
 			}

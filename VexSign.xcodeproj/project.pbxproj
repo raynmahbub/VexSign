@@ -17,7 +17,6 @@
 		3349E7672DEFB46F00E317ED /* IDeviceSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3349E7662DEFB46F00E317ED /* IDeviceSwift */; };
 		33693A082DC8BF5B00730215 /* AltSourceKit in Frameworks */ = {isa = PBXBuildFile; productRef = 33693A072DC8BF5B00730215 /* AltSourceKit */; };
 		336D43982DB7454A00206400 /* MobileCoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 336D43972DB7454A00206400 /* MobileCoreServices.framework */; };
-		3371F7322DA9ECDD00281AC6 /* Zip in Frameworks */ = {isa = PBXBuildFile; productRef = 3371F7312DA9ECDD00281AC6 /* Zip */; };
 		33CF13392DB5ACFB0021D4C5 /* SWCompression in Frameworks */ = {isa = PBXBuildFile; productRef = 33CF13382DB5ACFB0021D4C5 /* SWCompression */; };
 		3A2F0EE62E96DA5A009DE4CE /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A2F0EBE2E96DA0B009DE4CE /* WidgetKit.framework */; };
 		3A2F0EE72E96DA5A009DE4CE /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A2F0EC02E96DA0B009DE4CE /* SwiftUI.framework */; };
@@ -255,7 +254,6 @@
 				33693A082DC8BF5B00730215 /* AltSourceKit in Frameworks */,
 				3A2F0F0D2E976B67009DE4CE /* IDevice in Frameworks */,
 				33BBAACC112233445566778A /* NativeSigning in Frameworks */,
-				3371F7322DA9ECDD00281AC6 /* Zip in Frameworks */,
 				FADE000100000000000F0001 /* ZIPFoundation in Frameworks */,
 				3305BBAC2DB8944200660D45 /* Vapor in Frameworks */,
 				3346F83B2DC6C6D100C7D508 /* NukeUI in Frameworks */,
@@ -389,7 +387,6 @@
 			);
 			name = VexSign;
 packageProductDependencies = (
-			3371F7312DA9ECDD00281AC6 /* Zip */,
 			FADE000100000000000F0002 /* ZIPFoundation */,
 			33CF13382DB5ACFB0021D4C5 /* SWCompression */,
 			3305BBAB2DB8944200660D45 /* Vapor */,
@@ -599,7 +596,6 @@ packageProductDependencies = (
 			minimizedProjectReferenceProxies = 1;
 packageReferences = (
 			3371F5152DA91FDC00281AC6 /* XCLocalSwiftPackageReference "Zsign" */,
-			3371F6F52DA9EBA500281AC6 /* XCRemoteSwiftPackageReference "Zip" */,
 			FADE000100000000000F0003 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 			33CF13372DB5ACFB0021D4C5 /* XCRemoteSwiftPackageReference "SWCompression" */,
 			3305BBAA2DB8944200660D45 /* XCRemoteSwiftPackageReference "vapor" */,
@@ -708,7 +704,7 @@ packageReferences = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nOUTPUT=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FilePickerFix.dylib\"\nmkdir -p \"$(dirname \"${OUTPUT}\")\"\nPLATFORM=\"${PLATFORM_NAME:-iphoneos}\"\nSDK=\"${SDKROOT:-$(xcrun --sdk \"${PLATFORM}\" --show-sdk-path)}\"\nDEPLOY=\"${IPHONEOS_DEPLOYMENT_TARGET:-16.0}\"\nARCH=\"${CURRENT_ARCH:-arm64}\"\nif [ \"${ARCH}\" = \"undefined_arch\" ] || [ -z \"${ARCH}\" ]; then ARCH=\"arm64\"; fi\nif [ \"${PLATFORM}\" = \"iphonesimulator\" ]; then\n  TARGET=\"${ARCH}-apple-ios${DEPLOY}-simulator\"\nelse\n  TARGET=\"${ARCH}-apple-ios${DEPLOY}\"\nfi\nxcrun clang -dynamiclib -fobjc-arc -Os -target \"${TARGET}\" -isysroot \"${SDK}\" -Wno-deprecated-declarations -framework Foundation -framework UIKit -install_name @executable_path/Frameworks/FilePickerFix.dylib -o \"${OUTPUT}\" \"${SRCROOT}/VexSign/Configuration/Build/FilePickerFix.m\"\n";
+			shellScript = "set -e\nOUTPUT=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FilePickerFix.dylib\"\nmkdir -p \"$(dirname \"${OUTPUT}\")\"\nPLATFORM=\"${PLATFORM_NAME:-iphoneos}\"\nSDK=\"${SDKROOT:-$(xcrun --sdk \"${PLATFORM}\" --show-sdk-path)}\"\nDEPLOY=\"${IPHONEOS_DEPLOYMENT_TARGET:-17.0}\"\nARCH=\"${CURRENT_ARCH:-arm64}\"\nif [ \"${ARCH}\" = \"undefined_arch\" ] || [ -z \"${ARCH}\" ]; then ARCH=\"arm64\"; fi\nif [ \"${PLATFORM}\" = \"iphonesimulator\" ]; then\n  TARGET=\"${ARCH}-apple-ios${DEPLOY}-simulator\"\nelse\n  TARGET=\"${ARCH}-apple-ios${DEPLOY}\"\nfi\nxcrun clang -dynamiclib -fobjc-arc -Os -target \"${TARGET}\" -isysroot \"${SDK}\" -Wno-deprecated-declarations -framework Foundation -framework UIKit -install_name @executable_path/Frameworks/FilePickerFix.dylib -o \"${OUTPUT}\" \"${SRCROOT}/VexSign/Configuration/Build/FilePickerFix.m\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -823,7 +819,7 @@ packageReferences = (
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEVELOPMENT_TEAM = 566RT33SA2;
+				DEVELOPMENT_TEAM = S4Q99652S6;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -879,7 +875,7 @@ packageReferences = (
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEVELOPMENT_TEAM = 566RT33SA2;
+				DEVELOPMENT_TEAM = S4Q99652S6;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -960,8 +956,6 @@ packageReferences = (
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TVOS_DEPLOYMENT_TARGET = 16.0;
-				XROS_DEPLOYMENT_TARGET = 2.2;
 			};
 			name = Debug;
 		};
@@ -1027,8 +1021,6 @@ packageReferences = (
 				SWIFT_OBJC_BRIDGING_HEADER = "VexSign/Configuration/Build/iOS/VexSign-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TVOS_DEPLOYMENT_TARGET = 16.0;
-				XROS_DEPLOYMENT_TARGET = 2.2;
 			};
 			name = Release;
 		};
@@ -1063,7 +1055,7 @@ packageReferences = (
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEVELOPMENT_TEAM = 566RT33SA2;
+				DEVELOPMENT_TEAM = S4Q99652S6;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -1153,8 +1145,6 @@ packageReferences = (
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TVOS_DEPLOYMENT_TARGET = 16.0;
-				XROS_DEPLOYMENT_TARGET = 2.2;
 			};
 			name = "Debug-distribution";
 		};
@@ -1214,7 +1204,7 @@ packageReferences = (
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEVELOPMENT_TEAM = 566RT33SA2;
+				DEVELOPMENT_TEAM = S4Q99652S6;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -1293,8 +1283,6 @@ packageReferences = (
 				SWIFT_OBJC_BRIDGING_HEADER = "VexSign/Configuration/Build/iOS/VexSign-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TVOS_DEPLOYMENT_TARGET = 16.0;
-				XROS_DEPLOYMENT_TARGET = 2.2;
 			};
 			name = "Release-distribution";
 		};
@@ -2174,14 +2162,6 @@ packageReferences = (
 				version = 12.8.0;
 			};
 		};
-		3371F6F52DA9EBA500281AC6 /* XCRemoteSwiftPackageReference "Zip" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/marmelroy/Zip";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.1.2;
-			};
-		};
 		339776052DC9D05C00642FFB /* XCRemoteSwiftPackageReference "LicensePlist" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mono0926/LicensePlist";
@@ -2246,11 +2226,6 @@ packageReferences = (
 		AA11CE57A170000000000002 /* AltSourceKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AltSourceKit;
-		};
-		3371F7312DA9ECDD00281AC6 /* Zip */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 3371F6F52DA9EBA500281AC6 /* XCRemoteSwiftPackageReference "Zip" */;
-			productName = Zip;
 		};
 		339776062DC9D0F800642FFB /* LicensePlistBuildTool */ = {
 			isa = XCSwiftPackageProductDependency;

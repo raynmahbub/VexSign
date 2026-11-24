@@ -84,6 +84,10 @@ enum IPSWBrowser {
 
 	static let apiBase = "https://api.ipsw.me/v4"
 
+	/// The whole catalogue for one device is a few hundred kilobytes; the cap is a
+	/// bound on the answer, not a limit users are expected to reach.
+	static let maximumResponseBytes: Int64 = 8 * 1024 * 1024
+
 	// MARK: URLs
 
 	static func devicesURL() -> URL? {
@@ -148,7 +152,11 @@ enum IPSWBrowser {
 
 	private static func _data(from url: URL, session: URLSession) async throws -> Data {
 		do {
-			let (data, _) = try await session.data(from: url)
+			let (data, _) = try await BoundedResponseFetch.fetch(
+				URLRequest(url: url),
+				maximumBytes: Self.maximumResponseBytes,
+				session: session
+			)
 			return data
 		} catch {
 			throw BrowserError.transport(error.localizedDescription)

@@ -66,7 +66,7 @@ struct BatchProgressView: View {
 					.trim(from: 0, to: _fraction)
 					.stroke(_accent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
 					.rotationEffect(.degrees(-90))
-					.animation(.smooth, value: _fraction)
+					.appAnimation(.smooth, value: _fraction)
 
 				Image(systemName: _summaryIcon)
 					.font(.system(size: 26, weight: .medium))
@@ -235,7 +235,7 @@ private struct BatchInstallStatusView: View {
     let setFallbackPresented: (Bool) -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ProgressView(value: installer.overallProgress).animation(.smooth, value: installer.overallProgress)
+            ProgressView(value: installer.overallProgress).appAnimation(.smooth, value: installer.overallProgress)
             Label(installer.presentation.label(verificationAttempt: installer.verificationAttempt), systemImage: installer.presentation.symbol)
                 .font(.subheadline).foregroundStyle(.secondary).labelStyle(.titleAndIcon).lineLimit(1)
         }

@@ -27,6 +27,23 @@ enum IPAFileKind: String, Sendable {
 	}
 }
 
+/// How much of a file a preview may read.
+///
+/// Both preview screens read whole files into memory on the main thread while they
+/// appeared, so a `.pdf`, an image or a log file of a few hundred megabytes was a
+/// freeze (and a memory spike) rather than a screen. The numbers live here so the
+/// reader, the preview loader and the notice they show cannot disagree.
+enum FilePreviewLimit {
+	/// Editable text and property lists. Generous for a `.strings` file or a config,
+	/// far below anything that would make an in-place editor unusable.
+	static let textBytes: Int64 = 8 * 1024 * 1024
+	/// Bitmap and PDF previews, decoded for display.
+	static let imageBytes: Int64 = 12 * 1024 * 1024
+	/// The hex dump and the strings extractor already read through `head(of:count:)`.
+	static let hexBytes = 1024
+	static let stringsBytes = 64 * 1024
+}
+
 // MARK: - Entry
 struct IPAFileEntry: Identifiable, Hashable, SortableItem, Sendable {
 	let url: URL

@@ -61,7 +61,7 @@ struct JITSettingsView: View {
                         .fill(Color.teal.opacity(0.15))
                         .frame(width: 44, height: 44)
                     Image(systemName: "bolt.badge.automatic.fill")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.title3.weight(.bold))
                         .foregroundStyle(Color.teal)
                 }
 
@@ -134,7 +134,7 @@ struct JITSettingsView: View {
         NBSection(.localized("JIT Support Status")) {
             LabeledContent(
                 .localized("In-App Debugserver JIT"),
-                value: String.localized("Not Implemented")
+                value: String.localized("Not supported in this build")
             )
             LabeledContent(
                 .localized("TrollStore Install Detected"),

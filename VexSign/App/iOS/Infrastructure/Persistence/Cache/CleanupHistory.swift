@@ -104,15 +104,30 @@ enum StorageRules {
 		set { UserDefaults.standard.set(newValue, forKey: warnGigabytesKey) }
 	}
 
-	static func warnIfOverLimit() {
-		guard warnGigabytes > 0 else { return }
-		let used = FileManager.default.allocatedSize(at: URL.documentsDirectory)
-		let limit = Int64(warnGigabytes) * 1_000_000_000
-		guard used > limit else { return }
-		Toast.error(
-			.localized("VexSign is using %@ — over the %lld GB warning.", arguments: used.formattedFileSize, warnGigabytes),
-			duration: .long
-		)
+	/// Whether `used` bytes is past a warning threshold expressed in GB. `0` GB means
+	/// the rule is off, not "warn about anything over zero bytes".
+	static func isOverLimit(used: Int64, gigabytes: Int) -> Bool {
+		guard gigabytes > 0 else { return false }
+		return used > Int64(gigabytes) * 1_000_000_000
+	}
+
+	/// Runs the launch-time size check. The recursive size walk happens off the main
+	/// actor: it touches every file in Documents, and on a library with a few signed
+	/// IPAs that is long enough to be a visible stall on the first frame after launch.
+	/// Only the comparison and the toast return to the main actor.
+	static func warnIfOverLimit() async {
+		let gigabytes = warnGigabytes
+		guard gigabytes > 0 else { return }
+		let used = await Task.detached(priority: .utility) {
+			FileManager.default.allocatedSize(at: URL.documentsDirectory)
+		}.value
+		guard isOverLimit(used: used, gigabytes: gigabytes) else { return }
+		await MainActor.run {
+			Toast.error(
+				.localized("VexSign is using %@ — over the %lld GB warning.", arguments: used.formattedFileSize, gigabytes),
+				duration: .long
+			)
+		}
 	}
 
 	/// Prunes duplicate signed copies of the same app and keeps one of each: the highest version,

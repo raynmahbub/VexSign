@@ -1468,9 +1468,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld updates found. Enable “Sign & queue” in Settings → Automation to sign them automatically."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld update found. Enable “Sign & queue” in Settings → Automation to sign them automatically."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld updates found. Enable “Sign & queue” in Settings → Automation to sign them automatically."
+                }
+              }
+            }
           }
         }
       }
@@ -1479,9 +1491,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld apps signed and queued for install."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld app signed and queued for install."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld apps signed and queued for install."
+                }
+              }
+            }
           }
         }
       }
@@ -1600,9 +1624,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld categories cleaned"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld category cleaned"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld categories cleaned"
+                }
+              }
+            }
           }
         }
       }
@@ -1831,9 +1867,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“%@” is injected %lld times. Duplicate injections can make the sign fail."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "“%@” is injected %lld time. Duplicate injections can make the sign fail."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "“%@” is injected %lld times. Duplicate injections can make the sign fail."
+                }
+              }
+            }
           }
         }
       }
@@ -1886,9 +1934,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld files"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld file"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld files"
+                }
+              }
+            }
           }
         }
       }
@@ -2051,9 +2111,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld dylibs"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld dylib"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld dylibs"
+                }
+              }
+            }
           }
         }
       }
@@ -2062,9 +2134,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld frameworks"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld framework"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld frameworks"
+                }
+              }
+            }
           }
         }
       }
@@ -2073,9 +2157,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld bundles"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bundle"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bundles"
+                }
+              }
+            }
           }
         }
       }
@@ -2128,9 +2224,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ - %lld Versions"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%@ - %lld Version"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%@ - %lld Versions"
+                }
+              }
+            }
           }
         }
       }
@@ -2139,9 +2247,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld versions available"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld version available"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld versions available"
+                }
+              }
+            }
           }
         }
       }
@@ -2249,9 +2369,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld files reverted"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld file reverted"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld files reverted"
+                }
+              }
+            }
           }
         }
       }
@@ -2733,9 +2865,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld extensions"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld extension"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld extensions"
+                }
+              }
+            }
           }
         }
       }
@@ -2799,9 +2943,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld Updates"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Update"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Updates"
+                }
+              }
+            }
           }
         }
       }
@@ -2832,9 +2988,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld versions"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld version"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld versions"
+                }
+              }
+            }
           }
         }
       }
@@ -2876,9 +3044,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Updating %lld apps…"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Updating %lld app…"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Updating %lld apps…"
+                }
+              }
+            }
           }
         }
       }
@@ -3349,9 +3529,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld updates found"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld update found"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld updates found"
+                }
+              }
+            }
           }
         }
       }
@@ -3756,9 +3948,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deleted %lld items"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Deleted %lld item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Deleted %lld items"
+                }
+              }
+            }
           }
         }
       }
@@ -3998,9 +4202,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld apps"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld app"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld apps"
+                }
+              }
+            }
           }
         }
       }
@@ -4042,9 +4258,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Preview truncated at %lld characters."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Preview truncated at %lld character."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Preview truncated at %lld characters."
+                }
+              }
+            }
           }
         }
       }
@@ -4064,9 +4292,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Added %lld items"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Added %lld item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Added %lld items"
+                }
+              }
+            }
           }
         }
       }
@@ -8969,9 +9209,21 @@
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld items"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items"
+                }
+              }
+            }
           }
         },
         "es" : {
@@ -9052,9 +9304,21 @@
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld items · %@"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item · %@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items · %@"
+                }
+              }
+            }
           }
         },
         "es" : {
@@ -9837,9 +10101,21 @@
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld Sources"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Source"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Sources"
+                }
+              }
+            }
           }
         },
         "id" : {
@@ -22348,172 +22624,6 @@
         }
       }
     },
-    "Couldn't read your certificate. Check the certificate and its password." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تعذّرت قراءة شهادتك. تحقق من الشهادة وكلمة مرورها."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Váš certifikát se nepodařilo načíst. Zkontrolujte certifikát a jeho heslo."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dein Zertifikat konnte nicht gelesen werden. Prüfe das Zertifikat und sein Passwort."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't read your certificate. Check the certificate and its password."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo leer tu certificado. Comprueba el certificado y su contraseña."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impossible de lire votre certificat. Vérifiez le certificat et son mot de passe."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tidak dapat membaca sertifikat Anda. Periksa sertifikat dan kata sandinya."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impossibile leggere il tuo certificato. Controlla il certificato e la relativa password."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nie można odczytać certyfikatu. Sprawdź certyfikat i jego hasło."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось прочитать сертификат. Проверьте сертификат и его пароль."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sertifikanız okunamadı. Sertifikayı ve parolasını kontrol edin."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Không thể đọc chứng chỉ của bạn. Kiểm tra chứng chỉ và mật khẩu của nó."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法读取你的证书。请检查证书及其密码。"
-          }
-        }
-      }
-    },
-    "Couldn't read your provisioning profile." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تعذّرت قراءة ملف التوصيف الخاص بك."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nepodařilo se načíst váš provisioning profil."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dein Provisioning-Profil konnte nicht gelesen werden."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't read your provisioning profile."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo leer tu perfil de aprovisionamiento."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impossible de lire votre profil de provisionnement."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tidak dapat membaca profil provisioning Anda."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impossibile leggere il tuo profilo di provisioning."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nie można odczytać profilu provisioning."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось прочитать профиль подготовки."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Provizyon profiliniz okunamadı."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Không thể đọc hồ sơ cấp phép của bạn."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法读取你的描述文件。"
-          }
-        }
-      }
-    },
     "Create" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -34836,255 +34946,6 @@
         }
       }
     },
-    "IDevice updates need a pairing file. Set it up in Installation settings, or switch to Server." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تتطلب تحديثات IDevice ملف اقتران. قم بإعداده من إعدادات التثبيت، أو بدّل إلى الخادم."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizace přes IDevice vyžadují párovací soubor. Nastavte jej v nastavení Instalace, nebo přepněte na Server."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice-Updates benötigen eine Pairing-Datei. Richte sie in den Installationseinstellungen ein oder wechsle zu Server."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice updates need a pairing file. Set it up in Installation settings, or switch to Server."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Las actualizaciones por IDevice necesitan un archivo de emparejamiento. Configúralo en los ajustes de Instalación o cambia a Servidor."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les mises à jour IDevice nécessitent un fichier d'appairage. Configurez-le dans les réglages d'Installation, ou passez au Serveur."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pembaruan IDevice memerlukan berkas pemasangan. Atur di pengaturan Instalasi, atau beralih ke Server."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gli aggiornamenti IDevice richiedono un file di associazione. Configuralo nelle impostazioni di Installazione o passa a Server."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizacje IDevice wymagają pliku parowania. Skonfiguruj go w ustawieniach Instalacji lub przełącz na Serwer."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Для обновлений через IDevice нужен файл сопряжения. Настройте его в разделе «Установка» или переключитесь на Сервер."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice güncellemeleri bir eşleştirme dosyası gerektirir. Kurulum ayarlarından yapılandırın veya Sunucu'ya geçin."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cập nhật IDevice cần tệp ghép nối. Thiết lập trong cài đặt Cài đặt, hoặc chuyển sang Máy chủ."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice 更新需要配对文件。请在“安装”设置中配置，或切换到服务器。"
-          }
-        }
-      }
-    },
-    "IDevice updates need the loopback VPN connected. Enable LocalDevVPN, then update." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تتطلب تحديثات IDevice تفعيل شبكة VPN المحلية. فعّل LocalDevVPN ثم حدّث."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizace přes IDevice vyžadují připojenou smyčkovou VPN. Zapněte LocalDevVPN a poté aktualizujte."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice-Updates benötigen die verbundene Loopback-VPN. Aktiviere LocalDevVPN und aktualisiere dann."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice updates need the loopback VPN connected. Enable LocalDevVPN, then update."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Las actualizaciones por IDevice necesitan la VPN de bucle invertido conectada. Activa LocalDevVPN y luego actualiza."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les mises à jour IDevice nécessitent le VPN loopback connecté. Activez LocalDevVPN, puis mettez à jour."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pembaruan IDevice memerlukan VPN loopback yang terhubung. Aktifkan LocalDevVPN, lalu perbarui."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gli aggiornamenti IDevice richiedono la VPN di loopback connessa. Attiva LocalDevVPN, quindi aggiorna."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizacje IDevice wymagają połączonej pętli zwrotnej VPN. Włącz LocalDevVPN, a następnie zaktualizuj."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Для обновлений через IDevice нужен подключённый петлевой VPN. Включите LocalDevVPN, затем обновите."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice güncellemeleri, bağlı geri döngü VPN'i gerektirir. LocalDevVPN'i etkinleştirin, ardından güncelleyin."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cập nhật IDevice cần VPN loopback được kết nối. Bật LocalDevVPN, sau đó cập nhật."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice 更新需要已连接的回环 VPN。请启用 LocalDevVPN，然后更新。"
-          }
-        }
-      }
-    },
-    "IDevice: the update is signed on-device and installed over a pairing file." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice: يُوقَّع التحديث على الجهاز ويُثبَّت عبر ملف اقتران."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice: aktualizace se podepíše přímo v zařízení a nainstaluje přes párovací soubor."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice: Das Update wird auf dem Gerät signiert und über eine Pairing-Datei installiert."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice: the update is signed on-device and installed over a pairing file."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice: la actualización se firma en el dispositivo y se instala mediante un archivo de emparejamiento."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice : la mise à jour est signée sur l'appareil et installée via un fichier d'appairage."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice: pembaruan ditandatangani di perangkat dan dipasang melalui berkas pemasangan."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice: l'aggiornamento viene firmato sul dispositivo e installato tramite un file di associazione."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice: aktualizacja jest podpisywana na urządzeniu i instalowana przez plik parowania."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice: обновление подписывается на устройстве и устанавливается через файл сопряжения."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice: güncelleme cihazda imzalanır ve bir eşleştirme dosyası üzerinden yüklenir."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice: bản cập nhật được ký trên thiết bị và cài đặt qua tệp ghép nối."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "IDevice：更新在设备上签名，并通过配对文件安装。"
-          }
-        }
-      }
-    },
     "If any issues occur within the app please report it via the GitHub repository. When submitting an issue, make sure to submit detailed information." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -38950,9 +38811,21 @@
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Install %lld Apps"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Install %lld App"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Install %lld Apps"
+                }
+              }
+            }
           }
         },
         "es" : {
@@ -40812,9 +40685,21 @@
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Latest %lld apps"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Latest %lld app"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Latest %lld apps"
+                }
+              }
+            }
           }
         },
         "es" : {
@@ -46714,89 +46599,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无结果"
-          }
-        }
-      }
-    },
-    "No signing certificate selected. Choose one in Update settings." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "لم يتم اختيار شهادة توقيع. اختر واحدة من إعدادات التحديث."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Není vybrán žádný podpisový certifikát. Vyberte jej v nastavení Aktualizací."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kein Signaturzertifikat ausgewählt. Wähle eines in den Update-Einstellungen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No signing certificate selected. Choose one in Update settings."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se ha seleccionado ningún certificado de firma. Elige uno en los ajustes de Actualizaciones."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucun certificat de signature sélectionné. Choisissez-en un dans les réglages de Mise à jour."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tidak ada sertifikat penandatanganan yang dipilih. Pilih salah satu di pengaturan Pembaruan."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nessun certificato di firma selezionato. Scegline uno nelle impostazioni Aggiornamenti."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nie wybrano certyfikatu podpisu. Wybierz go w ustawieniach Aktualizacji."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не выбран сертификат подписи. Выберите его в настройках обновлений."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "İmzalama sertifikası seçilmedi. Güncelleme ayarlarından birini seçin."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chưa chọn chứng chỉ ký. Hãy chọn một chứng chỉ trong cài đặt Cập nhật."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未选择签名证书。请在“更新”设置中选择一个。"
           }
         }
       }
@@ -60947,172 +60749,6 @@
         }
       }
     },
-    "Selected Certificate" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الشهادة المحددة"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vybraný certifikát"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ausgewähltes Zertifikat"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Selected Certificate"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Certificado seleccionado"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Certificat sélectionné"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sertifikat terpilih"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Certificato selezionato"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wybrany certyfikat"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Выбранный сертификат"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Seçili sertifika"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chứng chỉ đã chọn"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所选证书"
-          }
-        }
-      }
-    },
-    "Selected certificate files are missing." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ملفات الشهادة المحددة مفقودة."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Soubory vybraného certifikátu chybí."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Dateien des ausgewählten Zertifikats fehlen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Selected certificate files are missing."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Faltan los archivos del certificado seleccionado."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les fichiers du certificat sélectionné sont introuvables."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Berkas sertifikat yang dipilih tidak ada."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "I file del certificato selezionato sono mancanti."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Brakuje plików wybranego certyfikatu."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Файлы выбранного сертификата отсутствуют."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Seçili sertifika dosyaları eksik."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thiếu tệp chứng chỉ đã chọn."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所选证书的文件缺失。"
-          }
-        }
-      }
-    },
     "Semi Local" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -61767,89 +61403,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "服务器类型"
-          }
-        }
-      }
-    },
-    "Server: your certificate is sent over HTTPS, the update is signed remotely, and iOS installs it. No pairing file needed." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الخادم: تُرسَل شهادتك عبر HTTPS، ويُوقَّع التحديث عن بُعد، ثم يثبّته iOS. لا حاجة لملف اقتران."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server: váš certifikát se odešle přes HTTPS, aktualizace se podepíše vzdáleně a iOS ji nainstaluje. Párovací soubor není potřeba."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server: Dein Zertifikat wird über HTTPS gesendet, das Update wird remote signiert und iOS installiert es. Keine Pairing-Datei nötig."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server: your certificate is sent over HTTPS, the update is signed remotely, and iOS installs it. No pairing file needed."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Servidor: tu certificado se envía por HTTPS, la actualización se firma de forma remota e iOS la instala. No se necesita archivo de emparejamiento."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Serveur : votre certificat est envoyé via HTTPS, la mise à jour est signée à distance et iOS l'installe. Aucun fichier d'appairage requis."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server: sertifikat Anda dikirim melalui HTTPS, pembaruan ditandatangani dari jarak jauh, dan iOS memasangnya. Tidak perlu berkas pemasangan."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server: il tuo certificato viene inviato via HTTPS, l'aggiornamento viene firmato da remoto e iOS lo installa. Nessun file di associazione necessario."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Serwer: Twój certyfikat jest wysyłany przez HTTPS, aktualizacja jest podpisywana zdalnie, a iOS ją instaluje. Plik parowania nie jest potrzebny."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сервер: ваш сертификат отправляется по HTTPS, обновление подписывается удалённо, и iOS его устанавливает. Файл сопряжения не нужен."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sunucu: sertifikanız HTTPS üzerinden gönderilir, güncelleme uzaktan imzalanır ve iOS onu yükler. Eşleştirme dosyası gerekmez."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Máy chủ: chứng chỉ của bạn được gửi qua HTTPS, bản cập nhật được ký từ xa và iOS cài đặt. Không cần tệp ghép nối."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "服务器：你的证书通过 HTTPS 发送，更新在远端签名，由 iOS 安装。无需配对文件。"
           }
         }
       }
@@ -63720,9 +63273,21 @@
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign %lld Apps"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sign %lld App"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sign %lld Apps"
+                }
+              }
+            }
           }
         },
         "es" : {
@@ -68641,89 +68206,6 @@
         }
       }
     },
-    "That version isn't a published release." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "هذا الإصدار ليس إصدارًا منشورًا."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tato verze není publikovaným vydáním."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Diese Version ist kein veröffentlichtes Release."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "That version isn't a published release."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esa versión no es una versión publicada."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cette version n'est pas une version publiée."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Versi itu bukan rilis yang dipublikasikan."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quella versione non è una release pubblicata."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ta wersja nie jest opublikowanym wydaniem."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Эта версия не является опубликованным релизом."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bu sürüm yayımlanmış bir sürüm değil."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Phiên bản đó không phải là bản phát hành đã công bố."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "该版本不是已发布的版本。"
-          }
-        }
-      }
-    },
     "The certificate and properties are set once for the whole batch." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -69295,338 +68777,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "源未返回任何数据。如果这是高级源，你的访问权限可能已过期或认证失败。"
-          }
-        }
-      }
-    },
-    "The update couldn't be prepared. Please try again." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تعذّر تحضير التحديث. حاول مرة أخرى."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizaci se nepodařilo připravit. Zkuste to znovu."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das Update konnte nicht vorbereitet werden. Bitte versuche es erneut."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The update couldn't be prepared. Please try again."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo preparar la actualización. Inténtalo de nuevo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impossible de préparer la mise à jour. Veuillez réessayer."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pembaruan tidak dapat disiapkan. Silakan coba lagi."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impossibile preparare l'aggiornamento. Riprova."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nie udało się przygotować aktualizacji. Spróbuj ponownie."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось подготовить обновление. Повторите попытку."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güncelleme hazırlanamadı. Lütfen tekrar deneyin."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Không thể chuẩn bị bản cập nhật. Vui lòng thử lại."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法准备更新。请重试。"
-          }
-        }
-      }
-    },
-    "The update will continue when you reopen the app" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "سيستمر التحديث عند إعادة فتح التطبيق"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizace bude pokračovat po opětovném otevření aplikace"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das Update wird fortgesetzt, wenn du die App erneut öffnest"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The update will continue when you reopen the app"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La actualización continuará cuando vuelvas a abrir la app"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La mise à jour se poursuivra à la réouverture de l'app"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pembaruan akan berlanjut saat Anda membuka aplikasi lagi"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'aggiornamento continuerà quando riaprirai l'app"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizacja będzie kontynuowana po ponownym otwarciu aplikacji"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Обновление продолжится, когда вы снова откроете приложение"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uygulamayı yeniden açtığınızda güncelleme devam edecek"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cập nhật sẽ tiếp tục khi bạn mở lại ứng dụng"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重新打开应用后更新将继续"
-          }
-        }
-      }
-    },
-    "The updater is busy. Try again in a moment." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "المُحدِّث مشغول. حاول مرة أخرى بعد قليل."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizátor je zaneprázdněn. Zkuste to za chvíli."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Updater ist ausgelastet. Versuche es gleich erneut."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The updater is busy. Try again in a moment."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El actualizador está ocupado. Inténtalo de nuevo en un momento."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le programme de mise à jour est occupé. Réessayez dans un instant."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pembaru sedang sibuk. Coba lagi sebentar lagi."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'updater è occupato. Riprova tra un momento."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizator jest zajęty. Spróbuj ponownie za chwilę."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Служба обновления занята. Повторите через момент."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güncelleyici meşgul. Birazdan tekrar deneyin."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Trình cập nhật đang bận. Thử lại sau giây lát."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新程序繁忙。请稍后重试。"
-          }
-        }
-      }
-    },
-    "The updater server returned no install link." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "لم يُرجع خادم التحديث رابط تثبيت."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server aktualizací nevrátil instalační odkaz."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Update-Server hat keinen Installationslink zurückgegeben."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The updater server returned no install link."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El servidor de actualizaciones no devolvió un enlace de instalación."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le serveur de mise à jour n'a renvoyé aucun lien d'installation."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server pembaru tidak mengembalikan tautan pemasangan."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il server di aggiornamento non ha restituito un link di installazione."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Serwer aktualizacji nie zwrócił linku instalacyjnego."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сервер обновлений не вернул ссылку для установки."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güncelleme sunucusu bir kurulum bağlantısı döndürmedi."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Máy chủ cập nhật không trả về liên kết cài đặt."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新服务器未返回安装链接。"
           }
         }
       }
@@ -70515,89 +69665,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此备份需要密码。"
-          }
-        }
-      }
-    },
-    "This build isn't permitted by the updater server." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "لا يسمح خادم التحديث بهذه النسخة."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Toto sestavení server aktualizací nepovoluje."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dieser Build ist vom Update-Server nicht zugelassen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This build isn't permitted by the updater server."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El servidor de actualizaciones no permite esta compilación."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cette version n'est pas autorisée par le serveur de mise à jour."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Build ini tidak diizinkan oleh server pembaru."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questa build non è consentita dal server di aggiornamento."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ta wersja nie jest dozwolona przez serwer aktualizacji."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Эта сборка не разрешена сервером обновлений."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bu derlemeye güncelleme sunucusu izin vermiyor."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bản dựng này không được máy chủ cập nhật cho phép."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新服务器不允许此版本。"
           }
         }
       }
@@ -72673,89 +71740,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "有可用更新：%@"
-          }
-        }
-      }
-    },
-    "Update continuing" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يستمر التحديث"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizace pokračuje"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Update wird fortgesetzt"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Update continuing"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Actualización en curso"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mise à jour en cours"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pembaruan berlanjut"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aggiornamento in corso"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizacja trwa"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Обновление продолжается"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güncelleme sürüyor"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đang tiếp tục cập nhật"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新继续中"
           }
         }
       }
@@ -80065,9 +79049,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld Apps Available"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld App Available"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Apps Available"
+                }
+              }
+            }
           }
         }
       }
@@ -80076,9 +79072,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld Days Before Expiry"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Day Before Expiry"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Days Before Expiry"
+                }
+              }
+            }
           }
         }
       }
@@ -80109,9 +79117,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld Updates Available"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Update Available"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Updates Available"
+                }
+              }
+            }
           }
         }
       }
@@ -80131,9 +79151,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld apps have updates"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld app has updates"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld apps have updates"
+                }
+              }
+            }
           }
         }
       }
@@ -80186,9 +79218,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld days remaining"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day remaining"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days remaining"
+                }
+              }
+            }
           }
         }
       }
@@ -80307,9 +79351,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld retries"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld retry"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld retries"
+                }
+              }
+            }
           }
         }
       }
@@ -80373,9 +79429,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld updates available"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld update available"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld updates available"
+                }
+              }
+            }
           }
         }
       }
@@ -80384,9 +79452,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld updates available."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld update available."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld updates available."
+                }
+              }
+            }
           }
         }
       }
@@ -80549,9 +79629,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A backup that includes certificates contains private keys, so it is only written with a password of at least %lld characters."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "A backup that includes certificates contains private keys, so it is only written with a password of at least %lld character."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "A backup that includes certificates contains private keys, so it is only written with a password of at least %lld characters."
+                }
+              }
+            }
           }
         }
       }
@@ -80560,9 +79652,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A backup that includes certificates needs a password of at least %lld characters, because it contains private keys."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "A backup that includes certificates needs a password of at least %lld character, because it contains private keys."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "A backup that includes certificates needs a password of at least %lld characters, because it contains private keys."
+                }
+              }
+            }
           }
         }
       }
@@ -83079,9 +82183,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Every backup is encrypted. With a password it can be restored on another device; without one it stays readable only on this one. A backup that includes certificates needs a password of at least %lld characters."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Every backup is encrypted. With a password it can be restored on another device; without one it stays readable only on this one. A backup that includes certificates needs a password of at least %lld character."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Every backup is encrypted. With a password it can be restored on another device; without one it stays readable only on this one. A backup that includes certificates needs a password of at least %lld characters."
+                }
+              }
+            }
           }
         }
       }
@@ -86786,9 +85902,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Refreshed %lld repositories."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Refreshed %lld repository."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Refreshed %lld repositories."
+                }
+              }
+            }
           }
         }
       }
@@ -89833,9 +88961,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use at least %lld characters for the backup password."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Use at least %lld character for the backup password."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Use at least %lld characters for the backup password."
+                }
+              }
+            }
           }
         }
       }
@@ -89844,9 +88984,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use at least %lld characters, typed the same twice, to include certificates."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Use at least %lld character, typed the same twice, to include certificates."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Use at least %lld characters, typed the same twice, to include certificates."
+                }
+              }
+            }
           }
         }
       }
@@ -91549,9 +90701,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Duration: %lld seconds"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Duration: %lld second"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Duration: %lld seconds"
+                }
+              }
+            }
           }
         }
       }
@@ -94068,9 +93232,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld items require review in Library"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item requires review in Library"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items require review in Library"
+                }
+              }
+            }
           }
         }
       }
@@ -98864,9 +98040,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld items need review"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item needs review"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items need review"
+                }
+              }
+            }
           }
         }
       }
@@ -99007,9 +98195,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Expires in %lld days"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Expires in %lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Expires in %lld days"
+                }
+              }
+            }
           }
         }
       }
@@ -104749,9 +103949,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld apps · %@"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld app · %@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld apps · %@"
+                }
+              }
+            }
           }
         }
       }
@@ -104760,9 +103972,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld clones"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld clone"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld clones"
+                }
+              }
+            }
           }
         }
       }
@@ -104771,9 +103995,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld sources connected"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld source connected"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld sources connected"
+                }
+              }
+            }
           }
         }
       }
@@ -105035,9 +104271,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Created %lld clones. Re-sign them from Library."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Created %lld clone. Re-sign them from Library."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Created %lld clones. Re-sign them from Library."
+                }
+              }
+            }
           }
         }
       }
@@ -107048,9 +106296,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld operations could not be completed."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld operation could not be completed."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld operations could not be completed."
+                }
+              }
+            }
           }
         }
       }
@@ -107114,9 +106374,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Requested refresh for %lld repositories. Check repository health for results."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Requested refresh for %lld repository. Check repository health for results."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Requested refresh for %lld repositories. Check repository health for results."
+                }
+              }
+            }
           }
         }
       }
@@ -108280,9 +107552,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld sources"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld source"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld sources"
+                }
+              }
+            }
           }
         }
       }
@@ -108500,9 +107784,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld apps currently hidden from Library."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld app currently hidden from Library."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld apps currently hidden from Library."
+                }
+              }
+            }
           }
         }
       }
@@ -108511,9 +107807,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld apps currently require authentication."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld app currently requires authentication."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld apps currently require authentication."
+                }
+              }
+            }
           }
         }
       }
@@ -113244,6 +112552,1166 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This signing profile is still valid. Re-sign before it expires so the app keeps opening."
+          }
+        }
+      }
+    },
+    "Semi Local sends this device's local install link, including its one-time token, to a third-party manifest service (%@), and serves the signed IPA over plain HTTP on your network. Use Fully Local unless the installing device cannot trust your local CA." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Semi Local sends this device's local install link, including its one-time token, to a third-party manifest service (%@), and serves the signed IPA over plain HTTP on your network. Use Fully Local unless the installing device cannot trust your local CA."
+          }
+        }
+      }
+    },
+    "No IPA assets were found in this repository's recent releases. Prereleases are hidden unless enabled." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No IPA assets were found in this repository's recent releases. Prereleases are hidden unless enabled."
+          }
+        }
+      }
+    },
+    "Choose a device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a device"
+          }
+        }
+      }
+    },
+    "Collapse downloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse downloads"
+          }
+        }
+      }
+    },
+    "Expand downloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expand downloads"
+          }
+        }
+      }
+    },
+    "Import Certificate From Link?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Certificate From Link?"
+          }
+        }
+      }
+    },
+    "Minimize downloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimize downloads"
+          }
+        }
+      }
+    },
+    "This link installs a signing certificate and its password. Only continue if you requested it from someone you trust. The certificate is not marked as default; you choose it before it signs anything." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This link installs a signing certificate and its password. Only continue if you requested it from someone you trust. The certificate is not marked as default; you choose it before it signs anything."
+          }
+        }
+      }
+    },
+    "Pause all downloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause all downloads"
+          }
+        }
+      }
+    },
+    "Resume all downloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume all downloads"
+          }
+        }
+      }
+    },
+    "Library Rebuilt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library Rebuilt"
+          }
+        }
+      }
+    },
+    "The app list could not be opened, so VexSign set it aside and started a new one. Installed files and certificates are still on this device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app list could not be opened, so VexSign set it aside and started a new one. Installed files and certificates are still on this device."
+          }
+        }
+      }
+    },
+    "Expired %lld days ago" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Expired %lld day ago"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Expired %lld days ago"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Expires in %lld days — needs a new certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Expires in %lld day — needs a new certificate"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Expires in %lld days — needs a new certificate"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Renew within %lld days" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Renew within %lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Renew within %lld days"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Renews in %lld days" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Renews in %lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Renews in %lld days"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Signing stops on %@. %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing stops on %@. %@"
+          }
+        }
+      }
+    },
+    "Something is still running. Try again when it has finished." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something is still running. Try again when it has finished."
+          }
+        }
+      }
+    },
+    "This file is %@. Previews here are limited to %@, so it was not read." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is %@. Previews here are limited to %@, so it was not read."
+          }
+        }
+      }
+    },
+    "A download, install or signing job is still running. Reset the tweak library when it has finished." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A download, install or signing job is still running. Reset the tweak library when it has finished."
+          }
+        }
+      }
+    },
+    "This file could not be rendered." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file could not be rendered."
+          }
+        }
+      }
+    },
+    "%@ is missing from the tweak package." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is missing from the tweak package."
+          }
+        }
+      }
+    },
+    "A previous sign-out did not finish, so no session material may be written yet. Retry signing out." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A previous sign-out did not finish, so no session material may be written yet. Retry signing out."
+          }
+        }
+      }
+    },
+    "A saved Apple account session is waiting to be checked. Continue with it, or sign out first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A saved Apple account session is waiting to be checked. Continue with it, or sign out first."
+          }
+        }
+      }
+    },
+    "An Apple account sign-in is already in progress. Finish or cancel it before starting another." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An Apple account sign-in is already in progress. Finish or cancel it before starting another."
+          }
+        }
+      }
+    },
+    "Another Apple account session is already in use. Sign out before selecting a different one." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another Apple account session is already in use. Sign out before selecting a different one."
+          }
+        }
+      }
+    },
+    "Apple returned a session without a usable team, or one that has already expired. Sign in again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple returned a session without a usable team, or one that has already expired. Sign in again."
+          }
+        }
+      }
+    },
+    "Choose a signing certificate. Nothing was signed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a signing certificate. Nothing was signed."
+          }
+        }
+      }
+    },
+    "Signing out of the Apple account did not finish. Retry, so no session material is left behind." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing out of the Apple account did not finish. Retry, so no session material is left behind."
+          }
+        }
+      }
+    },
+    "The saved Apple account session changed while it was being checked. Sign out and sign in again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved Apple account session changed while it was being checked. Sign out and sign in again."
+          }
+        }
+      }
+    },
+    "The saved Apple account session record is damaged, so it cannot be trusted. Sign out to clear it, then sign in again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved Apple account session record is damaged, so it cannot be trusted. Sign out to clear it, then sign in again."
+          }
+        }
+      }
+    },
+    "The selected Apple account session is no longer stored on this device. Sign out and sign in again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected Apple account session is no longer stored on this device. Sign out and sign in again."
+          }
+        }
+      }
+    },
+    "The selected certificate expired on %@. Import a current certificate and sign again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected certificate expired on %@. Import a current certificate and sign again."
+          }
+        }
+      }
+    },
+    "The selected certificate has been revoked. Import a valid certificate and sign again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected certificate has been revoked. Import a valid certificate and sign again."
+          }
+        }
+      }
+    },
+    "The server sent more than %@, which is all this request accepts. Nothing was kept." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server sent more than %@, which is all this request accepts. Nothing was kept."
+          }
+        }
+      }
+    },
+    "The tweak archive could not be decompressed. It may be damaged." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The tweak archive could not be decompressed. It may be damaged."
+          }
+        }
+      }
+    },
+    "The tweak archive could not be decompressed: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The tweak archive could not be decompressed: %@"
+          }
+        }
+      }
+    },
+    "The tweak could not be read because access to it was denied. Copy it into VexSign's folder and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The tweak could not be read because access to it was denied. Copy it into VexSign's folder and try again."
+          }
+        }
+      }
+    },
+    "This Apple account session was saved by a newer version of VexSign. Update the app, or sign out to clear it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Apple account session was saved by a newer version of VexSign. Update the app, or sign out to clear it."
+          }
+        }
+      }
+    },
+    "This Debian package's archive could not be read. It may be damaged or not a .deb file." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Debian package's archive could not be read. It may be damaged or not a .deb file."
+          }
+        }
+      }
+    },
+    "This Debian package's archive could not be read: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Debian package's archive could not be read: %@"
+          }
+        }
+      }
+    },
+    "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz or .tar.bz2 package." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz or .tar.bz2 package."
+          }
+        }
+      }
+    },
+    "this" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "this"
+          }
+        }
+      }
+    },
+    "unknown-format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unknown-format"
+          }
+        }
+      }
+    },
+    "Priority" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Priority"
+          }
+        }
+      }
+    },
+    "Sign before it expires, or import a certificate with more time left." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign before it expires, or import a certificate with more time left."
+          }
+        }
+      }
+    },
+    "Download failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download failed"
+          }
+        }
+      }
+    },
+    "Download failed (HTTP %lld)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download failed (HTTP %lld)"
+          }
+        }
+      }
+    },
+    "Download failed: the server could not be reached." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download failed: the server could not be reached."
+          }
+        }
+      }
+    },
+    "Failed to download IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to download IPA"
+          }
+        }
+      }
+    },
+    "Import failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import failed"
+          }
+        }
+      }
+    },
+    "Import failed: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import failed: %@"
+          }
+        }
+      }
+    },
+    "Progress: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progress: %@"
+          }
+        }
+      }
+    },
+    "…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "…"
+          }
+        }
+      }
+    },
+    "Built-in apps are not part of this build" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Built-in apps are not part of this build"
+          }
+        }
+      }
+    },
+    "How the combined build works" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How the combined build works"
+          }
+        }
+      }
+    },
+    "LiveContainer and SideStore ship in the combined build, not in an ordinary install. This copy signs and installs apps; it cannot host them, and nothing is missing from your device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveContainer and SideStore ship in the combined build, not in an ordinary install. This copy signs and installs apps; it cannot host them, and nothing is missing from your device."
+          }
+        }
+      }
+    },
+    "Signing and installation are unaffected: they use the certificate, provisioning profile and transport you already configured." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing and installation are unaffected: they use the certificate, provisioning profile and transport you already configured."
+          }
+        }
+      }
+    },
+    "This build has no embedded runtime." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build has no embedded runtime."
+          }
+        }
+      }
+    },
+    "This layout of the combined app deliberately does not install that hook, so the operation restarts nothing and leaves no state behind." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This layout of the combined app deliberately does not install that hook, so the operation restarts nothing and leaves no state behind."
+          }
+        }
+      }
+    },
+    "VexSign never hands an import to a separately installed container: a detected URL handler does not prove that container would accept the file." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign never hands an import to a separately installed container: a detected URL handler does not prove that container would accept the file."
+          }
+        }
+      }
+    },
+    "This combined build can also host LiveContainer guests." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This combined build can also host LiveContainer guests."
+          }
+        }
+      }
+    },
+    "Downloading %lld files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Downloading %lld file"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Downloading %lld files"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Overall Progress: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overall Progress: %@"
+          }
+        }
+      }
+    },
+    "Provisioning hands the certificate and profile to the normal certificate store; signing then uses the imported-certificate engine. In-process account signing is not enabled in this build." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provisioning hands the certificate and profile to the normal certificate store; signing then uses the imported-certificate engine. In-process account signing is not enabled in this build."
+          }
+        }
+      }
+    },
+    "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.xz, .tar.lzma, .tar.gz, .tar.bz2 or .tar.zst package." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.xz, .tar.lzma, .tar.gz, .tar.bz2 or .tar.zst package."
+          }
+        }
+      }
+    },
+    "No signed copy of VexSign is in Library yet. Download the release IPA, import it, sign it with the certificate you installed VexSign with, then come back here to install it in place." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No signed copy of VexSign is in Library yet. Download the release IPA, import it, sign it with the certificate you installed VexSign with, then come back here to install it in place."
+          }
+        }
+      }
+    },
+    "The copy of VexSign in Library is not signed. Sign it with the certificate you installed VexSign with, then install it from here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The copy of VexSign in Library is not signed. Sign it with the certificate you installed VexSign with, then install it from here."
+          }
+        }
+      }
+    },
+    "The install did not reach the device. Try again from the update sheet." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The install did not reach the device. Try again from the update sheet."
+          }
+        }
+      }
+    },
+    "The signed copy in Library is a different app. An in-place update has to carry VexSign's bundle identifier." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signed copy in Library is a different app. An in-place update has to carry VexSign's bundle identifier."
+          }
+        }
+      }
+    },
+    "The signed copy of VexSign in Library is not newer than the build that is running. iOS only replaces a bundle with a higher version." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signed copy of VexSign in Library is not newer than the build that is running. iOS only replaces a bundle with a higher version."
+          }
+        }
+      }
+    },
+    "iOS installed a different version than the one served (%@)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS installed a different version than the one served (%@)."
+          }
+        }
+      }
+    },
+    "Show All Logs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show All Logs"
+          }
+        }
+      }
+    },
+    "This copy is already installed. Getting VexSign onto a device in the first place needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. Updates do not: sign the release in Library with the certificate this build was signed with, and the update sheet installs it in place. Nothing is ever sent to an updater." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This copy is already installed. Getting VexSign onto a device in the first place needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. Updates do not: sign the release in Library with the certificate this build was signed with, and the update sheet installs it in place. Nothing is ever sent to an updater."
+          }
+        }
+      }
+    },
+    "VexSign cannot perform its first install by itself" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign cannot perform its first install by itself"
+          }
+        }
+      }
+    },
+    "Choose an app package (.ipa, .tipa or .zip), not a certificate or provisioning profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an app package (.ipa, .tipa or .zip), not a certificate or provisioning profile."
+          }
+        }
+      }
+    },
+    "Choose the .p12 (or .pfx), or a .zip / folder that contains the key together with its .mobileprovision profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the .p12 (or .pfx), or a .zip / folder that contains the key together with its .mobileprovision profile."
+          }
+        }
+      }
+    },
+    "This file could not be read. Copy it to this device again and retry the import." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file could not be read. Copy it to this device again and retry the import."
+          }
+        }
+      }
+    },
+    "The host in this build does not implement the entry points this version calls: %@. Install a host build that matches this VexSign version; until then, importing into the embedded container cannot work." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host in this build does not implement the entry points this version calls: %@. Install a host build that matches this VexSign version; until then, importing into the embedded container cannot work."
+          }
+        }
+      }
+    },
+    "This is a combined build, and its host is an older or different version than this app expects. One of the two needs updating; reinstalling this app alone will not change it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is a combined build, and its host is an older or different version than this app expects. One of the two needs updating; reinstalling this app alone will not change it."
+          }
+        }
+      }
+    },
+    "The file picker could not open because another sheet is on screen. Close it and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file picker could not open because another sheet is on screen. Close it and try again."
+          }
+        }
+      }
+    },
+    "Approve the certificate, the device registration and the profile to start." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve the certificate, the device registration and the profile to start."
+          }
+        }
+      }
+    },
+    "Choose the app this profile is for." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the app this profile is for."
+          }
+        }
+      }
+    },
+    "Provisioning is already running. Wait for it to finish or cancel it first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provisioning is already running. Wait for it to finish or cancel it first."
+          }
+        }
+      }
+    },
+    "Sign in under Settings → Signing Methods, then choose the app to provision." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in under Settings → Signing Methods, then choose the app to provision."
+          }
+        }
+      }
+    },
+    "Copy install link" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy install link"
+          }
+        }
+      }
+    },
+    "Install link copied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install link copied"
+          }
+        }
+      }
+    },
+    "Packaging this build — this takes a minute." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Packaging this build — this takes a minute."
+          }
+        }
+      }
+    },
+    "Paste the link into SideStore on a device where it is set up. Copying does not start an install or confirm that one succeeded." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste the link into SideStore on a device where it is set up. Copying does not start an install or confirm that one succeeded."
+          }
+        }
+      }
+    },
+    "Save this build as an IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save this build as an IPA"
+          }
+        }
+      }
+    },
+    "Share the packaged IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share the packaged IPA"
+          }
+        }
+      }
+    },
+    "The IPA is written to Documents/Exports and can be shared from here. Installing it on a device still needs a signing identity that device trusts." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The IPA is written to Documents/Exports and can be shared from here. Installing it on a device still needs a signing identity that device trusts."
+          }
+        }
+      }
+    },
+    "This build" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build"
+          }
+        }
+      }
+    },
+    "This build could not be packaged: %@ could not be read." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build could not be packaged: %@ could not be read."
+          }
+        }
+      }
+    },
+    "This build does not run from its own app bundle, so there is nothing to package. Export the host build instead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build does not run from its own app bundle, so there is nothing to package. Export the host build instead."
+          }
+        }
+      }
+    },
+    "This build is packaged" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build is packaged"
+          }
+        }
+      }
+    },
+    "This copy was installed by TrollStore, which replaces an app in place without a certificate. Save the IPA and open it in TrollStore to update VexSign itself." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This copy was installed by TrollStore, which replaces an app in place without a certificate. Save the IPA and open it in TrollStore to update VexSign itself."
+          }
+        }
+      }
+    },
+    "The library could not be read" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The library could not be read"
+          }
+        }
+      }
+    },
+    "Not supported in this build" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not supported in this build"
+          }
+        }
+      }
+    },
+    "This build does not include the bundled file-picker fix, and signing without it would leave the picker broken. Update VexSign, or turn off Fix file picker and sign again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build does not include the bundled file-picker fix, and signing without it would leave the picker broken. Update VexSign, or turn off Fix file picker and sign again."
           }
         }
       }

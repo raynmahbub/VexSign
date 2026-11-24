@@ -160,7 +160,7 @@ struct TabbarView: View {
         .padding(.horizontal, 4)
         .padding(.top, 5)
         .padding(.bottom, 2)
-        .animation(reduceMotion ? nil : .snappy(duration: 0.28), value: currentTab)
+        .appAnimation(reduceMotion ? nil : .snappy(duration: 0.28), value: currentTab)
         .background(.ultraThinMaterial)
         .overlay(alignment: .top) {
             Rectangle()

@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import PDFKit
 import NimbleViews
 import NimbleExtensions
 
@@ -23,6 +24,7 @@ struct FileManagerItemView: View {
 	@State private var _plist: [String: Any]?
 	@State private var _image: UIImage?
 	@State private var _hex = ""
+	@State private var _notice: String?
 	@State private var _attributes: [FileAttributeKey: Any] = [:]
 	@State private var _didLoad = false
 
@@ -70,6 +72,14 @@ struct FileManagerItemView: View {
 
 	@ViewBuilder
 	private var _content: some View {
+		if let notice = _notice {
+			Section {
+				Label(notice, systemImage: "exclamationmark.triangle")
+					.font(.footnote)
+					.foregroundColor(.secondary)
+			}
+		}
+
 		switch _kind {
 		case .plist: _plistContent
 		case .text: _textContent
@@ -132,8 +142,8 @@ struct FileManagerItemView: View {
 					.scaledToFit()
 					.frame(maxWidth: .infinity)
 					.listRowInsets(EdgeInsets())
-			} else {
-				Text(.localized("This image could not be decoded."))
+			} else if _notice == nil {
+				Text(.localized("This file could not be rendered."))
 					.font(.footnote)
 					.foregroundColor(.disabled())
 			}
@@ -155,7 +165,7 @@ struct FileManagerItemView: View {
 	private var _binaryContent: some View {
 		Section {
 			Text(_hex)
-				.font(.system(size: 11, design: .monospaced))
+				.font(.system(.caption2, design: .monospaced))
 				.lineLimit(80)
 				.textSelection(.enabled)
 		} header: {
@@ -170,7 +180,7 @@ struct FileManagerItemView: View {
 		Section {
 			if let text = _text, !text.isEmpty {
 				Text(String(text.prefix(limit)))
-					.font(.system(size: 12, design: .monospaced))
+					.font(Theme.Typography.identifier)
 					.textSelection(.enabled)
 					.lineLimit(400)
 
@@ -179,7 +189,7 @@ struct FileManagerItemView: View {
 						.font(.caption2)
 						.foregroundColor(.disabled())
 				}
-			} else {
+			} else if _notice == nil {
 				Text(.localized("This file is empty."))
 					.font(.footnote)
 					.foregroundColor(.disabled())
@@ -336,25 +346,24 @@ extension FileManagerItemView {
 		_kind = services.files.kind(of: entry.url, isDirectory: entry.isDirectory)
 		_attributes = services.files.attributes(at: entry.url)
 
-		_text = nil
-		_plist = nil
-		_image = nil
-		_hex = ""
-
-		switch _kind {
-		case .plist:
-			// XML even when the file on disk is binary, so "Edit as Text" stays readable.
-			_text = services.files.plistText(at: entry.url)
-			_plist = services.files.plist(at: entry.url) as? [String: Any]
-		case .text:
-			_text = services.files.text(at: entry.url)
-		case .image, .pdf:
-			if let data = services.files.data(at: entry.url) { _image = UIImage(data: data) }
-		case .executable, .binary, .database, .archive:
-			_hex = _hexPreview(of: entry.url)
-		case .directory:
-			break
+		// One loader, shared with the IPA explorer: bounded reads, one hex dump.
+		let preview = FilePreviewLoader.load(
+			url: entry.url,
+			kind: _kind,
+			files: services.files,
+			includesPDFImage: true
+		)
+		_text = preview.text
+		_plist = preview.plist
+		// A PDF is not an image `UIImage` can decode; render its first page instead, or the
+		// document viewer reports a decode failure for every PDF it opens.
+		_image = preview.imageData.flatMap { data -> UIImage? in
+			guard _kind == .pdf else { return UIImage(data: data) }
+			guard let page = PDFDocument(data: data)?.page(at: 0) else { return nil }
+			return page.thumbnail(of: CGSize(width: 1024, height: 1024), for: .mediaBox)
 		}
+		_hex = preview.hex
+		_notice = preview.notice
 	}
 
 	private func _save(text: String) {
@@ -428,22 +437,4 @@ extension FileManagerItemView {
 		}
 	}
 
-	/// Classic hex/ASCII dump, capped so a large binary stays instant.
-	private func _hexPreview(of url: URL, bytes: Int = 1024) -> String {
-		guard let data = services.files.head(of: url, count: bytes), !data.isEmpty else {
-			return .localized("Unreadable")
-		}
-
-		let all = [UInt8](data)
-		var lines: [String] = []
-
-		for offset in stride(from: 0, to: all.count, by: 16) {
-			let chunk = Array(all[offset..<min(offset + 16, all.count)])
-			let hex = chunk.map { String(format: "%02X", $0) }.joined(separator: " ")
-			let ascii = chunk.map { $0 >= 32 && $0 < 127 ? Character(UnicodeScalar($0)) : "." }
-			lines.append(String(format: "%08X  ", offset) + hex.padding(toLength: 47, withPad: " ", startingAt: 0) + "  " + String(ascii))
-		}
-
-		return lines.joined(separator: "\n")
-	}
 }

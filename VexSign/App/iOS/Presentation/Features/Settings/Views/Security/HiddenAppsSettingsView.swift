@@ -63,7 +63,7 @@ private struct HiddenAppsSettingsContent: View {
                         .fill(Color.indigo.opacity(0.15))
                         .frame(width: 48, height: 48)
                     Image(systemName: "eye.slash.fill")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.title2.weight(.bold))
                         .foregroundStyle(Color.indigo)
                 }
 

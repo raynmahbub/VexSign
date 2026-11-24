@@ -113,10 +113,7 @@ struct InstallationView: View {
                 NavigationLink(.localized("Pairing file and VPN setup")) {
                     NBList(.localized("Tunnel")) { TunnelView() }
                 }
-                if !EmbeddedContainerRuntime.isAvailable {
-                    Link(.localized("Combined host setup and limitations"), destination: URL(string: "https://github.com/raynmahbub/VexSign/blob/main/VexSign/Integrations/README.md")!)
-                    Link(.localized("Experimental combined host builds"), destination: URL(string: "https://github.com/raynmahbub/VexSign/actions/workflows/embedded-container.yml")!)
-                }
+                EmbeddedRuntimeAvailabilityNote()
                 Button(.localized("Recheck installation prerequisites"), action: _refreshPreflight)
             }
         }
@@ -139,7 +136,7 @@ struct InstallationView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { _refreshPreflight() }
         }
-        .animation(.default, value: _modeManager.preference)
+        .appAnimation(.default, value: _modeManager.preference)
     }
 
     // MARK: Preflight

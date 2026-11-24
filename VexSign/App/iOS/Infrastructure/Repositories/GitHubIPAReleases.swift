@@ -17,7 +17,7 @@ enum GitHubIPAReleases {
             case .responseTooLarge:
                 return .localized("The GitHub release response exceeds the metadata size limit.")
             case .noAssets:
-                return .localized("No IPA assets were found in the first 20 releases. Prereleases are hidden unless enabled.")
+                return .localized("No IPA assets were found in this repository's recent releases. Prereleases are hidden unless enabled.")
             case .requestFailed(403), .requestFailed(429):
                 return .localized("GitHub denied or rate-limited this request. Try again later.")
             case .requestFailed(404):
@@ -56,9 +56,19 @@ enum GitHubIPAReleases {
             self.name = name
         }
 
-        var request: URLRequest {
+        /// Page size for the release listing. GitHub allows 100; asking for 20 was
+        /// why an IPA published a few releases back could not be found at all.
+        static let releasesPerPage = 100
+        /// Manual paging is bounded: a miss must not turn one refresh into a crawl
+        /// against the unauthenticated 60-requests-per-hour budget.
+        static let maximumReleasePages = 3
+
+        var request: URLRequest { request(page: 1) }
+
+        func request(page: Int) -> URLRequest {
             // Components are restricted to ASCII path-safe characters in init.
-            var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(slug)/releases?per_page=20")!)
+            let url = URL(string: "https://api.github.com/repos/\(slug)/releases?per_page=\(Self.releasesPerPage)&page=\(page)")!
+            var request = URLRequest(url: url)
             request.timeoutInterval = 25
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
@@ -114,12 +124,26 @@ enum GitHubIPAReleases {
 
     static let metadataLimit = 2 * 1024 * 1024
 
-    static func decode(_ data: Data, repository: Repository, includePrereleases: Bool) throws -> [Release] {
+    /// Every release in one response, without the review filters. Used to tell a
+    /// full page from the last page while paging.
+    static func decodeReleases(_ data: Data) throws -> [Release] {
         guard data.count <= metadataLimit else { throw Failure.responseTooLarge }
-        let releases: [Release]
-        do { releases = try JSONDecoder().decode([Release].self, from: data) }
+        do { return try JSONDecoder().decode([Release].self, from: data) }
         catch { throw Failure.invalidResponse }
-        return releases.filter { !$0.draft && (includePrereleases || !$0.prerelease) }.compactMap { release in
+    }
+
+    static func decode(_ data: Data, repository: Repository, includePrereleases: Bool) throws -> [Release] {
+        reviewable(try decodeReleases(data), repository: repository, includePrereleases: includePrereleases)
+    }
+
+    /// The releases a user may actually install from: not a draft, optionally not a
+    /// prerelease, and carrying at least one asset that matches this repository.
+    private static func reviewable(
+        _ releases: [Release],
+        repository: Repository,
+        includePrereleases: Bool
+    ) -> [Release] {
+        releases.filter { !$0.draft && (includePrereleases || !$0.prerelease) }.compactMap { release in
             var result = release
             result.assets = release.assets.filter { $0.isAllowed(for: repository) }
             return result.assets.isEmpty ? nil : result
@@ -133,19 +157,40 @@ enum GitHubIPAReleases {
         let retryAt: Date
     }
 
+    /// Lists the installable releases, paging only when the first page has none.
+    ///
+    /// A release page is 100 entries now. The earlier single request asked for 20
+    /// and reported "nothing found" for any IPA published before them, which looked
+    /// like a repository problem rather than a listing limit. Extra pages are only
+    /// fetched while nothing has matched, so the common case still costs one request.
     static func fetch(_ repository: Repository, includePrereleases: Bool) async throws -> [Release] {
-        let response = try await fetchMetadata(repository)
-        guard response.status == 200, let data = response.data else { throw Failure.requestFailed(response.status) }
-        return try decode(data, repository: repository, includePrereleases: includePrereleases)
+        var matches: [Release] = []
+        var seen = Set<Int64>()
+        for page in 1...Repository.maximumReleasePages {
+            let response = try await fetchMetadata(repository, page: page)
+            guard response.status == 200, let data = response.data else {
+                // A rejection on the first request is the caller's answer; a later
+                // page failing after a successful one just ends the search.
+                if page == 1 { throw Failure.requestFailed(response.status) }
+                break
+            }
+            let decoded = try decodeReleases(data)
+            for release in reviewable(decoded, repository: repository, includePrereleases: includePrereleases)
+            where seen.insert(release.id).inserted {
+                matches.append(release)
+            }
+            if !matches.isEmpty || decoded.count < Repository.releasesPerPage { break }
+        }
+        return matches
     }
 
-    static func fetchMetadata(_ repository: Repository, etag: String? = nil) async throws -> MetadataResponse {
+    static func fetchMetadata(_ repository: Repository, etag: String? = nil, page: Int = 1) async throws -> MetadataResponse {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpShouldSetCookies = false
         configuration.urlCredentialStorage = nil
         let session = URLSession(configuration: configuration)
         defer { session.invalidateAndCancel() }
-        var request = repository.request
+        var request = repository.request(page: page)
         if let etag, etag.count <= 512, !etag.contains("\r"), !etag.contains("\n") {
             request.setValue(etag, forHTTPHeaderField: "If-None-Match")
         }

@@ -22,6 +22,15 @@ final class WebManagerDeletionTests: XCTestCase {
         XCTAssertEqual(result, .failed)
     }
 
+    func testRecordedOutcomeDistinguishesMissingFromFailed() {
+        // The app, tweak and certificate delete routes share this mapping: a caller
+        // that gets 204 must be able to believe the work was done.
+        XCTAssertEqual(WebManagerDeletion.outcome(exists: false, removed: false), .missing,
+                       "an unknown id is not a successful deletion")
+        XCTAssertEqual(WebManagerDeletion.outcome(exists: true, removed: true), .removed)
+        XCTAssertEqual(WebManagerDeletion.outcome(exists: true, removed: false), .failed)
+    }
+
     func testRootComparisonNormalizesDotAndSymlinkAliases() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

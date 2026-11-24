@@ -34,12 +34,12 @@ struct FilesTabView: View {
 
     private var quickFolders: [QuickFolder] {
         [
-            QuickFolder(title: .localized("Documents"), icon: "folder.fill", color: Color(red: 0.0, green: 0.48, blue: 1.0), url: services.files.roots.documents),
-            QuickFolder(title: .localized("Downloads"), icon: "arrow.down.circle.fill", color: Color(red: 0.12, green: 0.65, blue: 0.95), url: services.files.roots.downloads),
-            QuickFolder(title: .localized("Archives"), icon: "archivebox.fill", color: Color(red: 0.55, green: 0.36, blue: 0.96), url: services.files.roots.archives),
-            QuickFolder(title: .localized("Certificates"), icon: "checkmark.seal.fill", color: Color(red: 0.20, green: 0.66, blue: 0.44), url: services.files.roots.certificates),
-            QuickFolder(title: .localized("Signed"), icon: "app.badge.checkmark.fill", color: Color(red: 0.95, green: 0.55, blue: 0.15), url: services.files.roots.signed),
-            QuickFolder(title: .localized("Tweaks"), icon: "wrench.and.screwdriver.fill", color: Color(red: 0.96, green: 0.33, blue: 0.26), url: services.files.roots.tweaks),
+            QuickFolder(title: .localized("Documents"), icon: "folder.fill", color: Theme.Accent.documents, url: services.files.roots.documents),
+            QuickFolder(title: .localized("Downloads"), icon: "arrow.down.circle.fill", color: Theme.Accent.downloads, url: services.files.roots.downloads),
+            QuickFolder(title: .localized("Archives"), icon: "archivebox.fill", color: Theme.Accent.archives, url: services.files.roots.archives),
+            QuickFolder(title: .localized("Certificates"), icon: "checkmark.seal.fill", color: Theme.Accent.certificates, url: services.files.roots.certificates),
+            QuickFolder(title: .localized("Signed"), icon: "app.badge.checkmark.fill", color: Theme.Accent.signed, url: services.files.roots.signed),
+            QuickFolder(title: .localized("Tweaks"), icon: "wrench.and.screwdriver.fill", color: Theme.Accent.tweaks, url: services.files.roots.tweaks),
         ]
     }
 
@@ -53,6 +53,7 @@ struct FilesTabView: View {
                 if !vm.visible.isEmpty { filesListSection }
                 infoSection
             }
+            .dismissableKeyboard()
             .listStyle(.insetGrouped)
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .automatic), prompt: Text(.localized("Search files")))
             .onChange(of: query) { _, newQuery in vm.query = newQuery }
@@ -133,7 +134,7 @@ struct FilesTabView: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle().fill(Theme.tintSoft).frame(width: 48, height: 48)
-                        Image(systemName: "internaldrive.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.tint)
+                        Image(systemName: "internaldrive.fill").font(.title2.weight(.semibold)).foregroundStyle(Theme.tint)
                             .accessibilityHidden(true)
                     }
                     VStack(alignment: .leading, spacing: 2) {
@@ -190,7 +191,7 @@ struct FilesTabView: View {
                         VStack(spacing: 6) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous).fill(folder.color.opacity(0.13)).frame(width: 44, height: 44)
-                                Image(systemName: folder.icon).font(.system(size: 20, weight: .semibold)).foregroundStyle(folder.color)
+                                Image(systemName: folder.icon).font(.title3.weight(.semibold)).foregroundStyle(folder.color)
                             }
                             Text(folder.title).font(.caption.weight(.medium)).lineLimit(1).foregroundStyle(.primary).minimumScaleFactor(0.7)
                             Text(verbatim: "\(count) • \(size)").font(.caption2).foregroundStyle(.secondary).lineLimit(1).monospacedDigit()
@@ -303,7 +304,7 @@ struct FilesTabView: View {
     private func fileRowView(entry: IPAFileEntry) -> some View {
         HStack(spacing: 12) {
             Image(systemName: entry.kind.systemImage)
-                .font(.system(size: 20))
+                .font(.title3)
                 .foregroundStyle(entry.kind.tint)
                 .frame(width: 30, height: 30)
 

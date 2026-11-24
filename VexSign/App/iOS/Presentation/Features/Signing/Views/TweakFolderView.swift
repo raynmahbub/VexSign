@@ -95,9 +95,9 @@ struct TweakFolderView: View {
 		} message: {
 			_alertMessage
 		}
-		.animation(.smooth, value: manager.tweaks)
-		.animation(.smooth, value: _isEditing)
-		.animation(.smooth, value: _selection)
+		.appAnimation(.smooth, value: manager.tweaks)
+		.appAnimation(.smooth, value: _isEditing)
+		.appAnimation(.smooth, value: _selection)
 	}
 
 	private var _alertTitle: String {

@@ -48,6 +48,8 @@ final class AppContainer: ObservableObject {
     let resetStore: WorkspaceResetting
     let downloadedFiles: DownloadedFilesManaging
     let diagnosticsProvider: DiagnosticsProviding
+    /// One-shot notice after an unreadable library store was quarantined.
+    let storeRecovery: StoreRecoveryReporting
     let privacyManager: AppPrivacyManaging
     let certificateCatalog: CertificateCatalogProviding
     let workspaceSupportEnvironment: WorkspaceSupportEnvironmentProviding
@@ -62,6 +64,17 @@ final class AppContainer: ObservableObject {
     private let homePackageEnqueue: (URL, Bool) -> Void
     private let homeURLDownload: (URL) -> Bool
     private let homeRevealTab: (TabEnum) -> Void
+
+    /// External URLs that arrived while the master lock was covering the app.
+    ///
+    /// The router itself stays lock-agnostic — it is also driven by tests and by
+    /// the share sheet. Locking is a property of this scene, so the decision lives
+    /// here: a link that arrives behind the lock screen must not stage a package
+    /// into the library or raise an alert above the lock, and it must not be
+    /// silently dropped either. It waits, bounded, and is replayed on unlock.
+    private var _pendingDeepLinks: [URL] = []
+    private var _lockObserver: AnyCancellable?
+    private static let _maxPendingDeepLinks = 8
 
     init(
         workspaceRepository: any WorkspaceCatalogProviding & LibraryRepository,
@@ -92,6 +105,7 @@ final class AppContainer: ObservableObject {
         resetStore: WorkspaceResetting,
         downloadedFiles: DownloadedFilesManaging,
         diagnosticsProvider: DiagnosticsProviding,
+        storeRecovery: StoreRecoveryReporting,
         privacyManager: AppPrivacyManaging,
         certificateCatalog: CertificateCatalogProviding,
         workspaceSupportEnvironment: WorkspaceSupportEnvironmentProviding,
@@ -135,6 +149,7 @@ final class AppContainer: ObservableObject {
         self.resetStore = resetStore
         self.downloadedFiles = downloadedFiles
         self.diagnosticsProvider = diagnosticsProvider
+        self.storeRecovery = storeRecovery
         self.privacyManager = privacyManager
         self.certificateCatalog = certificateCatalog
         self.workspaceSupportEnvironment = workspaceSupportEnvironment
@@ -194,6 +209,7 @@ final class AppContainer: ObservableObject {
             resetStore: resetStore,
             downloadedFiles: downloadedFiles,
             diagnosticsProvider: diagnostics,
+            storeRecovery: StoreRecoveryAdapter(),
             privacyManager: privacy,
             certificateCatalog: certCatalog,
             workspaceSupportEnvironment: workspaceSupport,
@@ -328,11 +344,9 @@ final class AppContainer: ObservableObject {
         )
         InstallQueueWindow.shared.configure(makeRootView: {
             AnyView(InstallQueueHostView(queue: container.installationQueue)
-                .environmentObject(container).environmentObject(container.workspace)
-                .environmentObject(container.sources).environmentObject(container.certificates)
-                .environmentObject(container.signingPreferences).environmentObject(container.discovery)
-                .environmentObject(container.installationQueue).environmentObject(container.files)
-                .environmentObject(container.cloudConfiguration).environmentObject(container.tasks).environmentObject(container.appleAccount).environmentObject(container.fileBrowser).environmentObject(container.tweaks).environmentObject(container.entitlements).environmentObject(container.repositoryBuilder).environment(\.appContainer, container))
+                // The window is hosted outside the scene's view tree, so it needs the same
+                // injection the scene applies — from the same definition.
+                .modifier(AppEnvironment(container: container)))
         }, mayTeardown: { InstallQueue.shared.current == nil })
         return container
     }
@@ -383,6 +397,44 @@ final class AppContainer: ObservableObject {
 
     func makeDeepLinkRouter() -> DeepLinkRouterUseCase {
         deepLinkRouterFactory(sharedBackups)
+    }
+
+    /// Entry point for every external URL (`onOpenURL`).
+    ///
+    /// While App Lock covers the app the command is buffered instead of handled,
+    /// and replayed in arrival order the moment the lock lifts. Multiple links
+    /// arriving behind the lock are ordered, and a flood is bounded: the oldest
+    /// is dropped, because only the most recent intent is still the user's.
+    func handleExternalURL(_ url: URL) {
+        guard AppLockManager.shared.isLocked else {
+            makeDeepLinkRouter().handle(url)
+            return
+        }
+
+        if _pendingDeepLinks.count >= Self._maxPendingDeepLinks {
+            _pendingDeepLinks.removeFirst()
+        }
+        _pendingDeepLinks.append(url)
+
+        guard _lockObserver == nil else { return }
+        // `AppLockProtocol` publishes on the main actor, which is where this
+        // container lives; `assumeIsolated` states that instead of hopping.
+        _lockObserver = AppLockManager.shared.$isLocked
+            .sink { [weak self] isLocked in
+                MainActor.assumeIsolated {
+                    guard let self, !isLocked else { return }
+                    self._flushPendingDeepLinks()
+                }
+            }
+    }
+
+    private func _flushPendingDeepLinks() {
+        _lockObserver = nil
+        let queued = _pendingDeepLinks
+        _pendingDeepLinks.removeAll()
+        guard !queued.isEmpty else { return }
+        let router = makeDeepLinkRouter()
+        for url in queued { router.handle(url) }
     }
 
     func makeDownloadsTabViewModel() -> DownloadsTabViewModel {

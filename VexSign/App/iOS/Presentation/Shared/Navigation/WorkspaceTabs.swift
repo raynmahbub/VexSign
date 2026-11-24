@@ -16,6 +16,9 @@ struct LibraryWorkspaceView: View {
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
                 .padding(.vertical, 8)
+                WorkspaceLoadFailureBanner()
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
                 switch selection.librarySection {
                 case .apps, .signedApps:
                     LibraryView(ownsNavigationStack: false, workspaceSection: selection.librarySection)

@@ -19,9 +19,10 @@ final class CleanArchitectureLayerTests: XCTestCase {
     }
 
     private final class MockIncomingFiles: IncomingFilesProviding {
+        var removedTemporaryPaths: [URL] = []
         func temporaryDirectory(label: String) -> URL { URL(fileURLWithPath: "/not-used/" + label) }
         func copyCoordinatedFile(from source: URL, to destination: URL, tempDirectory: URL) -> Result<Void, CoordinatedFileCopyFailure> { .success(Void()) }
-        func removeTemporaryDirectory(_ url: URL) {}
+        func removeTemporaryDirectory(_ url: URL) { removedTemporaryPaths.append(url) }
     }
     private final class MockRoutingDiagnostics: RoutingDiagnosticsProviding {
         func warning(_ message: String, security: Bool) {}
@@ -111,6 +112,8 @@ final class CleanArchitectureLayerTests: XCTestCase {
         var pasteboardValue: String?
         var autoConfirmAlerts = true
         var lastConfirmTitle: String?
+        var lastConfirmButtonTitle: String?
+        var yesNoAlerts = 0
         var restartCount = 0
 
         func openExternalURL(_ url: URL) { openedURLs.append(url) }
@@ -129,7 +132,11 @@ final class CleanArchitectureLayerTests: XCTestCase {
         }
 
         func presentYesNoAlert(title: String, message: String, confirmTitle: String, onConfirm: @escaping () -> Void) {
+            // The alert title and its confirm button are different strings; keep
+            // both so a consent test cannot pass by checking the wrong one.
             lastConfirmTitle = title
+            lastConfirmButtonTitle = confirmTitle
+            yesNoAlerts += 1
             if autoConfirmAlerts { onConfirm() }
         }
 
@@ -235,8 +242,15 @@ final class CleanArchitectureLayerTests: XCTestCase {
         let directInstall = DeepLinkCommand.parse(URL(string: "vexsign://direct-install?url=https%3A%2F%2Fexample.com%2Fapp.ipa")!)
         XCTAssertEqual(directInstall, .downloadAndInstall(URL(string: "https://example.com/app.ipa")!, notifyDirectStarted: true))
 
-        let source = DeepLinkCommand.parse(URL(string: "feather://source/https%3A%2F%2Frepo.example.com%2Fapps.json")!)
+        let source = DeepLinkCommand.parse(URL(string: "vexsign://source/https%3A%2F%2Frepo.example.com%2Fapps.json")!)
         XCTAssertEqual(source, .addSource("https://repo.example.com/apps.json"))
+
+        // `feather://` is another app's scheme. Accepting it let that app drive
+        // installs, certificate import and source adds through VexSign, so it is
+        // neither registered nor parsed any more.
+        XCTAssertEqual(DeepLinkCommand.parse(URL(string: "feather://source/https%3A%2F%2Frepo.example.com%2Fapps.json")!), .unsupported)
+        XCTAssertEqual(DeepLinkCommand.parse(URL(string: "feather://install?url=https%3A%2F%2Fexample.com%2Fapp.ipa")!), .unsupported)
+        XCTAssertEqual(DeepLinkCommand.parse(URL(string: "feather://import-certificate")!), .unsupported)
 
         let navigate = DeepLinkCommand.parse(URL(string: "vexsign://signedApps")!)
         XCTAssertEqual(navigate, .openWorkspace(.signedApps))
@@ -271,6 +285,207 @@ final class CleanArchitectureLayerTests: XCTestCase {
 
         let invalid = DeepLinkCommand.parse(URL(string: "unknown://navigate/home")!)
         XCTAssertEqual(invalid, .unsupported)
+    }
+
+    /// The certificate link is the only command that carries a credential, and it
+    /// was the one branch with no test at all.
+    func testDeepLinkParserDecodesCertificateLinkAndRejectsIncompleteOnes() {
+        let complete = DeepLinkCommand.parse(
+            URL(string: "vexsign://import-certificate?p12=cDEy&mobileprovision=bW9i&password=Y29ycmVjdA%3D%3D")!
+        )
+        XCTAssertEqual(
+            complete,
+            .importCertificate(p12Base64: "cDEy", provisionBase64: "bW9i", password: "correct")
+        )
+
+        // A link without a decodable password cannot be acted on: it must not fall
+        // through to "unsupported" (which would look like a routing miss) and it
+        // must never be treated as a valid import with an empty password.
+        let missingPassword = DeepLinkCommand.parse(
+            URL(string: "vexsign://import-certificate?p12=cDEy&mobileprovision=bW9i")!
+        )
+        XCTAssertEqual(missingPassword, .invalidCertificateImport)
+
+        let notBase64 = DeepLinkCommand.parse(
+            URL(string: "vexsign://import-certificate?p12=cDEy&mobileprovision=bW9i&password=not-base64!")!
+        )
+        XCTAssertEqual(notBase64, .invalidCertificateImport)
+
+        // Case-insensitive matching is the same rule the other hosts use.
+        let upper = DeepLinkCommand.parse(
+            URL(string: "VEXSIGN://IMPORT-CERTIFICATE?p12=cDEy&mobileprovision=bW9i&password=Y29ycmVjdA%3D%3D")!
+        )
+        XCTAssertEqual(upper, .importCertificate(p12Base64: "cDEy", provisionBase64: "bW9i", password: "correct"))
+
+        let export = DeepLinkCommand.parse(
+            URL(string: "vexsign://export-certificate?callback_template=myapp%3A%2F%2Fcb%3Fp12%3D%7Bp12%7D")!
+        )
+        XCTAssertEqual(export, .exportCertificate(callbackTemplate: "myapp://cb?p12={p12}"))
+    }
+
+    func testCertificateLinkStagesValidatesAndInstallsOnlyAfterConsent() {
+        let platform = MockPlatformAdapter()
+        let incoming = MockIncomingFiles()
+        var decodedExtensions: [String] = []
+        var validatedPasswords: [String] = []
+        var imported: (p12: String, provision: String, password: String)?
+
+        let router = DeepLinkRouterUseCase(
+            securityPolicy: SecurityPolicyGateway(),
+            platform: platform,
+            incomingFiles: incoming,
+            diagnostics: MockRoutingDiagnostics(),
+            decodeBase64File: { _, ext in
+                decodedExtensions.append(ext)
+                return URL(fileURLWithPath: "/tmp/staged" + ext)
+            },
+            validateCertificatePassword: { _, password, _ in
+                validatedPasswords.append(password)
+                return true
+            },
+            importCertificateFiles: { p12, provision, password, completion in
+                imported = (p12.path, provision.path, password)
+                completion(nil)
+            },
+            exportCertificateTemplate: { _ in },
+            addTweakRepository: { _ in 0 },
+            openRepositoryApp: { _, _, _ in },
+            navigateWorkspace: { _ in },
+            addSource: { _ in },
+            startPackageDownload: { _ in },
+            acquireWorkLease: { MockLease() },
+            importStagedPackage: { _, completion in completion(nil) },
+            extractTweakArchive: { _ in (FileManager.default.temporaryDirectory, []) },
+            addTweakFile: { _, _ in true }
+        )
+
+        router.handle(
+            URL(string: "vexsign://import-certificate?p12=cDEy&mobileprovision=bW9i&password=Y29ycmVjdA%3D%3D")!
+        )
+
+        XCTAssertEqual(decodedExtensions, [".p12", ".mobileprovision"])
+        XCTAssertEqual(validatedPasswords, ["correct"], "the link's password is validated before the prompt")
+
+        // Consent first: exactly one prompt, and the identity is installed only
+        // after the user taps the confirm button.
+        XCTAssertEqual(platform.yesNoAlerts, 1)
+        XCTAssertEqual(platform.lastConfirmButtonTitle, "Import")
+        XCTAssertEqual(imported?.password, "correct")
+        XCTAssertEqual(imported?.p12, "/tmp/staged.p12")
+
+        // The staged plaintext private key is removed once the outcome is known.
+        XCTAssertEqual(
+            Set(incoming.removedTemporaryPaths.map(\.lastPathComponent)),
+            ["staged.p12", "staged.mobileprovision"]
+        )
+        XCTAssertTrue(platform.errorMessages.isEmpty)
+    }
+
+    func testDeclinedCertificateLinkInstallsNothing() {
+        let platform = MockPlatformAdapter()
+        platform.autoConfirmAlerts = false
+        var importCalls = 0
+
+        let router = DeepLinkRouterUseCase(
+            securityPolicy: SecurityPolicyGateway(),
+            platform: platform,
+            incomingFiles: MockIncomingFiles(),
+            diagnostics: MockRoutingDiagnostics(),
+            decodeBase64File: { _, ext in URL(fileURLWithPath: "/tmp/staged" + ext) },
+            validateCertificatePassword: { _, _, _ in true },
+            importCertificateFiles: { _, _, _, completion in
+                importCalls += 1
+                completion(nil)
+            },
+            exportCertificateTemplate: { _ in },
+            addTweakRepository: { _ in 0 },
+            openRepositoryApp: { _, _, _ in },
+            navigateWorkspace: { _ in },
+            addSource: { _ in },
+            startPackageDownload: { _ in },
+            acquireWorkLease: { MockLease() },
+            importStagedPackage: { _, completion in completion(nil) },
+            extractTweakArchive: { _ in (FileManager.default.temporaryDirectory, []) },
+            addTweakFile: { _, _ in true }
+        )
+
+        router.handle(
+            URL(string: "vexsign://import-certificate?p12=cDEy&mobileprovision=bW9i&password=Y29ycmVjdA%3D%3D")!
+        )
+
+        XCTAssertEqual(platform.yesNoAlerts, 1)
+        XCTAssertEqual(importCalls, 0, "declining the prompt must not install a signing identity")
+        XCTAssertTrue(platform.errorMessages.isEmpty)
+    }
+
+    func testMalformedCertificateLinkPromptsForNothing() {
+        let platform = MockPlatformAdapter()
+        var decodeCalls = 0
+
+        let router = DeepLinkRouterUseCase(
+            securityPolicy: SecurityPolicyGateway(),
+            platform: platform,
+            incomingFiles: MockIncomingFiles(),
+            diagnostics: MockRoutingDiagnostics(),
+            decodeBase64File: { _, ext in
+                decodeCalls += 1
+                return URL(fileURLWithPath: "/tmp/staged" + ext)
+            },
+            validateCertificatePassword: { _, _, _ in true },
+            importCertificateFiles: { _, _, _, completion in completion(nil) },
+            exportCertificateTemplate: { _ in },
+            addTweakRepository: { _ in 0 },
+            openRepositoryApp: { _, _, _ in },
+            navigateWorkspace: { _ in },
+            addSource: { _ in },
+            startPackageDownload: { _ in },
+            acquireWorkLease: { MockLease() },
+            importStagedPackage: { _, completion in completion(nil) },
+            extractTweakArchive: { _ in (FileManager.default.temporaryDirectory, []) },
+            addTweakFile: { _, _ in true }
+        )
+
+        router.handle(URL(string: "vexsign://import-certificate?p12=cDEy&mobileprovision=bW9i")!)
+
+        XCTAssertEqual(decodeCalls, 0, "nothing is staged for a link that cannot be acted on")
+        XCTAssertEqual(platform.yesNoAlerts, 0, "a malformed link must not raise a consent dialog")
+        XCTAssertTrue(platform.errorMessages.isEmpty)
+        XCTAssertTrue(platform.infoMessages.isEmpty)
+    }
+
+    func testCertificateExportCallbackIsBlockedUnlessTheTemplateIsOurs() {
+        let platform = MockPlatformAdapter()
+        var exported: [String] = []
+
+        let router = DeepLinkRouterUseCase(
+            securityPolicy: SecurityPolicyGateway(),
+            platform: platform,
+            incomingFiles: MockIncomingFiles(),
+            diagnostics: MockRoutingDiagnostics(),
+            decodeBase64File: { _, _ in nil },
+            validateCertificatePassword: { _, _, _ in false },
+            importCertificateFiles: { _, _, _, completion in completion(nil) },
+            exportCertificateTemplate: { exported.append($0) },
+            addTweakRepository: { _ in 0 },
+            openRepositoryApp: { _, _, _ in },
+            navigateWorkspace: { _ in },
+            addSource: { _ in },
+            startPackageDownload: { _ in },
+            acquireWorkLease: { MockLease() },
+            importStagedPackage: { _, completion in completion(nil) },
+            extractTweakArchive: { _ in (FileManager.default.temporaryDirectory, []) },
+            addTweakFile: { _, _ in true }
+        )
+
+        router.handle(
+            URL(string: "vexsign://export-certificate?callback_template=https%3A%2F%2Fevil.example%2Fcollect")!
+        )
+        XCTAssertTrue(exported.isEmpty, "an https callback would hand the .p12 to the sender")
+
+        router.handle(
+            URL(string: "vexsign://export-certificate?callback_template=myapp%3A%2F%2Fcb%3Fp12%3D%7Bp12%7D")!
+        )
+        XCTAssertEqual(exported, ["myapp://cb?p12={p12}"])
     }
 
     func testDeepLinkRouterRejectsInsecureInstallURLAndRoutesValidDestination() {

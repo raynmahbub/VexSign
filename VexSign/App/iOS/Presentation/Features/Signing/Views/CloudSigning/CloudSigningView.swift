@@ -21,6 +21,7 @@ struct CloudSigningView: View {
 			_connectionSection
 			_architectureSection
 		}
+		.dismissableKeyboard()
 		.navigationTitle(.localized("Cloud Signing"))
 		.navigationBarTitleDisplayMode(.inline)
         .onDisappear { healthTask?.cancel() }

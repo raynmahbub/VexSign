@@ -18,7 +18,7 @@ struct TabBarSettingsView: View {
                     HStack(spacing: 14) {
                         ForEach(_prefs.visibleTabs, id: \.self) { tab in
                             VStack(spacing: 4) {
-                                Image(systemName: tab.icon).font(.system(size: 20, weight: .semibold)).foregroundStyle(Theme.tint)
+                                Image(systemName: tab.icon).font(.title3.weight(.semibold)).foregroundStyle(Theme.tint)
                                 if _prefs.showLabels {
                                     Text(tab.title).font(.caption2.weight(.medium)).lineLimit(1).minimumScaleFactor(0.6)
                                 }

@@ -71,7 +71,11 @@ struct HomeView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
                         universalSearchBar
-                        if EmbeddedContainerRuntime.isAvailable { embeddedSwitches }
+                        if EmbeddedContainerRuntime.isAvailable {
+                            embeddedSwitches
+                        } else {
+                            embeddedRuntimeUnavailableCard
+                        }
                         if appearance.visualTheme.isLegacyPresentation {
                             header
                             if isFlareWebTheme { flareHero }
@@ -118,6 +122,7 @@ struct HomeView: View {
                             Text(.localized("Use the same query across Library, repository apps and Settings. Each destination keeps its existing privacy rules and filters."))
                         }
                     }
+                    .dismissableKeyboard()
                     .navigationTitle(.localized("Search VexSign"))
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
@@ -154,6 +159,23 @@ struct HomeView: View {
         } label: { Label(title, systemImage: icon) }
     }
 
+    /// The same card, for a build that cannot host apps: it names the build rather than leaving
+    /// the section to disappear. See `RuntimeCapabilityReport.Reason.explanation`.
+    private var embeddedRuntimeUnavailableCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(.localized("Built-in apps")).font(.headline)
+            Text(verbatim: EmbeddedContainerRuntime.capabilityReport
+                .reason(for: .embeddedContainerUI)?.explanation
+                ?? String.localized("This build has no embedded runtime."))
+                .font(.caption)
+                .foregroundStyle(FlarePalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(FlarePalette.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+
     private var embeddedSwitches: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(.localized("Built-in apps")).font(.headline)
@@ -168,7 +190,9 @@ struct HomeView: View {
     private var header: some View {
         HStack {
             Text("VexSign")
-                .font(.system(size: 36, weight: .bold, design: .default))
+                // Semantic style, not a point size: the app title is the most visible
+                // text on the screen and must grow with the user's text-size setting.
+                .font(.system(.largeTitle, weight: .bold))
                 .foregroundStyle(FlarePalette.text)
                 .tracking(-1.2)
             Spacer()
@@ -194,7 +218,7 @@ struct HomeView: View {
                         .font(.system(size: 19, weight: .bold, design: .rounded))
                         .foregroundStyle(FlarePalette.text)
                     Text(.localized("Sign, install, and manage your apps on-device."))
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(.system(.footnote, design: .rounded, weight: .medium))
                         .foregroundStyle(FlarePalette.muted)
                 }
                 Spacer(minLength: 0)
@@ -222,7 +246,7 @@ struct HomeView: View {
 
     private func flareBadge(_ title: String, icon: String) -> some View {
         Label(title, systemImage: icon)
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .font(.system(.caption2, design: .rounded, weight: .semibold))
             .foregroundStyle(Theme.websiteAccentSecondary)
             .padding(.horizontal, 9)
             .padding(.vertical, 6)
@@ -337,7 +361,7 @@ struct HomeView: View {
                 .shadow(color: FlarePalette.pink.opacity(0.42), radius: 18)
 
                 Text(.localized("Import IPA / TIPA"))
-                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .font(.system(.title3, design: .monospaced, weight: .bold))
                     .foregroundStyle(FlarePalette.text)
 
                 Text(.localized("Tap to browse or drag & drop files"))

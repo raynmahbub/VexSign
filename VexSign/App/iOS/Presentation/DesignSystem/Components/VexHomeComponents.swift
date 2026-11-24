@@ -21,7 +21,6 @@ enum VexHomeSetup {
     }
 }
 
-
 /// `startDownload` also returns an untracked placeholder when admission fails.
 /// Identity matters: an older row with the same URL or ID is not that placeholder.
 enum VexHomeDownloadFeedback {
@@ -105,46 +104,6 @@ struct VexHeroAction: View {
     }
 }
 
-struct VexQuickAction: View {
-    let title: String
-    let detail: String
-    let systemImage: String
-    let tint: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 11) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .frame(width: 38, height: 38)
-                    .background(tint.opacity(0.13), in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Text(detail)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 66, alignment: .leading)
-            .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .stroke(Theme.separator, lineWidth: 0.5)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        }
-        .buttonStyle(VexSignFlareButtonStyle())
-    }
-}
-
 struct VexSetupRow: View {
     let title: String
     let detail: String
@@ -156,11 +115,11 @@ struct VexSetupRow: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: done ? "checkmark.circle.fill" : systemImage)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(done ? Color(red: 0.36, green: 0.78, blue: 0.58) : Theme.tint)
+                    .font(Theme.Typography.rowTitle)
+                    .foregroundStyle(done ? Theme.Accent.mint : Theme.tint)
                     .frame(width: 36, height: 36)
                     .background(
-                        (done ? Color(red: 0.36, green: 0.78, blue: 0.58) : Theme.tint).opacity(0.12),
+                        (done ? Theme.Accent.mint : Theme.tint).opacity(0.12),
                         in: Circle()
                     )
                 VStack(alignment: .leading, spacing: 2) {
@@ -201,7 +160,7 @@ struct VexStatusCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 12) {
                     Image(systemName: systemImage)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(Theme.Typography.rowTitle)
                         .foregroundStyle(tint)
                         .frame(width: 38, height: 38)
                         .background(tint.opacity(0.13), in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
@@ -239,7 +198,7 @@ struct VexToolRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.callout.weight(.semibold))
                 .foregroundStyle(tint)
                 .frame(width: 36, height: 36)
                 .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))

@@ -58,6 +58,49 @@ sources.
   Optional or user-configured network features have their own destinations and
   disclosures; users should review settings and service configuration.
 
+## Services in this repository
+
+Two optional services ship here, and both are outside the device boundary the rest of
+this document describes. A deployment is run by whoever hosts it, so the operator is part
+of the trust model rather than an outsider to it.
+
+### Cloud signing (`VexSign/Services/Cloud`)
+
+- **What it receives:** an IPA, a `.p12`, a provisioning profile and **the `.p12`
+  password**, plus the caller's identity from a bearer JWT. That is the complete signing
+  identity, not a subset of it.
+- **What it keeps:** the password sealed with AES-256-GCM under `ENCRYPTION_KEY`
+  (HKDF-derived per job id) for as long as the job is active, then cleared at the terminal
+  transition; inputs are purged from object storage once no active job references them;
+  the output IPA is retained for the install-link window. Audit rows record job state
+  changes, not secrets.
+- **Who can read what:** a worker process sees the plaintext password in memory for the
+  duration of a job (it is passed to the signer over stdin, never argv or the environment),
+  so the operator of a self-hosted deployment can sign anything that identity can. Object
+  storage access, `ENCRYPTION_KEY`, the JWT issuer's signing key and the signer executable
+  are therefore all equivalent to the signing identities themselves.
+- **Boundaries this model assumes:** TLS terminates in front of the API; the JWT issuer is
+  trusted and enforces its own user authentication; the signer launcher isolates archive
+  extraction and enforces resource limits; the deployment egress firewall blocks private
+  and link-local addresses for webhooks. None of that is verified by the app.
+
+### Premium backend (`VexSign/Services/WebManager`)
+
+- **What it holds:** premium keys (single-use, device-bound), each device's binding, a
+  self-hosted IPA index, and `ADMIN_TOKEN`, which can mint, disable and reveal keys.
+- **What an attacker gains:** with a key, one activation; with a device UUID and an
+  activation row, the premium feed (the app lets a UUID stand in for a key so the shipped
+  installed base keeps working); with `ADMIN_TOKEN`, the whole inventory — which is why the
+  key list is masked, reveals are audited, and the admin surface is rate limited and off
+  unless the operator sets a token.
+- **Operator responsibilities:** keep `ADMIN_TOKEN`/`ADMIN_TOKEN_FILE` out of logs and
+  image layers, run the container as the non-root user it ships with, keep a single
+  worker (the limiter is in-process, so N workers mean N times the budget), and set
+  `VEXSIGN_TRUST_FORWARDED_FOR` **only** behind a proxy that appends to the header.
+- **What is stored about users:** the key, the device UUID it was bound to, its state and
+  timestamps. No IP addresses, no device names, no app inventory. Admin audit rows add the
+  operator's own client address and the action taken.
+
 ## Main risks and mitigations
 
 | Risk | Intended mitigation | Remaining limitation |
@@ -68,6 +111,12 @@ sources.
 | Hostile repository or download | HTTPS-only repository transport by default, explicit local-HTTP opt-in, and untrusted-input handling. | HTTPS authenticates transport, not publisher intent or IPA safety; third-party feeds can change or disappear. |
 | Local installation service is impersonated or misused | Device-specific TLS identity and local trust setup; authenticated Web Manager controls and explicit network access. | Local network exposure and trust-profile handling remain user/device responsibilities; TLS does not make a hostile IPA safe. |
 | A web page on the internet drives the on-device Web Manager (DNS rebinding) | The server checks `Host` and `Origin` before reading credentials: a public hostname, a cross-origin `Origin` or `Origin: null` is refused, so a name the attacker controls cannot be rebound onto the device's LAN address. | A user-side proxy or a browser that omits `Origin` entirely is indistinguishable from a non-browser client; the password, token and certificate-export gates still apply. |
+| Community certificate catalogue is a shared identity | The catalogue is opt-in, names its host, and states that everyone using it signs with the same identity and can be revoked at any time. The app verifies only that the downloaded password opens the certificate. | The badge, revocation state and password come from `sideloading.net`; anyone with the published identity can sign apps that claim to come from it, and the catalogue can revoke every app signed with it. Prefer an own certificate for anything you care about. |
+| Semi Local OTA reveals the install link | Semi Local exists only because `itms-services` needs a publicly trusted manifest host. The payload token is per-install, and Fully Local (the default) keeps the manifest on the device. | The manifest request sends `http://<lan-ip>:<port>/<session>-<token>.ipa` to `vexsign-install.vexsign.workers.dev` and `api.palera.in`, which see it in their logs, and the signed IPA is then served over plain HTTP on the LAN. Anyone who obtained the link before the install finishes can download it. |
+| A device backup carries the library and diagnostics | The launch sweep marks the derived folders — firmware, the Web Manager inbox and the logs — `isExcludedFromBackup`, so a multi-gigabyte `.ipsw` and this device's diagnostics do not ride into iCloud; the library folders stay, because a restore is what they are for. These folders also keep the iOS default protection class (`NSFileProtectionCompleteUntilFirstUserAuthentication`), which is what lets a background download finish while the device is locked — tightening it would fail those writes, and `UIFileSharingEnabled` already shows the folder to the user. | Everything else under Documents (signed and unsigned IPAs, sources, library entries, certificates) is in the device backup, and that backup is only as protected as the Apple ID that made it. Use the app's own password-protected backup to move the library between devices. |
+| A backup file carries security settings | Restores apply ordinary preferences only; the Web Manager namespace, the install method, the loopback-only switch and the cleartext-source opt-in are excluded, and credentials are never restored. | A backup still carries library entries, sources and certificate records. A restore is a trust decision: only restore files you made or received from someone you trust. |
+| Hidden Apps or App Lock state is only enforced by the UI | Hidden apps are absent from each surface that can name them: the Web Manager's `GET /api/library`, `GET /api/apps`, `GET /api/apps/:uuid/download`, `DELETE /api/apps/:uuid`, `GET /api/updates`, the `/api/status` counts and the `/api/cleanup` report — all of which ask one predicate, `AutomationVisibility.isVisible` (through `WebManagerAccessPolicy.isVisibleToAutomation`) — the Shortcuts app picker, which asks the same predicate, the widget payload and a backup archive, which read the vault's published snapshot rather than re-deriving it; the app-switcher snapshot is obscured at `.inactive` when App Lock is on. | The Web Manager authenticates with its own password or token rather than the device-owner gesture, deliberately, so browsing works while the phone is locked on a desk. Anyone holding that credential sees the rest of the library, and hidden apps remain on disk. |
+| A deep link acts while the app is locked | Only `vexsign://` is registered and parsed, so another installed app cannot drive VexSign by naming its scheme. External URLs are held by the container while the lock covers the app and replayed after unlock, so a link cannot stage a package or raise an alert above the lock screen. | A link still arrives from an untrusted sender; the certificate import keeps its own consent prompt after unlock. |
 | Logs/diagnostics disclose private data | Redaction filters and diagnostics guidance. | Redaction cannot be assumed perfect. Inspect exports before sharing and remove identifiers and tokens. |
 | Optional server mishandles data | Optional features use configured endpoints; the backend and cloud signer are separate deployments. | VexSign cannot guarantee security, retention or availability of a third-party/self-hosted service. |
 

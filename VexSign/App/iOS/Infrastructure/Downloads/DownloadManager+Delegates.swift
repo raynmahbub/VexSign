@@ -45,7 +45,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 				userInfo: [NSLocalizedDescriptionKey: "\(description) (HTTP \(statusCode))"]
 			)
 			if isAppInBackground {
-				sendCompletionNotification(for: download, status: "❌ HTTP \(statusCode)")
+				sendCompletionNotification(for: download, status: "❌ " + String.localized("Download failed (HTTP %lld)", arguments: statusCode))
 			} else {
 				showUIErrorMessage(for: download, error: httpError)
 			}
@@ -89,7 +89,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			try handlePackageFile(url: destinationURL, dl: download)
 		} catch {
 			if isAppInBackground {
-				sendCompletionNotification(for: download, status: "❌ Download failed")
+				sendCompletionNotification(for: download, status: "❌ " + .localized("Download failed"))
 			}
 			
 			download.isActive = false
@@ -225,7 +225,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 		   nsError.code == NSURLErrorFileDoesNotExist ||
 		   nsError.code == NSURLErrorNoPermissionsToReadFile {
 			if isAppInBackground {
-				sendCompletionNotification(for: download, status: "❌ Download failed - cannot connect to server")
+				sendCompletionNotification(for: download, status: "❌ " + .localized("Download failed: the server could not be reached."))
 			} else {
 				showUIErrorMessage(for: download, error: nsError)
 			}
@@ -236,7 +236,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 
 		// Any other non-recoverable error — drop the download.
 		if isAppInBackground {
-			sendCompletionNotification(for: download, status: "❌ Download failed")
+			sendCompletionNotification(for: download, status: "❌ " + .localized("Download failed"))
 		} else {
 			showUIErrorMessage(for: download, error: nsError)
 		}

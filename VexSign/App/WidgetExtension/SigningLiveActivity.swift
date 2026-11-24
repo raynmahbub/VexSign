@@ -36,7 +36,7 @@ struct SigningLiveActivity: Widget {
 									.stroke(context.state.isCompleted ? Color.green : Color.purple, style: StrokeStyle(lineWidth: 2, lineCap: .round))
 									.rotationEffect(.degrees(-90))
 								Image(systemName: context.state.isCompleted ? "checkmark" : "signature")
-									.font(.system(size: 11))
+									.font(.caption2)
 									.foregroundColor(context.state.isCompleted ? .green : .purple)
 							}
 							.frame(width: 24, height: 24)
@@ -66,7 +66,7 @@ struct SigningLiveActivity: Widget {
 			} compactLeading: {
 				HStack(spacing: 4) {
 					Image(systemName: context.state.isCompleted ? "checkmark.circle.fill" : "signature")
-						.font(.system(size: 11))
+						.font(.caption2)
 						.foregroundColor(context.state.isCompleted ? .green : .purple)
 				}
 			} compactTrailing: {
@@ -106,7 +106,7 @@ struct SigningLiveActivityView: View {
 						.stroke(context.state.isCompleted ? Color.green : Color.purple, style: StrokeStyle(lineWidth: 3, lineCap: .round))
 						.rotationEffect(.degrees(-90))
 					Image(systemName: context.state.isCompleted ? "checkmark" : "signature")
-						.font(.system(size: 13))
+						.font(.footnote)
 						.foregroundColor(context.state.isCompleted ? .green : .purple)
 				}
 				.frame(width: 28, height: 28)

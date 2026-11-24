@@ -37,14 +37,20 @@ class TweakHandler {
 		!_options.injectionFiles.isEmpty || !_enabledSpecs.isEmpty
 	}
 
-	/// Bundled document picker fix
+	/// Bundled document picker fix.
+	///
+	/// Throws when the fix was requested and the dylib is not in the build. Returning nil used to
+	/// continue the run and produce an app whose file picker is still broken — the exact symptom
+	/// the user asked to have fixed — with the only trace on a screen they were not looking at.
 	private var _filePickerFixURL: URL? {
-		guard _options.fixFilePicker else { return nil }
-		guard let url = Bundle.main.url(forResource: "FilePickerFix", withExtension: "dylib") else {
-			SigningLog.shared.error(.localized("File picker fix is unavailable"))
-			return nil
+		get throws {
+			guard _options.fixFilePicker else { return nil }
+			guard let url = Bundle.main.url(forResource: "FilePickerFix", withExtension: "dylib") else {
+				SigningLog.shared.error(.localized("File picker fix is unavailable"))
+				throw TweakHandlerError.filePickerFixUnavailable
+			}
+			return url
 		}
-		return url
 	}
 
 	/// `Frameworks/` can be absent from apps, so the parent has to exist before the move.
@@ -149,7 +155,7 @@ class TweakHandler {
 		try Task.checkCancellation()
 		Logger.misc.info("Attempting to inject")
 
-		let filePickerFix = _filePickerFixURL
+		let filePickerFix = try _filePickerFixURL
 
 		if !_options.experiment_replaceSubstrateWithEllekit {
 			guard _hasAnyInjection || filePickerFix != nil else { return }
@@ -797,67 +803,6 @@ enum TweakFrameworkLoad {
 	}
 }
 
-/// Debian packages must identify one data archive. Unknown compression formats
-/// are refused explicitly instead of producing a successful, empty injection.
-enum DebianDataMember {
-	enum SelectionError: LocalizedError, Equatable {
-		case missing
-		case multiple
-		case unsupported(String)
-
-		var errorDescription: String? {
-			switch self {
-			case .missing:
-				return .localized("This Debian package has no data archive to inject.")
-			case .multiple:
-				return .localized("This Debian package contains multiple data archives. VexSign cannot choose one safely.")
-			case .unsupported(let name):
-				return .localized("The Debian data archive %@ uses an unsupported format.", arguments: name)
-			}
-		}
-	}
-
-	static func select(from names: [String]) throws -> String {
-		let candidates = names.filter { $0 == "data.tar" || $0.hasPrefix("data.tar.") }
-		guard !candidates.isEmpty else { throw SelectionError.missing }
-		guard candidates.count == 1, let name = candidates.first else { throw SelectionError.multiple }
-		guard ["data.tar", "data.tar.lzma", "data.tar.gz", "data.tar.xz", "data.tar.bz2"].contains(name) else {
-			throw SelectionError.unsupported(name)
-		}
-		return name
-	}
-
-	/// Use the same extraction steps for preview and signing. An uncompressed
-	/// tar is unpacked directly; compressed members first produce the tar.
-	static func extract(_ member: URL) throws -> URL {
-		var result = member
-		try extractFile(at: &result)
-		if member.lastPathComponent != "data.tar" {
-			try extractFile(at: &result)
-		}
-		return result
-	}
-}
-
-/// Never treat a conflicting framework or resource bundle as a successful placement.
-/// FileManager.moveItem also refuses collisions that arise after the check.
-enum TweakPlacement {
-	struct Conflict: LocalizedError {
-		let name: String
-		var errorDescription: String? {
-			.localized("Cannot add %@ because an item with that name already exists in the app.", arguments: name)
-		}
-	}
-
-	static func move(_ source: URL, to destination: URL, fileManager: FileManager = .default) throws {
-		try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-		guard !fileManager.fileExists(atPath: destination.path) else {
-			throw Conflict(name: destination.lastPathComponent)
-		}
-		try fileManager.moveItem(at: source, to: destination)
-	}
-}
-
 struct TweakInjectionFailure: LocalizedError {
 	let fileName: String
 	let underlying: Error
@@ -867,9 +812,42 @@ struct TweakInjectionFailure: LocalizedError {
 	}
 }
 
-enum TweakHandlerError: Error {
+/// Failures the tweak pipeline reports to the user.
+///
+/// These used to be a bare `Error`. `extractFile` throws `unsupportedFileExtension` for an
+/// archive whose compression it cannot decode, and the injection path wraps whatever it
+/// caught in `TweakInjectionFailure`, which renders `underlying.localizedDescription` — so
+/// for an unsupported `.rar`/`.7z` tweak the user read "Failed to inject X: The operation
+/// couldn't be completed. (VexSign.TweakHandlerError error 0.)" with nothing to act on. Each
+/// case now names the file and says what to do about it.
+enum TweakHandlerError: LocalizedError, Equatable {
 	case unsupportedFileExtension(String)
 	case decompressionFailed(String)
 	case missingFile(String)
 	case noAccess
+	case filePickerFixUnavailable
+
+	var errorDescription: String? {
+		switch self {
+		case .unsupportedFileExtension(let ext):
+			// A path with no extension gets a word rather than an empty slot, so the sentence
+			// reads "cannot unpack unknown-format archives" instead of "cannot unpack  archives".
+			let named = ext.isEmpty ? .localized("unknown-format") : "." + ext.lowercased()
+			return .localized(
+				"VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.xz, .tar.lzma, .tar.gz, .tar.bz2 or .tar.zst package.",
+				arguments: named
+			)
+		case .decompressionFailed(let detail):
+			let reason = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+			return reason.isEmpty
+				? .localized("The tweak archive could not be decompressed. It may be damaged.")
+				: .localized("The tweak archive could not be decompressed: %@", arguments: reason)
+		case .missingFile(let name):
+			return .localized("%@ is missing from the tweak package.", arguments: name)
+		case .noAccess:
+			return .localized("The tweak could not be read because access to it was denied. Copy it into VexSign's folder and try again.")
+		case .filePickerFixUnavailable:
+			return .localized("This build does not include the bundled file-picker fix, and signing without it would leave the picker broken. Update VexSign, or turn off Fix file picker and sign again.")
+		}
+	}
 }

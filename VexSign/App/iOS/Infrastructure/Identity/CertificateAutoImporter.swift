@@ -36,6 +36,12 @@ class CertificateAutoImporter {
 	}
 
 	/// Import certificates from signing-assets folder using content-addressed SHA-256 change detection.
+	///
+	/// Developer convenience only: the folder holds `cert.p12`, `cert.mobileprovision` and
+	/// `cert.txt` (the p12 password, in plaintext) and every folder is imported as the *default*
+	/// identity. It is gitignored (`signing-assets/`) and
+	/// `security-validation/test_signing_identity_policy.py` fails the build if the folder is added
+	/// to `project.pbxproj`, because an archive that ships it ships a signing key with it.
 	func importBundledCertificatesIfNeeded() {
 		guard let signingAssetsURL = Bundle.main.url(forResource: "signing-assets", withExtension: nil)
 		else {
@@ -130,8 +136,7 @@ class CertificateAutoImporter {
 						if let error = updateError {
 							Logger.misc.error("Failed to update \(certName): \(error.localizedDescription)")
 							await MainActor.run {
-								let generator = UINotificationFeedbackGenerator()
-								generator.notificationOccurred(.error)
+								Haptics.error()
 								UIAlertController.showAlertWithOk(
 									title: .localized("Certificate Update Failed"),
 									message: error.localizedDescription
@@ -141,8 +146,7 @@ class CertificateAutoImporter {
 							Logger.misc.info("Successfully updated certificate: \(certName)")
 							UserDefaults.standard.set(certHash, forKey: hashKey)
 							await MainActor.run {
-								let generator = UINotificationFeedbackGenerator()
-								generator.notificationOccurred(.success)
+								Haptics.success()
 							}
 						}
 					} else {
@@ -160,8 +164,7 @@ class CertificateAutoImporter {
 						if let error = importError {
 							Logger.misc.error("Failed to import \(certName): \(error.localizedDescription)")
 							await MainActor.run {
-								let generator = UINotificationFeedbackGenerator()
-								generator.notificationOccurred(.error)
+								Haptics.error()
 								UIAlertController.showAlertWithOk(
 									title: .localized("Certificate Import Failed"),
 									message: error.localizedDescription
@@ -171,8 +174,7 @@ class CertificateAutoImporter {
 							Logger.misc.info("Successfully imported certificate: \(certName)")
 							UserDefaults.standard.set(certHash, forKey: hashKey)
 							await MainActor.run {
-								let generator = UINotificationFeedbackGenerator()
-								generator.notificationOccurred(.success)
+								Haptics.success()
 							}
 						}
 					}

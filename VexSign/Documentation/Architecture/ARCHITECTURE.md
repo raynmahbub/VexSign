@@ -18,6 +18,16 @@ are zero; historical review provenance is retained rather than erased. Other UI
 and platform implementation details are not an exhaustive architecture proof.
 Nothing here is a claim of Xcode-build or physical-device acceptance.
 
+## Repository map
+
+![Repository map: app layers, repository layout, and the checks that gate every commit](repository-map.png)
+
+The map is a picture of this page, not a second source of truth: the layers run
+shells → Presentation → Application → Domain, with Infrastructure adapting the
+outside world to the protocols in Domain, and the gates in `Tools/Validation`
+run on every commit through `make verify`. If a box and a gate disagree, the gate
+is right.
+
 ## Repository layout
 
 ```text

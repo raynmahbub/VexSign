@@ -6,7 +6,7 @@
 //  the browser UI and WebDAV share. Everything is JSON unless it streams a file.
 //
 //      GET  /api/status     certificate state, library + update counts
-//      GET  /api/library    every app in the library
+//      GET  /api/library    every app in the library the vault does not hide
 //      GET  /api/updates    apps a source has a newer version of
 //      POST /api/sign       upload an IPA, sign it with the default certificate,
 //                           stream the signed IPA back
@@ -19,6 +19,14 @@
 //  `/api/certs*` route, every DELETE). There a configured API token is mandatory;
 //  without a token the route requires Basic auth, and is refused outright when the
 //  server runs without a password.
+//
+//  The App Lock is deliberately *not* part of that gate. Browsing the Web Manager
+//  from a computer is a normal thing to do while the phone sits locked on a desk,
+//  so this surface authenticates with its own password/token instead of the
+//  device-owner gesture. What the lock does cover is what a hidden app means:
+//  `GET /api/library`, `GET /api/updates`, the `/api/status` counts and the
+//  `/api/cleanup` report all leave hidden apps out, because the vault is only
+//  revealable with biometrics inside the app.
 //
 
 import Foundation
@@ -79,7 +87,7 @@ extension WebManagerServer {
 					?? certificates.first(where: { !$0.revoked })
 					?? certificates.first
 
-				let apps = Storage.shared.getAllApps()
+				let apps = Self.appsVisibleToAutomation()
 
 				return APIStatus(
 					certValid: Self._certificateIsValid(active),
@@ -99,7 +107,7 @@ extension WebManagerServer {
 
 		app.get("api", "library") { _ async -> Response in
 			let entries: [APILibraryEntry] = await MainActor.run {
-				Storage.shared.getAllApps().map { app in
+				Self.appsVisibleToAutomation().map { app in
 					APILibraryEntry(
 						name: app.name ?? "App",
 						bundleID: app.identifier ?? "",
@@ -114,8 +122,9 @@ extension WebManagerServer {
 
 		app.get("api", "updates") { _ async -> Response in
 			let entries: [APIUpdateEntry] = await MainActor.run {
-				AppStoreUpdateTracker.shared.infos.compactMap { bundleID, info in
-					guard let app = Storage.shared.getAllApps().first(where: { $0.identifier == bundleID }) else {
+				let visibleApps = Self.appsVisibleToAutomation()
+				return AppStoreUpdateTracker.shared.infos.compactMap { bundleID, info in
+					guard let app = visibleApps.first(where: { $0.identifier == bundleID }) else {
 						return nil
 					}
 					return APIUpdateEntry(
@@ -130,11 +139,20 @@ extension WebManagerServer {
 		}
 
 		app.post("api", "cleanup") { _ async -> Response in
-			let summary: CleanupSummary = await MainActor.run {
-				CleanupManager.shared.cleanNow()
+			// Names are captured before the sweep: afterwards the rows that identify a
+			// hidden app are gone, and the response would name it.
+			let run: (summary: CleanupSummary, hiddenNames: Set<String>) = await MainActor.run {
+				let hiddenNames = Set(
+					Storage.shared.getAllApps()
+						.filter { !WebManagerAccessPolicy.isVisibleToAutomation(uuid: $0.uuid, hiddenAppUUIDs: AppLockManager.shared.hiddenAppUUIDs) }
+						.compactMap { $0.name }
+				)
+				return (CleanupManager.shared.cleanNow(), hiddenNames)
 			}
+			let summary = run.summary
 			await MainActor.run { WidgetStatusPublisher.publish() }
-			return Self.apiJSON(APICleanupResponse(freedBytes: summary.freedBytes, removedApps: summary.removedApps))
+			let reported = summary.removedApps.filter { !run.hiddenNames.contains($0) }
+			return Self.apiJSON(APICleanupResponse(freedBytes: summary.freedBytes, removedApps: reported))
 		}
 
 		app.post("api", "widget") { _ async -> Response in
@@ -160,7 +178,14 @@ extension WebManagerServer {
 			let ipaURL = staging.appendingPathComponent("upload.ipa")
 			let promise = req.eventLoop.makePromise(of: Response.self)
 
-			let streamed = self.streamToFile(req, destination: ipaURL, route: false, report: false, successStatus: .ok)
+			let streamed = self.streamToFile(
+				req,
+				destination: ipaURL,
+				route: false,
+				report: false,
+				successStatus: .ok,
+				maximumBytes: WebManagerTransferLimits.signing
+			)
 			streamed.whenSuccess { response in
                 guard response.status == .ok else {
                     if FileManager.default.fileExists(atPath: staging.path) {
@@ -265,6 +290,26 @@ extension WebManagerServer {
 	}
 
 	// MARK: Helpers
+
+	/// The library as this surface is allowed to see it: hidden apps are absent.
+	///
+	/// The rule itself is `AutomationVisibility.isVisible` (which
+	/// `WebManagerAccessPolicy` also asks), so it is testable without a server or a
+	/// store; this wrapper only supplies the vault state. Every route that reports
+	/// apps — `/api/library`, `/api/apps`, `/api/updates`, the `/api/status` counts —
+	/// goes through it, so they cannot disagree.
+	///
+	/// Not private: the browser page's own routes (`+HTTP.swift`) list, download and
+	/// delete apps too, and they must answer with the same library.
+	@MainActor
+	static func appsVisibleToAutomation() -> [AppInfoPresentable] {
+		let hidden = AppLockManager.shared.hiddenAppUUIDs
+		let apps = Storage.shared.getAllApps()
+		guard !hidden.isEmpty else { return apps }
+		return apps.filter {
+			AutomationVisibility.isVisible(uuid: $0.uuid, hiddenAppUUIDs: hidden)
+		}
+	}
 
 	private static func _certificateIsValid(_ certificate: CertificatePair?) -> Bool {
 		guard let certificate, certificate.revoked != true else { return false }

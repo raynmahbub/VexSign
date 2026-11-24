@@ -382,9 +382,20 @@ enum SigningResolutionSession {
     /// Capture before any binary surgery. A transform cannot turn unreadable or
     /// removed original entitlements into an empty set and silently drop a capability.
     static func requirements(in bundle: URL, options: Options) throws -> [String: [String: Any]] {
-        Dictionary(uniqueKeysWithValues: try targets(in: bundle, options: options, preview: true, originalRequirements: nil).map {
-            ($0.id, $0.requiredEntitlements)
-        })
+        var requirements: [String: [String: Any]] = [:]
+        for target in try targets(in: bundle, options: options, preview: true, originalRequirements: nil) {
+            if let existing = requirements[target.id],
+               !(existing as NSDictionary).isEqual(target.requiredEntitlements as NSDictionary) {
+                // `uniqueKeysWithValues:` used to trap here. A crash is not a diagnosis,
+                // and keeping either copy would sign one target with the other's
+                // entitlements, so the plan is rejected with the identifier named.
+                throw SigningFileHandlerError.identityRejected(
+                    "Two signing targets share the identifier \(target.id) with different entitlements."
+                )
+            }
+            requirements[target.id] = target.requiredEntitlements
+        }
+        return requirements
     }
 
     private static func targets(in bundle: URL, options: Options, preview: Bool,

@@ -59,8 +59,9 @@ self remove
 swiftversion 6.0
 
 # Rules
-# `indent` is the rule that converts the 268 tab-indented first-party Swift files
-# this repository still carries (test_style_config.py counts them). It was absent
+# `indent` is the rule that converts the 552 tab-indented first-party Swift files
+# this repository still carries (test_swift_indentation_ratchet.py counts them, and
+# fails when that number grows). It was absent
 # before, so even a configuration that loaded would never have fixed indentation —
 # the one-time mechanical pass ci.yml reports on had nothing to apply it with.
 # The `space*` and `braces` entries are the 0.64.6 form of the options above, and

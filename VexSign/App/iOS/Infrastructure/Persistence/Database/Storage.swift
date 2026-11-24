@@ -124,6 +124,31 @@ private var _writeContext: NSManagedObjectContext {
 		container.viewContext
 	}
 
+	/// A read that cannot be answered from the model at all.
+	///
+	/// Core Data does not fail a request whose entity name it cannot find: it *raises*
+	/// (`NSFetchRequest could not locate an NSEntityDescription`), and an Objective-C exception
+	/// ends the process instead of reaching a caller that could report it. Both read accessors
+	/// therefore ask the model first, so a wrong name is an empty answer or a Swift error
+	/// depending on which contract the caller signed up for.
+	enum ReadFailure: LocalizedError, Equatable {
+		case unknownEntity(String)
+
+		var errorDescription: String? {
+			switch self {
+			case .unknownEntity(let name):
+				return "\(name) is not part of the VexSign data model, so there is nothing to read from it."
+			}
+		}
+	}
+
+	/// The entity name a request asks for when the model does not carry it.
+	private func unknownEntityName<T>(in request: NSFetchRequest<T>) -> String? {
+		guard let name = request.entityName,
+		      container.managedObjectModel.entitiesByName[name] == nil else { return nil }
+		return name
+	}
+
 	/// Fetches on the view context's own queue, whoever the caller is.
 	///
 	/// `context.fetch` may only run on the queue that owns the context - the
@@ -133,12 +158,31 @@ private var _writeContext: NSManagedObjectContext {
 	/// The caller stays synchronous; only the fetch changes queue, and
 	/// `performAndWait` runs inline when the caller is already on it.
 	func fetchOnQueue<T>(_ request: NSFetchRequest<T>) -> [T] {
+		guard unknownEntityName(in: request) == nil else { return [] }
 		let context = self.context
 		var results: [T] = []
 		context.performAndWait {
 			results = (try? context.fetch(request)) ?? [] // try? ok: an unreadable store yields no rows, which every caller already treats as empty
 		}
 		return results
+	}
+
+	/// Same queue contract as `fetchOnQueue`, but a read failure is reported instead of being
+	/// flattened into an empty result.
+	///
+	/// `fetchOnQueue` answers "no rows" for a store it could not read, and that is right for the
+	/// optional lookups around it: an unavailable artifact is a missing artifact. It is wrong for
+	/// the catalog read behind the Library, where "no rows" is rendered as an empty library - an
+	/// import that committed looks like an import that never happened, and nothing anywhere says
+	/// otherwise. Callers that can say why use this one.
+	func fetchOnQueueThrowing<T>(_ request: NSFetchRequest<T>) throws -> [T] {
+		if let name = unknownEntityName(in: request) { throw ReadFailure.unknownEntity(name) }
+		let context = self.context
+		var result: Result<[T], Error> = .success([])
+		context.performAndWait {
+			result = Result { try context.fetch(request) }
+		}
+		return try result.get()
 	}
 
 	/// Runs `changes` on the private-queue write context, saves it, and returns
@@ -209,14 +253,40 @@ private var _writeContext: NSManagedObjectContext {
 		}
 	}
 	
+	/// Deletes every row of one entity.
+	///
+	/// A batch delete goes straight to the store and never touches the view context's
+	/// object graph: rows the context already holds stay visible, so the "count" rows
+	/// drop to zero while lists built from the same context keep showing them until the
+	/// app relaunches. `deleteAppsWithOutcome` merges its deletions for exactly this
+	/// reason; the clear paths did not.
 	func clearContext<T: NSManagedObject>(request: NSFetchRequest<T>) {
 		StorageConcurrency.requireMainQueue()
-		let deleteRequest = NSBatchDeleteRequest(fetchRequest: (request as? NSFetchRequest<NSFetchRequestResult>)!)
+		guard let entityName = request.entityName else { return }
+		let deleteRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+		deleteRequest.includesPropertyValues = false
+
+		// IDs only: a delete-all should not fault every row into the view context just to
+		// learn their identities.
+		let idRequest = NSFetchRequest<NSManagedObjectID>(entityName: entityName)
+		idRequest.resultType = .managedObjectIDResultType
+
+		let ids: [NSManagedObjectID]
 		do {
-			_ = try context.execute(deleteRequest)
+			ids = try context.fetch(idRequest)
 		} catch {
-			Logger.misc.error("Batch delete failed: \(error.localizedDescription, privacy: .public)")
+			Logger.misc.error("Could not read rows to clear: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+			return
 		}
+		guard !ids.isEmpty else { return }
+
+		do {
+			_ = try context.execute(NSBatchDeleteRequest(fetchRequest: deleteRequest))
+		} catch {
+			Logger.misc.error("Batch delete failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+			return
+		}
+		NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSDeletedObjectsKey: ids], into: [context])
 	}
 	
 	func countContent<T: NSManagedObject>(for type: T.Type) -> String {
@@ -235,6 +305,9 @@ private var _writeContext: NSManagedObjectContext {
 	}
 
 	func clearSignedApps(removeDirectory: Bool = true) {
+		let apps = fetchOnQueue(Signed.fetchRequest()).map { $0 as AppInfoPresentable }
+		guard let leases = _libraryLeases(apps) else { return }
+		defer { withExtendedLifetime(leases) {} }
 		clearContext(request: Signed.fetchRequest())
 		guard removeDirectory else { return }
 		do {
@@ -245,12 +318,35 @@ private var _writeContext: NSManagedObjectContext {
 	}
 
 	func clearImportedApps(removeDirectory: Bool = true) {
+		let apps = fetchOnQueue(Imported.fetchRequest()).map { $0 as AppInfoPresentable }
+		guard let leases = _libraryLeases(apps) else { return }
+		defer { withExtendedLifetime(leases) {} }
 		clearContext(request: Imported.fetchRequest())
 		guard removeDirectory else { return }
 		do {
 			try FileManager.default.removeFileIfNeeded(at: FileManager.default.unsigned)
 		} catch {
 			Logger.misc.error("Failed to remove imported apps directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+		}
+	}
+
+	/// The same per-app leases `deleteApps` takes, for the paths that remove a whole
+	/// library folder instead of one app.
+	///
+	/// Without them a "clear signed apps" could delete `signed/` while a signing or
+	/// install job was writing into it, which is the one thing the single-app path
+	/// spends its quarantine dance to avoid. `nil` means an app is busy and nothing
+	/// was removed.
+	private func _libraryLeases(_ apps: [AppInfoPresentable]) -> [AppOperationRegistry.Lease]? {
+		var leases: [AppOperationRegistry.Lease] = []
+		do {
+			for key in Set(apps.compactMap(AppOperationRegistry.key)) {
+				leases.append(try AppOperationRegistry.shared.acquire(key))
+			}
+			return leases
+		} catch {
+			Toast.error(error.localizedDescription)
+			return nil
 		}
 	}
 
@@ -394,6 +490,15 @@ private var _writeContext: NSManagedObjectContext {
 			}
 		}
 		UserDefaults.standard.set(true, forKey: key)
+	}
+
+	/// Dismisses the one-shot notice about a quarantined store.
+	///
+	/// Only the banner goes away: the quarantined files stay on disk where the
+	/// user can recover them from, and the next launch opens the fresh store with
+	/// no notice because the store itself is readable again.
+	func acknowledgeRecoveryNotice() {
+		recoveryNotice = nil
 	}
 
 	private func _quarantineStore(at url: URL?, reason: String) {

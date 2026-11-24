@@ -74,9 +74,13 @@ extension DownloadManager {
 		guard !activeDownloads.isEmpty else { return }
 
 		completedDownloadNames = []
-		allActivityDownloads = Dictionary(uniqueKeysWithValues: activeDownloads.map {
-			($0.id, (fileName: $0.fileName, downloaded: $0.bytesDownloaded, total: $0.totalBytes))
-		})
+		// `uniqueKeysWithValues:` traps on a repeated id, and the id is caller-supplied
+		// (`startDownload(id:)`). One row per id is what the widget shows, so the first
+		// entry wins instead of the process crashing.
+		allActivityDownloads = Dictionary(
+			activeDownloads.map { ($0.id, (fileName: $0.fileName, downloaded: $0.bytesDownloaded, total: $0.totalBytes)) },
+			uniquingKeysWith: { first, _ in first }
+		)
 
 		let currentFileName = activeDownloads.count > 1
 			? "Multiple Downloads"

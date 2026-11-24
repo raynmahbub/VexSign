@@ -121,22 +121,24 @@ final class TweakManager: ObservableObject {
 		_saveFolders()
 	}
 
-	/// Unique folder name among siblings, appending " 2", " 3"… on collision.
+	/// Unique folder name among siblings. The suffix rule lives in `TweakFolderRules` so creating
+	/// and renaming cannot drift apart, and so it can be tested without the JSON files behind this
+	/// object.
 	private func _uniqueFolderName(_ desired: String, excluding id: UUID? = nil) -> String {
-		var base = desired.trimmingCharacters(in: .whitespacesAndNewlines)
-		if base.isEmpty { base = .localized("New Folder") }
-		let taken = Set(folders.filter { $0.id != id }.map { $0.name.lowercased() })
-		guard taken.contains(base.lowercased()) else { return base }
-		var n = 2
-		while taken.contains("\(base) \(n)".lowercased()) { n += 1 }
-		return "\(base) \(n)"
+		TweakFolderRules.uniqueName(
+			desired,
+			taken: folders.filter { $0.id != id }.map { $0.name },
+			fallback: .localized("New Folder")
+		)
 	}
 
 	/// Deletes a folder; its tweaks fall back to uncategorized (never deleted).
 	func deleteFolder(_ id: UUID) {
 		var touched = false
-		for index in tweaks.indices where tweaks[index].folderId == id {
-			tweaks[index].folderId = nil
+		for index in tweaks.indices {
+			let next = TweakFolderRules.folder(afterDeleting: id, from: tweaks[index].folderId)
+			guard next != tweaks[index].folderId else { continue }
+			tweaks[index].folderId = next
 			touched = true
 		}
 		folders.removeAll { $0.id == id }
@@ -544,11 +546,32 @@ final class TweakManager: ObservableObject {
 	}
 
 	/// Wipes the entire tweak library — all tweaks, folders, and files on disk.
+	/// Removes every tweak, after the library has gone quiet.
+	///
+	/// The old version emptied the lists and then did a best-effort delete, so a failed
+	/// delete left tweaks that could no longer be reached from the UI but were still on
+	/// disk, and a signing job reading a dylib out of this folder could have it removed
+	/// underneath it. The reset now takes the cleanup lease (the same gate the workspace
+	/// cleanup uses), reports a refusal, and only empties the lists once the folder is
+	/// really gone — so memory and disk cannot disagree.
 	func resetLibrary() {
+		guard let lease = AppOperationRegistry.shared.acquireCleanup() else {
+			Toast.error(.localized("A download, install or signing job is still running. Reset the tweak library when it has finished."), duration: .long)
+			return
+		}
+		defer { withExtendedLifetime(lease) {} }
+
+		do {
+			try _fm.removeFileIfNeeded(at: _fm.tweaksLibrary)
+		} catch {
+			Logger.misc.error("Tweak library reset failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+			Toast.error(error.localizedDescription, duration: .long)
+			return
+		}
+
 		tweaks = []
 		folders = []
 		repositories = []
-		try? _fm.removeFileIfNeeded(at: _fm.tweaksLibrary) // try? ok: best-effort disk cleanup; the in-memory library is authoritative
 	}
 
 	func deleteVersion(_ versionId: UUID, from tweakId: UUID) {

@@ -85,8 +85,11 @@ class AnisetteOverlayTests(unittest.TestCase):
         self.assertIn('appRegistration: appRegistration', adapter)
         self.assertIn('deviceRegistration: deviceRegistration', adapter)
         self.assertLess(adapter.index('try await manager.requireProfileOperations()'), adapter.index('try await manager.provisioningPreflight('))
-        self.assertIn('certificate: approveCertificate', source)
-        self.assertIn('registration: approveRegistration, profile: approveProfile', source)
+        # The approvals are carried by `ProvisioningConsentState` and reach the
+        # submission through one derived value, so the check follows that value
+        # instead of three separate `@State` booleans.
+        self.assertIn('let approval = consent.approval', source)
+        self.assertIn('guard approval.isComplete', source)
         self.assertIn('guard approval.isComplete', policy)
         self.assertNotIn('NativeSigningManager', source)
         self.assertNotIn('Task.sleep', adapter)

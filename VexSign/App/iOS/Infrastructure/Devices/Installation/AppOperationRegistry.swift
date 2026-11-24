@@ -151,9 +151,13 @@ final class AppOperationRegistry: Sendable {
         var produced: Set<String> = []
     }
 
-    final class Lease: @unchecked Sendable {
-        private let release: () -> Void
-        fileprivate init(release: @escaping () -> Void) { self.release = release }
+    /// Releases on `deinit`, so a caller that drops the lease cannot strand the key.
+    ///
+    /// A `final` class holding one immutable `@Sendable` closure is `Sendable` to the compiler —
+    /// the escape this type used to need was the unannotated function value, not the class.
+    final class Lease: Sendable {
+        private let release: @Sendable () -> Void
+        fileprivate init(release: @escaping @Sendable () -> Void) { self.release = release }
         deinit { release() }
     }
 }

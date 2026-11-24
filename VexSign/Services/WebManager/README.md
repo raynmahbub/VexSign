@@ -3,10 +3,11 @@
 This directory contains the private backend that powers VexSign's premium
 features — license-key validation and the gated premium source the app unlocks.
 
-It is committed to the public repository **for transparency only**: anyone can
-audit exactly what the app communicates with, what data is stored (key, device
-binding, status — nothing else), and how keys are enforced. It is **not** a
-deployment or self-hosting guide, and no setup instructions are published.
+It is committed to the public repository **for transparency**: anyone can audit
+exactly what the app communicates with, what data is stored (key, device binding,
+status — nothing else), and how keys are enforced. It is also runnable, and the
+last section of this file covers that — with the caveat that self-hosting it means
+holding your users' premium keys.
 
 ## Keys
 
@@ -33,9 +34,22 @@ VexSign's `ASRepository` decodes (add it under **Sources → Add**).
 | `GET /repo/source.json` | AltStore v1 source (public) |
 | `GET /repo/appdata` | Legacy AltServer XML feed (public) |
 | `GET /static/apps/<file>.ipa` | The IPAs themselves (public) |
+| `GET /api/admin/health` | Whether the admin surface is enabled (no token) |
+| `POST /api/admin/keys` | Mint keys, `{"count": 1..250}` (admin token) |
+| `GET /api/admin/keys` | List keys: masked `key`, stable `id`, state, device (admin token) |
+| `POST /api/admin/keys/reveal` | Return one key in full by `id` or by key (admin token, audited) |
+| `POST /api/admin/keys/{disable,enable,reset,revoke}` | Change one key's state (admin token) |
+| `GET /api/admin/audit` | Recent admin actions: action, key id, client address (admin token) |
 | `POST /api/admin/apps` | Upload an IPA (multipart `file`, admin token) |
 | `GET /api/admin/apps` | List the source (admin token) |
 | `DELETE /api/admin/apps/{bundle_identifier}` | Drop an app (admin token) |
+
+`GET /api/admin/keys` never returns key material: each row carries a masked key
+(`****-****-IJKL`, enough to match a customer's screenshot) and a stable `id`. Handing
+a key out is the explicit, audited `POST /api/admin/keys/reveal`. Every mint, state
+change, reveal and app upload lands in the audit trail with its key id and client
+address, because `ADMIN_TOKEN` is one shared secret and "who disabled this key" has to
+be answerable afterwards.
 
 Bundle id, name and version are read from the IPA's own `Info.plist`, so the feed
 can never disagree with the package it points at. Uploading a new version of an
@@ -54,6 +68,12 @@ Storage is a JSON index plus a folder of IPAs — no database. Point
 make deploy-server                 # builds the linux/amd64 image
 docker run -p 8080:8080 -e ADMIN_TOKEN=<secret> -v vexsign-repo:/data vexsign-server
 ```
+
+`ADMIN_TOKEN` accepts a comma-separated list, so a rotation can overlap: add the new
+secret, redeploy, move clients over, drop the old one. To rotate without a redeploy at
+all, mount a file and set `ADMIN_TOKEN_FILE` to its path — one token per line, read on
+each request. A configured file that cannot be read disables the admin surface rather
+than falling back to the older secret.
 
 ## Browser tools
 

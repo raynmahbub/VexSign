@@ -50,6 +50,7 @@ struct DetailedMiniDownloadItemView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel(Text(.localized("Cancel")))
             }
         }
         .padding(.horizontal, 4)
@@ -128,7 +129,7 @@ struct DownloadItemView: View {
                 } else if model.showsByteCount {
                     HStack(spacing: 4) {
                         Text(model.bytesDownloaded.formattedByteCount)
-                            .animation(.easeOut(duration: 0.2), value: model.bytesDownloaded)
+                            .appAnimation(.easeOut(duration: 0.2), value: model.bytesDownloaded)
                         Text("of")
                         Text(model.totalBytes.formattedByteCount)
                     }

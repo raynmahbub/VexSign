@@ -65,12 +65,12 @@ class DownloadOverlaySheetViewController: UIViewController {
         let isDarkMode = traitCollection.userInterfaceStyle == .dark
 
         if overlayTheme == "greyish" {
-            view.backgroundColor = isDarkMode ? UIColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 1.0) : .systemBackground
+            view.backgroundColor = isDarkMode ? UIColor(Theme.Overlay.greyish) : .systemBackground
         } else if overlayTheme == "darkGrey" {
-            view.backgroundColor = isDarkMode ? UIColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1.0) : .systemBackground
+            view.backgroundColor = isDarkMode ? UIColor(Theme.Overlay.darkGrey) : .systemBackground
         } else {
             // AMOLED black in dark mode
-            view.backgroundColor = isDarkMode ? UIColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0) : .systemBackground
+            view.backgroundColor = isDarkMode ? UIColor(Theme.Overlay.amoled) : .systemBackground
         }
     }
 

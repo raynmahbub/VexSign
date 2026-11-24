@@ -10,10 +10,18 @@ import OSLog
 
 // itms-services:// only accepts a manifest from a publicly trusted host
 enum ManifestService {
-	private static let endpoints = [
-		"https://vexsign-install.vexsign.workers.dev/genPlist",
-		"https://api.palera.in/genPlist",
+	/// Third-party hosts that build the `itms-services` manifest in Semi Local mode.
+	///
+	/// The manifest request carries the device's LAN payload URL — including the
+	/// per-install token — as `fetchurl`, so these operators see it in their logs.
+	/// The list is what the UI shows before the first Semi Local attempt, and
+	/// `endpoints` is derived from it so the two cannot drift.
+	static let manifestHosts = [
+		"vexsign-install.vexsign.workers.dev",
+		"api.palera.in",
 	]
+
+	private static let endpoints = manifestHosts.map { "https://\($0)/genPlist" }
 	
 	static func resolve(for app: AppInfoPresentable, payload: URL) async -> URL? {
 		let candidates = endpoints.compactMap { _url(endpoint: $0, app: app, payload: payload) }
@@ -59,13 +67,20 @@ enum ManifestService {
 	}
 	
 	private static func _serves(_ url: URL) async -> Bool {
-		guard
-			let (data, response) = try? await URLSession.shared.data(for: URLRequest(url: url, timeoutInterval: 10)),
-			(response as? HTTPURLResponse)?.statusCode == 200
-		else {
+		// This asks whether the host serves an XML document, which the first five bytes answer.
+		// `data(for:)` answered it too — after buffering the whole body, so a host that replied
+		// with a gigabyte decided the app's peak memory for a yes/no question.
+		do {
+			let (bytes, response) = try await URLSession.shared.bytes(for: URLRequest(url: url, timeoutInterval: 10))
+			guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }
+			var prefix = Data()
+			for try await byte in bytes {
+				prefix.append(byte)
+				if prefix.count == 5 { break }
+			}
+			return prefix.starts(with: Array("<?xml".utf8))
+		} catch {
 			return false
 		}
-		
-		return data.starts(with: Array("<?xml".utf8))
 	}
 }

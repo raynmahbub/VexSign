@@ -2,13 +2,6 @@
   "_comment": "Every concurrency escape in the app target, with the invariant that makes it safe. Enforced by VexSign/Tools/Validation/security-validation/test_concurrency_audit.py: a new escape with no entry fails the build gate, as does an entry whose file no longer has an escape. `make strict-concurrency` is the compiler half; this is the reasoning half.",
   "escapes": [
     {
-      "file": "VexSign/App/iOS/Infrastructure/Devices/Installation/AppOperationRegistry.swift",
-      "symbol": "AppOperationRegistry.Lease",
-      "kind": "unchecked-sendable",
-      "invariant": "Immutable stored closure. It runs in `deinit`, which may happen on any thread; the closure only calls back into the lock-protected registry, which is safe from any thread. The release is synchronous (the earlier actor version hopped through a `Task`, which left the owner entry alive briefly after the lease was dropped and let `acquireCleanup` refuse a pass that should have succeeded). No other state.",
-      "risk": "low"
-    },
-    {
       "file": "VexSign/App/iOS/Infrastructure/Downloads/Download.swift",
       "symbol": "Download",
       "kind": "unchecked-sendable",

@@ -26,8 +26,8 @@ struct AppStoreView: View {
     @State var searchText = ""
     @State var selectedSegment: StoreSegment = .discover
     @State var isAddingPresenting = false
-    @State private var appSortOption: AppSortOption = .name
-    @State private var selectedCategory: String = "All"
+    @State var appSortOption: AppSortOption = .name
+    @State var selectedCategory: String = "All"
     @State private var catalogItems: [SourcedAppItem] = []
     @State private var filteredCatalogItems: [SourcedAppItem] = []
     @State private var catalogRevision = 0
@@ -35,7 +35,7 @@ struct AppStoreView: View {
     @State private var catalogFilterGeneration = 0
     @AppStorage("VexSign.repositorySort") var _repositorySortRaw = RepositorySortOption.priority.rawValue
 
-    private let appCategories = ["All", "Utilities", "Emulators", "Tweaked", "Games", "Jailbreak"]
+    let appCategories = ["All", "Utilities", "Emulators", "Tweaked", "Games", "Jailbreak"]
 
     let communityRepos: [CommunityRepoItem] = [
         .init(name: "SideStore Community", subtitle: "Official SideStore community apps", url: URL(string: "https://community-apps.sidestore.io/sidecommunity.json")!, iconName: "globe.desk.fill"),
@@ -77,7 +77,17 @@ struct AppStoreView: View {
         case name = "Name"
         case updated = "Last Updated"
 
-        var label: String { .localized(rawValue) }
+        /// The raw values are persisted in `@AppStorage`, so they are keys, not copy: they must
+        /// never change. `.localized(rawValue)` read them as English text to translate, and
+        /// neither "Priority" nor "Last Updated" is a catalogue key, so those two rows stayed
+        /// English in all twelve locales. The copy is named here instead.
+        var label: String {
+            switch self {
+            case .priority: return .localized("Priority")
+            case .name: return .localized("Name")
+            case .updated: return .localized("Last updated")
+            }
+        }
     }
 
     // Model representing an app combined with its source repository
@@ -159,7 +169,7 @@ struct AppStoreView: View {
     // The catalog is flattened once after repository loading, off the main thread. App Store
     // sections read these cached arrays; no body evaluation walks every repository/app again.
     var allSourcedApps: [SourcedAppItem] { catalogItems }
-    private var sortedAndFilteredApps: [SourcedAppItem] { filteredCatalogItems }
+    var sortedAndFilteredApps: [SourcedAppItem] { filteredCatalogItems }
 
     @MainActor
     func rebuildAppCatalog() async {
@@ -480,7 +490,7 @@ struct AppStoreView: View {
                     SourcePriorityView(sources: Array(sources))
                 } label: {
                     Image(systemName: "list.number")
-                        .font(.body.weight(.semibold))
+                        .font(Theme.Typography.rowTitle)
                 }
                 .accessibilityLabel(Text(.localized("Repository Priority")))
 
@@ -488,7 +498,7 @@ struct AppStoreView: View {
                     isAddingPresenting = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.body.weight(.semibold))
+                        .font(Theme.Typography.rowTitle)
                 }
                 .accessibilityLabel(Text(.localized("Add Source")))
 
@@ -499,7 +509,7 @@ struct AppStoreView: View {
                         // a toolbar Menu are not consistently routed by TabView and
                         // were one of the reasons the store controls appeared dead.
                         Button {
-                            withAnimation(.snappy) {
+                            withAppAnimation(.snappy) {
                                 selectedSegment = .updates
                                 searchText = ""
                             }
@@ -507,7 +517,7 @@ struct AppStoreView: View {
                             Label(updateCount > 0 ? String.localized("Pending Updates (%lld)", arguments: updateCount) : .localized("Pending Updates"), systemImage: "arrow.triangle.2.circlepath")
                         }
                         Button {
-                            withAnimation(.snappy) {
+                            withAppAnimation(.snappy) {
                                 selectedSegment = .repositories
                                 searchText = ""
                             }
@@ -523,7 +533,7 @@ struct AppStoreView: View {
                             Label(.localized("Refresh All Sources"), systemImage: "arrow.clockwise")
                         }
                         Button {
-                            withAnimation(.snappy) {
+                            withAppAnimation(.snappy) {
                                 selectedSegment = .repositories
                                 searchText = ""
                             }
@@ -557,245 +567,4 @@ struct AppStoreView: View {
         }
     }
 
-    // MARK: - Apps Catalog Section
-    private var appsCatalogSection: some View {
-        VStack(spacing: 16) {
-            // Category filter pills
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(appCategories, id: \.self) { cat in
-                        let isSel = selectedCategory == cat
-                        Button {
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                                selectedCategory = cat
-                            }
-                        } label: {
-                            Text(cat)
-                                .font(.caption.weight(isSel ? .bold : .medium))
-                                .padding(.horizontal, 14).padding(.vertical, 7)
-                                .background(isSel ? Color.userTint : Color(uiColor: .secondarySystemGroupedBackground), in: Capsule())
-                                .foregroundStyle(isSel ? .white : .primary)
-                                .overlay(Capsule().strokeBorder(Color.primary.opacity(isSel ? 0 : 0.08), lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 2)
-            }
-
-            // Sort bar & count header
-            HStack {
-                Text(verbatim: String.localized("%lld Apps Available", arguments: sortedAndFilteredApps.count))
-                    .font(.headline)
-                Spacer()
-                Menu {
-                    Picker("Sort by", selection: $appSortOption) {
-                        ForEach(AppSortOption.allCases, id: \.self) { opt in
-                            Text(opt.rawValue).tag(opt)
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.up.arrow.down")
-                        Text(appSortOption.rawValue)
-                    }
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(Color(uiColor: .quaternarySystemFill), in: Capsule())
-                    .foregroundStyle(.primary)
-                }
-            }
-            .padding(.horizontal, 4)
-
-            if sortedAndFilteredApps.isEmpty {
-                emptyAppsView
-            } else {
-                LazyVStack(spacing: 0) {
-                    ForEach(sortedAndFilteredApps) { item in
-                        NavigationLink(destination: SourceAppsDetailView(source: item.repository, app: item.app)) {
-                            HStack(spacing: 12) {
-                                ZStack(alignment: .bottomTrailing) {
-                                    AppStoreIconView(app: item.app, size: 56)
-                                        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-                                        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
-
-                                    RepoMiniBadge(source: item.source)
-                                }
-
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(item.app.currentName)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(1)
-
-                                    Text(item.app.currentDescription ?? item.sourceName)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-
-                                    HStack(spacing: 6) {
-                                        if let ver = item.app.currentVersion {
-                                            Text("v\(ver)").font(.caption2).foregroundStyle(.secondary)
-                                        }
-                                        if let size = item.app.size, size > 0 {
-                                            Text("• \(size.formattedByteCount)").font(.caption2).foregroundStyle(.secondary)
-                                        }
-                                        Text("• \(item.sourceName)").font(.caption2).foregroundStyle(Color.userTint).lineLimit(1)
-                                    }
-                                }
-
-                                Spacer(minLength: 8)
-
-                                DownloadButtonView(app: item.app, originURL: item.source.sourceURL)
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-
-                        Divider().padding(.leading, 78).opacity(0.5)
-                    }
-                }
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-            }
-        }
-    }
-
-    // MARK: - Search Results View
-    @ViewBuilder
-    private var searchResultsView: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if !sortedAndFilteredApps.isEmpty {
-                Text(verbatim: String.localized("%lld Matching Apps", arguments: sortedAndFilteredApps.count))
-                    .font(.headline)
-                    .padding(.horizontal, 4)
-
-                LazyVStack(spacing: 0) {
-                    ForEach(sortedAndFilteredApps) { item in
-                        NavigationLink(destination: SourceAppsDetailView(source: item.repository, app: item.app)) {
-                            HStack(spacing: 12) {
-                                ZStack(alignment: .bottomTrailing) {
-                                    AppStoreIconView(app: item.app, size: 52)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                    RepoMiniBadge(source: item.source)
-                                }
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.app.currentName)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(1)
-                                    Text(item.app.currentDescription ?? item.sourceName)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                                Spacer()
-                                DownloadButtonView(app: item.app, originURL: item.source.sourceURL)
-                            }
-                            .padding(.horizontal, 14).padding(.vertical, 10)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-
-                        Divider().padding(.leading, 74).opacity(0.5)
-                    }
-                }
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-            }
-
-            if !filteredSources.isEmpty {
-                Text(verbatim: String.localized("%lld Matching Sources", arguments: filteredSources.count))
-                    .font(.headline)
-                    .padding(.horizontal, 4)
-
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(filteredSources.enumerated()), id: \.element.id) { index, source in
-                        NavigationLink {
-                            SourceAppsView(object: [source], viewModel: viewModel, onRefresh: {
-                                await viewModel.fetchSources(sources, refresh: true)
-                            })
-                        } label: {
-                            RepositoryRow(source: source, repository: viewModel.sources[source], isStale: viewModel.isStale(source))
-                        }
-                        .buttonStyle(.plain)
-
-                        if index < filteredSources.count - 1 {
-                            Divider().padding(.leading, 74).opacity(0.5)
-                        }
-                    }
-                }
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-            }
-
-            if sortedAndFilteredApps.isEmpty && filteredSources.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 38))
-                        .foregroundStyle(.secondary)
-                    Text(verbatim: String.localized("No results for “%@”", arguments: searchText))
-                        .font(.headline)
-                    Text(.localized("Check the spelling or try searching for another app or repository."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 36)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            }
-        }
-    }
-
-    private var emptyAppsView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "square.grid.2x2")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            Text(.localized("No Apps Found"))
-                .font(.headline)
-            Text(.localized("Make sure you have added repositories, or pull to refresh."))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Button {
-                isAddingPresenting = true
-            } label: {
-                Label(.localized("Add Source"), systemImage: "plus")
-                    .font(.subheadline.weight(.semibold))
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color.userTint)
-            .padding(.top, 4)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 36)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-
-    // MARK: - Footer: Activity Logs Link (Moved to Settings)
-    private var logsMovedFooter: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "text.alignleft")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(.localized("Logs have moved to Settings → Activity Logs for a single navigation bar."))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            NavigationLink(destination: LogsHistoryView(inNavigationStack: false)) {
-                Label(.localized("View Activity Logs"), systemImage: "text.alignleft")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.userTint)
-            }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(14)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
 }

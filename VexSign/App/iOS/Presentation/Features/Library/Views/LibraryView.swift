@@ -7,6 +7,7 @@
 
 import SwiftUI
 import NimbleViews
+import UniformTypeIdentifiers
 import NimbleExtensions
 
 // MARK: - View
@@ -317,6 +318,27 @@ struct LibraryView: View {
     // MARK: Main Content View
     @ViewBuilder
     private var mainContent: some View {
+        VStack(spacing: 0) {
+            if workspaceSection == nil {
+                recoveryBanner
+            }
+            libraryContent
+        }
+    }
+
+    /// One-shot after a quarantined store; invisible in every normal launch.
+    @ViewBuilder
+    private var recoveryBanner: some View {
+        if let notice = services.storeRecovery.pendingLibraryRecovery {
+            LibraryRecoveryBanner(notice: notice) {
+                services.storeRecovery.acknowledgeLibraryRecovery()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+        }
+    }
+
+    private var libraryContent: some View {
         ScrollViewReader { proxy in
             NBListAdaptable(
                 layout: libraryLayout != "list" && !_editMode.isEditing ? .grid : .list,
@@ -370,7 +392,7 @@ struct LibraryView: View {
             }
             .nbOnChange(of: tabSelection.highlightedAppUUID) { newUUID in
                 if let uuid = newUUID {
-                    withAnimation(.easeInOut(duration: 0.5)) {
+                    withAppAnimation(.easeInOut(duration: 0.5)) {
                         proxy.scrollTo(uuid, anchor: .center)
                     }
                 }
@@ -498,7 +520,9 @@ struct LibraryView: View {
     @ViewBuilder
     private var importMenuActions: some View {
         Button(.localized("Import from Files"), systemImage: "folder") {
-            DocumentPicker.open([.ipa, .tipa, .zip], multiple: true, folder: .apps) { urls in
+            DocumentPicker.open(UTType.packageArchives, multiple: true, folder: .apps, onUnavailable: {
+                Toast.error(.localized("The file picker could not open because another sheet is on screen. Close it and try again."), duration: .long)
+            }) { urls in
                 if !urls.isEmpty { tabSelection.librarySection = .apps }
                 for url in urls {
                     _ = downloadManager.startArchive(from: url, id: "VexSignManualDownload_\(UUID().uuidString)", reviewDuplicates: true)

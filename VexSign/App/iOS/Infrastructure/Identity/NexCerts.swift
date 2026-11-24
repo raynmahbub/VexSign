@@ -111,6 +111,10 @@ enum NexCerts {
 			}
 		}
 
+		/// The catalogue's badge is advisory: `apiValue` and `validTo` both come
+		/// from the host, and the app can only check that the password opens the
+		/// certificate. Expiry is derived locally from `validTo`; revocation is
+		/// whatever the catalogue claims.
 		init(apiValue: String, validTo: String) {
 			let normalizedValue = apiValue.lowercased()
 			if Self._isExpired(validTo: validTo) {
@@ -125,12 +129,28 @@ enum NexCerts {
 		}
 
 		private static func _isExpired(validTo: String) -> Bool {
-			let dateFormatter = DateFormatter()
-			dateFormatter.dateFormat = "yyyy-MM-dd"
-			guard let expiryDate = dateFormatter.date(from: validTo) else {
+			guard let expiryDate = Self._parseDay(validTo) else {
 				return false
 			}
-			return expiryDate < Date()
+			// The catalogue publishes a calendar day. Treat it as the end of that
+			// day in UTC, so a certificate is not reported expired during the last
+			// day it is still valid.
+			return expiryDate.addingTimeInterval(86_400) < Date()
+		}
+
+		/// Parses the catalogue's `yyyy-MM-dd` day.
+		///
+		/// Pinned to POSIX/Gregorian/UTC: a user whose device calendar or locale
+		/// is not Gregorian (Buddhist, Japanese, Arabic) would otherwise read a
+		/// different year from the same string and see the wrong status.
+		static func _parseDay(_ text: String) -> Date? {
+			let dateFormatter = DateFormatter()
+			dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+			dateFormatter.calendar = Calendar(identifier: .gregorian)
+			dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+			dateFormatter.dateFormat = "yyyy-MM-dd"
+			dateFormatter.isLenient = false
+			return dateFormatter.date(from: text.trimmingCharacters(in: .whitespacesAndNewlines))
 		}
 
 		var title: String {
@@ -363,14 +383,20 @@ extension NexCerts {
 		request.timeoutInterval = 30
 		request.setValue("App/iOS/VexSign/1.0", forHTTPHeaderField: "User-Agent")
 
-		let (data, response) = try await URLSession.shared.data(for: request)
-		guard let httpResponse = response as? HTTPURLResponse, (200 ..< 300).contains(httpResponse.statusCode) else {
+		let (data, response) = try await BoundedResponseFetch.fetch(request, maximumBytes: Int64(maxDownloadBytes))
+		// `response.url` is the final URL after any redirects. `sourceHost` is a
+		// promise made to the user and repeated in the UI, so the host that
+		// actually answered is checked, not the one that was requested.
+		guard let httpResponse = response as? HTTPURLResponse,
+			  httpResponse.url?.scheme?.lowercased() == "https",
+			  httpResponse.url?.host?.lowercased() == sourceHost,
+			  (200 ..< 300).contains(httpResponse.statusCode) else {
 			throw NexCertsError.invalidResponse(url)
 		}
 
-		// A host that lies about its length can still exceed the cap; the buffer is already
-		// allocated by then. Enforcing it during the transfer needs a streaming downloader,
-		// which belongs with the download-integrity work, not here.
+		// The body is already bounded by `BoundedResponseFetch`, which stops the transfer
+		// at the cap rather than after it. These two checks remain as the cheapest
+		// defence against a length the transfer itself did not have to trust.
 		let declaredLength = httpResponse.expectedContentLength
 		guard declaredLength <= 0 || declaredLength <= Int64(maxDownloadBytes) else {
 			throw NexCertsError.downloadTooLarge(url)

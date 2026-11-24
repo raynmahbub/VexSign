@@ -52,7 +52,7 @@ struct OnboardingView: View {
 							dismiss()
 						}
 					}
-					.font(.body.weight(.semibold))
+					.font(Theme.Typography.rowTitle)
 				}
 				if _page > 0 {
 					ToolbarItem(placement: .topBarLeading) {
@@ -67,7 +67,7 @@ struct OnboardingView: View {
 			.sheet(isPresented: $_isAddingSource) {
 				SourcesAddView()
 			}
-			.fileImporter(isPresented: $_isImportingIPA, allowedContentTypes: [.ipa, .tipa, .item], allowsMultipleSelection: false) { result in
+			.fileImporter(isPresented: $_isImportingIPA, allowedContentTypes: UTType.packageArchives, allowsMultipleSelection: false) { result in
 				if case .success(let urls) = result, let url = urls.first {
 					_importFirstApp(from: url)
 				}
@@ -91,6 +91,7 @@ struct OnboardingView: View {
 			Text(.localized("VexSign uses your certificate to sign IPAs, then installs them over the local server or a pairing file. Nothing is uploaded."))
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)
+			BootstrapFact()
 			Spacer()
 		}
 		.padding(28)
@@ -207,6 +208,37 @@ struct OnboardingView: View {
 		}
 		.padding(28)
 		.frame(maxWidth: .infinity, alignment: .leading)
+	}
+}
+
+/// The one thing a new user has to understand before anything else works: VexSign cannot perform
+/// its own *first* install.
+///
+/// The app is already installed by the time this screen appears, which makes the question "how
+/// did it get here, and how do I get the next copy" easy to skip — and then a failed install or a
+/// missing store route reads as a bug. The bootstrap routes are the subject of
+/// `Documentation/Workflows/bootstrap.md`; this card is the sentence from it that matters at
+/// first launch. Updates are the exception and are named as one: a signed copy in Library can be
+/// installed in place from the update sheet, which needs no installer at all.
+private struct BootstrapFact: View {
+	var body: some View {
+		VStack(alignment: .leading, spacing: 6) {
+			Label(.localized("VexSign cannot perform its first install by itself"), systemImage: "exclamationmark.shield")
+				.font(.subheadline.weight(.semibold))
+			Text(.localized("This copy is already installed. Getting VexSign onto a device in the first place needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. Updates do not: sign the release in Library with the certificate this build was signed with, and the update sheet installs it in place. Nothing is ever sent to an updater."))
+				.font(.caption)
+				.foregroundStyle(.secondary)
+				.fixedSize(horizontal: false, vertical: true)
+			if EmbeddedContainerRuntime.isAvailable {
+				Text(.localized("This combined build can also host LiveContainer guests."))
+					.font(.caption)
+					.foregroundStyle(.secondary)
+			}
+		}
+		.padding(12)
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
+		.accessibilityElement(children: .combine)
 	}
 }
 

@@ -7,7 +7,6 @@ import SwiftUI
 import NimbleViews
 import AltSourceKit
 import OSLog
-import UIKit.UIImpactFeedbackGenerator
 import NimbleExtensions
 
 extension SourcesAddView {
@@ -180,7 +179,7 @@ extension SourcesAddView {
 			} catch {
 				_premiumErrorMessage = VexSignAPI.errorMessage(error.localizedDescription)
 				_showPremiumError = true
-				UINotificationFeedbackGenerator().notificationOccurred(.error)
+				Haptics.error()
 			}
 		}
 	}

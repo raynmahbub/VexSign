@@ -102,8 +102,12 @@ The source above describes the integrated path behind that gate, not a device ru
 - Imported paid-certificate signing still uses the existing local certificate
   store and signer without Apple Account login. No backend key/pairing upload,
   unrelated revocation, automatic quota consumption or trust bypass was added.
-- Self-update remains unavailable in-app; there is no private suspend selector or
-  signing-key upload to an updater. Use an eligible external installer.
+- Self-update has exactly one in-app route, and it is a local one: a copy of VexSign the
+  user signed here, served from the app's own HTTPS installer, which iOS replaces in
+  place after `AppInstaller` confirms it. `SelfReplacementPolicy` is the whole condition
+  (same bundle identifier, signed, higher version) and runs before anything is served.
+  Still refused: a signing-key upload to an updater, a private suspend selector, and a
+  paired-device self-replacement without accepted evidence.
 
 ## Native dependency and remaining implementation blockers
 

@@ -166,17 +166,33 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         self.assertNotIn('NSSelectorFromString', proxy)
         self.assertNotIn('free(UnsafeMutableRawPointer', inventory)
 
-    def test_updater_has_no_signing_key_upload_private_probe_suspend_or_silent_switch(self):
+    def test_updater_has_no_key_upload_and_reports_done_only_when_the_device_confirmed_it(self):
+        # The updater used to be unable to install at all, so `phase = .done` was proof of a false
+        # claim. It now installs one way: a copy the user signed here, served from this device,
+        # reported by the same installer everything else uses. Success is therefore allowed in
+        # exactly one place — the arm that received `.installed` from that installer — and the
+        # invariants that mattered are unchanged: no key material, no remote signing, no private
+        # probe, no suspend selector, no automatic method switch.
         updater = (APP / "Infrastructure/Updates/SelfUpdateManager.swift").read_text()
         for forbidden in ('requestServerSign', '/vexsign/sign', 'p12password', '.signingPassword',
                           '.upload(', 'InstalledAppProbe()', 'installProgress(for:', 'suspend:',
-                          'adopt(alternative', 'phase = .done'):
+                          'adopt(alternative'):
             self.assertNotIn(forbidden, updater, forbidden)
         run = updater.split('func performUpdate(to release:', 1)[1]
         self.assertIn('phase = .failed(blocker.message)', run)
         self.assertNotIn('URLSession', run)
         self.assertNotIn('resolvedCertificate()', run)
         self.assertIn('alternative: nil', updater)
+
+        self.assertEqual(
+            sum('phase = .done' in line for line in run.splitlines()), 1,
+            "success has exactly one report, in the arm that received the confirmation"
+        )
+        after_confirmation = run.split('case .success(.installed):', 1)
+        self.assertEqual(len(after_confirmation), 2, "the done report needs the confirmed arm")
+        self.assertIn('phase = .done', after_confirmation[1].split('case ', 1)[0])
+        # And the confirmation has to come from the shared installer, not from this file.
+        self.assertIn('AppInstaller(app: copy, allowsInPlaceUpdate: true)', run)
 
     def test_no_automatic_vpn_activation_url_is_present_in_app_sources(self):
         offenders = []

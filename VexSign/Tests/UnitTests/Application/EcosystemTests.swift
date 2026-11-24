@@ -142,12 +142,16 @@ final class EcosystemTests: XCTestCase {
         """
 
         let sanitized = DiagnosticBundleExporter._sanitize(sampleLog)
+        // The exporter routes through `LogRedaction`, so the marker is shared with the
+        // file log rather than being a third spelling of the same idea.
+        let marker = LogRedaction.marker
         XCTAssertFalse(sanitized.contains("mySuperSecretPassword123"))
-        XCTAssertTrue(sanitized.contains("[REDACTED]"))
+        XCTAssertTrue(sanitized.contains("certificate password: \(marker)"))
         XCTAssertFalse(sanitized.contains("abcdef1234567890abcdef1234567890"))
-        XCTAssertTrue(sanitized.contains("[REDACTED_TOKEN]"))
+        XCTAssertTrue(sanitized.contains("Bearer \(marker)"))
         XCTAssertFalse(sanitized.contains("MIIEowIBAAKCAQEA0Y3"))
-        XCTAssertTrue(sanitized.contains("[REDACTED_PRIVATE_KEY_BLOCK]"))
+        XCTAssertFalse(sanitized.contains("BEGIN RSA PRIVATE KEY"), "the header lines of the block go too")
+        XCTAssertTrue(sanitized.contains("[INFO] Finished operation."), "ordinary log lines survive")
     }
 
     func testDiagnosticBundleSanitizerCoversHeadersURLsAndNamedSecrets() {
@@ -163,12 +167,14 @@ final class EcosystemTests: XCTestCase {
         """
 
         let sanitized = DiagnosticBundleExporter._sanitize(sampleLog)
+        let marker = LogRedaction.marker
         XCTAssertFalse(sanitized.contains("dXNlcjpzZWNyZXQxMjM0"), "an Authorization header value must not leave the app")
-        XCTAssertTrue(sanitized.contains("[REDACTED_AUTH]"))
+        XCTAssertTrue(sanitized.contains("Authorization: \(marker)"))
         XCTAssertFalse(sanitized.contains("hunter2"), "URL userinfo is a credential")
-        XCTAssertTrue(sanitized.contains("https://[REDACTED]@repo.example.com/apps.json"))
+        XCTAssertFalse(sanitized.contains("bob"), "the user name goes with the password")
+        XCTAssertTrue(sanitized.contains("https://\(marker)@repo.example.com/apps.json"))
         XCTAssertFalse(sanitized.contains("sk-live-9f8e7d6c5b4a"))
-        XCTAssertTrue(sanitized.contains("api_key=[REDACTED]"))
+        XCTAssertTrue(sanitized.contains("api_key=\(marker)"))
         XCTAssertTrue(sanitized.contains("Downloaded Example.ipa in 3s"), "ordinary log lines survive")
     }
 

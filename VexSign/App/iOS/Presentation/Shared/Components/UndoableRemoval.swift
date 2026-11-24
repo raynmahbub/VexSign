@@ -28,7 +28,7 @@ private struct UndoableRemovalBanner: ViewModifier {
 					.transition(.move(edge: .bottom).combined(with: .opacity))
 				}
 			}
-			.animation(.snappy, value: _current?.id)
+			.appAnimation(.snappy, value: _current?.id)
 			.onReceive(NotificationCenter.default.publisher(for: UndoableRemoval.announced)) { note in
 				guard let removal = note.userInfo?["removal"] as? UndoableRemoval else { return }
 				// A newer removal replaces the offer on screen; the older one keeps its own

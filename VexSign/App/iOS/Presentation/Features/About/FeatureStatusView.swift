@@ -50,7 +50,7 @@ struct FeatureStatusView: View {
 	private func _counter(_ value: Int, title: String, tint: Color, icon: String) -> some View {
 		HStack(spacing: 10) {
 			Image(systemName: icon)
-				.font(.system(size: 20, weight: .semibold))
+				.font(.title3.weight(.semibold))
 				.foregroundStyle(tint)
 			VStack(alignment: .leading, spacing: 1) {
 				Text("\(value)").font(.title3.bold().monospacedDigit())

@@ -74,6 +74,7 @@ struct DevicePickerView: View {
                     capabilitySection
                 }
             }
+            .dismissableKeyboard()
             .navigationTitle(.localized("Select Device"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

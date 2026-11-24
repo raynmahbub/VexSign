@@ -134,7 +134,10 @@ final class LibraryInstallationLifecycleTests: XCTestCase {
 		store.beginInstallation(identifier: identifier, attemptID: "attempt-1")
 		store.request(_request("row"))
 
-		try await Task.sleep(nanoseconds: 250_000_000)
+		// A negative assertion has nothing to await, so this is the named settle window
+		// from `AsyncWait` rather than a bare sleep: long enough that a stray read would
+		// have landed, and obviously deliberate to whoever reads it next.
+		await AsyncWait.settle(.milliseconds(250))
 		XCTAssertEqual(store.statuses["row"]?.installed, .installing,
 			"A device read taken while iOS is writing the bundle must not become the badge")
 	}

@@ -37,6 +37,9 @@ VexSign/App/iOS/Resources/SelfUpdateConfig.plist
 *.key
 *.keystore
 *.certSigningRequest
+# Dev-only certificate drop folder read by CertificateAutoImporter at launch. The
+# p12/profile patterns above miss `cert.txt`, which holds the password in plaintext.
+signing-assets/
 .env
 .env.*
 cert.json

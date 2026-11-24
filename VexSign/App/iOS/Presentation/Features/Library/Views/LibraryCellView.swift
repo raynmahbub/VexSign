@@ -269,7 +269,7 @@ struct LibraryCellView: View {
 
 		RoundedRectangle(cornerRadius: radius, style: .continuous)
 			.fill(fill)
-			.animation(.easeInOut(duration: 0.3), value: isHighlighted)
+			.appAnimation(.easeInOut(duration: 0.3), value: isHighlighted)
 	}
 	
 	/// What the device reports, when it reports anything.
@@ -653,7 +653,7 @@ extension LibraryCellView {
 	) -> some View {
 		Button(action: action) {
 			Image(systemName: systemImage)
-				.font(.system(size: 15, weight: .semibold))
+				.font(.subheadline.weight(.semibold))
 				.frame(width: 36, height: 36)
 		}
 		.buttonStyle(.bordered)

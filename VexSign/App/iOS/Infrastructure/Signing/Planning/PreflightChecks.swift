@@ -201,25 +201,35 @@ enum PreflightChecks {
 
 	private static func verifyExpiry(_ certificate: CertificatePair?, into issues: inout [PreflightIssue]) {
 		guard let expiration = certificate?.expiration else { return }
-		guard Date() < expiration else {
-			issues.append(PreflightIssue(
+		issues.append(contentsOf: expiryIssues(expiration: expiration))
+	}
+
+	/// The two certificate-expiry findings, as a pure function of the date.
+	///
+	/// Split out of `verifyExpiry` because the only part that needs a `CertificatePair` is
+	/// reading `expiration`; everything after is a comparison and a sentence, and it carries a
+	/// distinction the encoded form used to lose — "expires in three days" is advisory and
+	/// "expired" is blocking, but both were written with `code: .certificateExpired`.
+	static func expiryIssues(expiration: Date, now: Date = Date()) -> [PreflightIssue] {
+		guard now < expiration else {
+			return [PreflightIssue(
 				.localized("Certificate expired"),
 				String.localized("The selected certificate expired on %@.", arguments: expiration.formatted(date: .abbreviated, time: .omitted)),
 				severity: .blocking,
 				code: .certificateExpired,
 				status: .expired,
-				remediation: .localized("Import a current certificate.")))
-			return
+				remediation: .localized("Import a current certificate."))]
 		}
 
 		// Warn within 7 days.
-		if expiration.timeIntervalSinceNow < 7 * 24 * 3600 {
-			issues.append(PreflightIssue(
-				.localized("Certificate expiring soon"),
-				String.localized("The selected certificate expires %@.", arguments: RelativeDateTimeFormatter().localizedString(for: expiration, relativeTo: Date()))
-			,
-				code: .certificateExpired))
-		}
+		guard expiration.timeIntervalSince(now) < 7 * 24 * 3600 else { return [] }
+		return [PreflightIssue(
+			.localized("Certificate expiring soon"),
+			String.localized("The selected certificate expires %@.", arguments: RelativeDateTimeFormatter().localizedString(for: expiration, relativeTo: now)),
+			severity: .warning,
+			code: .certificateExpiringSoon,
+			status: .requiresAction,
+			remediation: .localized("Sign before it expires, or import a certificate with more time left."))]
 	}
 
 	// MARK: Profile compatibility

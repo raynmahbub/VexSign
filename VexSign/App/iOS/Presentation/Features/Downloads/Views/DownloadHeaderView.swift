@@ -56,7 +56,7 @@ struct DownloadHeaderView: View {
                     )
                 }
             }
-            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: viewState)
+            .appAnimation(.spring(response: 0.35, dampingFraction: 0.85), value: viewState)
         }
     }
 }
@@ -86,7 +86,7 @@ struct MinimizedDownloadHeader: View {
             Spacer()
 
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                withAppAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                     viewState = .collapsed
                     savedState = .collapsed
                 }
@@ -96,6 +96,7 @@ struct MinimizedDownloadHeader: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.borderless)
+            .accessibilityLabel(Text(.localized("Collapse downloads")))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -112,7 +113,7 @@ struct MinimizedDownloadHeader: View {
                     }
                 }
                 .onEnded { value in
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    withAppAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                         if value.translation.height > 15 {
                             viewState = .collapsed
                             savedState = .collapsed
@@ -169,7 +170,7 @@ struct CollapsedDownloadHeader: View {
 
             HStack(spacing: 8) {
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    withAppAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                         viewState = .minimized
                         savedState = .minimized
                     }
@@ -179,9 +180,10 @@ struct CollapsedDownloadHeader: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel(Text(.localized("Minimize downloads")))
                 
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    withAppAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                         viewState = .expanded
                         savedState = .expanded
                     }
@@ -191,6 +193,7 @@ struct CollapsedDownloadHeader: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel(Text(.localized("Expand downloads")))
             }
         }
         .padding(.horizontal)
@@ -206,7 +209,7 @@ struct CollapsedDownloadHeader: View {
                     dragOffset = max(-100, min(100, value.translation.height))
                 }
                 .onEnded { value in
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    withAppAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                         if value.translation.height < -15 {
                             viewState = .minimized
                             savedState = .minimized
@@ -259,6 +262,7 @@ struct ExpandedDownloadHeader: View {
 							.foregroundStyle(isPaused ? .green : .orange)
 					}
 					.buttonStyle(.borderless)
+					.accessibilityLabel(Text(isPaused ? String.localized("Resume all downloads") : String.localized("Pause all downloads")))
 
 					Button {
 						viewState = .collapsed
@@ -269,6 +273,7 @@ struct ExpandedDownloadHeader: View {
 							.foregroundStyle(.secondary)
 					}
 					.buttonStyle(.borderless)
+					.accessibilityLabel(Text(.localized("Collapse downloads")))
 				}
 				.padding(.bottom, 4)
 				
@@ -279,7 +284,7 @@ struct ExpandedDownloadHeader: View {
 
 					if !showAllDownloads {
 						Button {
-							withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+							withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
 								showAllDownloads = true
 							}
 						} label: {
@@ -313,7 +318,7 @@ struct ExpandedDownloadHeader: View {
 							}
 							
 							Button {
-								withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+								withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
 									showAllDownloads = false
 								}
 							} label: {
@@ -356,7 +361,7 @@ struct ExpandedDownloadHeader: View {
                     }
                 }
                 .onEnded { value in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         if value.translation.height < -15 {
                             viewState = .collapsed
                             savedState = .collapsed
@@ -365,7 +370,7 @@ struct ExpandedDownloadHeader: View {
                     }
                 }
         )
-		.animation(.spring(response: 0.3, dampingFraction: 0.8), value: showAllDownloads)
+		.appAnimation(.spring(response: 0.3, dampingFraction: 0.8), value: showAllDownloads)
 		.onAppear {
 			model.bind(to: downloads)
 		}

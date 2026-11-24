@@ -60,6 +60,18 @@ CREATE TABLE IF NOT EXISTS keys (
     created_at  REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_keys_device_uuid ON keys(device_uuid);
+-- Every token-gated admin action. `key_id` is the short, non-reversible identifier the
+-- admin list shows (never the key itself), so the trail can answer "who disabled this
+-- customer's key" without becoming a second copy of the key inventory.
+CREATE TABLE IF NOT EXISTS admin_audit (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at REAL NOT NULL,
+    action     TEXT NOT NULL,
+    key_id     TEXT,
+    source_ip  TEXT,
+    detail     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_created_at ON admin_audit(created_at);
 """
 
 _INIT_LOCK = threading.Lock()
@@ -187,3 +199,32 @@ def delete_key(api_key: str) -> None:
     """Permanently remove a key."""
     with connection() as conn:
         conn.execute("DELETE FROM keys WHERE api_key = ?", (api_key,))
+
+
+def record_admin_action(
+    action: str,
+    key_id: str | None = None,
+    source_ip: str | None = None,
+    detail: str | None = None,
+) -> None:
+    """Append one admin action to the audit trail.
+
+    Its own short transaction, written after the mutation it describes: a mutation that
+    raises leaves no row, which is the honest outcome, and a crash between the two loses
+    the record rather than the change.
+    """
+    with connection() as conn:
+        conn.execute(
+            "INSERT INTO admin_audit (created_at, action, key_id, source_ip, detail) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (time.time(), action, key_id, source_ip, detail),
+        )
+
+
+def recent_admin_actions(limit: int = 50) -> list[sqlite3.Row]:
+    with connection() as conn:
+        return conn.execute(
+            "SELECT created_at, action, key_id, source_ip, detail FROM admin_audit "
+            "ORDER BY id DESC LIMIT ?",
+            (max(1, min(int(limit), 500)),),
+        ).fetchall()

@@ -91,6 +91,25 @@ struct SigningMethodAvailability: Equatable {
     /// exactly when the method is fully usable.
     let availabilityReason: String?
 
+    /// The caveat that applies to the free-account method, or `nil` when the in-engine signer runs.
+    ///
+    /// Two different things sit behind one flag and used to share one sentence. The account flow
+    /// *does* hand its result to signing: `NativeSigningManager.exportToCertificateStore` imports
+    /// the account's `.p12` and profile as an ordinary `CertificatePair`, and the
+    /// imported-certificate engine signs with it. What stays closed is the in-process CMS signer
+    /// against an Apple account, which is held `.notIntegrated` by a device-evidence gate, not by
+    /// missing code. Saying "provisioning is not integrated with signing" therefore described a
+    /// defect that does not exist, while hiding the real limit — so the sentence now names the
+    /// engine, and this function is pure so the wording is testable without an account.
+    static func freeAppleIDReason(engine: SigningMethodCapabilities.Implementation) -> String? {
+        switch engine {
+        case .implemented:
+            return nil
+        case .notIntegrated:
+            return .localized("Provisioning hands the certificate and profile to the normal certificate store; signing then uses the imported-certificate engine. In-process account signing is not enabled in this build.")
+        }
+    }
+
     static func current(for method: SigningMethod) -> SigningMethodAvailability {
         switch method {
         case .paidCertificate:
@@ -101,15 +120,12 @@ struct SigningMethodAvailability: Equatable {
             )
         case .freeAppleID:
             // Always selectable: choosing it starts sign-in, and the live session state is
-            // rendered from NativeSigningManager's snapshot. It is not, however, equivalent to
-            // an imported certificate while the native account adapter stays unintegrated, and
-            // the picker is where the user should learn that.
-            let registration = SigningMethodCapabilities.current.nativeAppleAccountSigning
+            // rendered from NativeSigningManager's snapshot.
             return SigningMethodAvailability(
                 isAvailable: true,
-                availabilityReason: registration == .notIntegrated
-                    ? .localized("Experimental: account provisioning is not yet integrated with signing.")
-                    : nil
+                availabilityReason: freeAppleIDReason(
+                    engine: SigningMethodCapabilities.current.nativeAppleAccountSigning
+                )
             )
         case .trollStore:
             let available = TrollStoreDetector.isAvailable

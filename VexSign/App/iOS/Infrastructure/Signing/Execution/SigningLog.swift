@@ -26,7 +26,9 @@ final class SigningLog: ObservableObject {
 	/// Historic name for `sessionEntries`; kept so the signing console reads the same as before.
 	var lines: [LogEntry] { sessionEntries }
 
-	private static let _maxEntries = 4000
+	/// How many entries a console keeps. `merged(_:onto:limit:)` is the only place that applies
+	/// it, so the session console and the full console cannot drift.
+	static let maxEntries = 4000
 	private static let _flushInterval = 0.08
 	/// How much of the rotated file is loaded into the Logs tab. The file holds up to ~2 MB,
 	/// which is far more than any console wants to render.
@@ -98,9 +100,21 @@ final class SigningLog: ObservableObject {
 			self._history = history
 
 			DispatchQueue.main.async {
-				self.entries = Array((self.sessionEntries + history).prefix(Self._maxEntries))
+				self.entries = Array((self.sessionEntries + history).prefix(Self.maxEntries))
 			}
 		}
+	}
+
+	// MARK: - Bounded history
+
+	/// `batch` (newest first) in front of `existing` (newest first), capped at `limit`.
+	///
+	/// `_flush` is only reachable through a coalescing queue and a main-thread hop, which is
+	/// exactly what makes the cap hard to test from outside. The arithmetic does not need either
+	/// of those, so it lives here and `_flush` calls it.
+	static func merged(_ batch: [LogEntry], onto existing: [LogEntry], limit: Int = SigningLog.maxEntries) -> [LogEntry] {
+		guard limit > 0 else { return [] }
+		return Array((batch + existing).prefix(limit))
 	}
 
 	// MARK: - Export
@@ -154,15 +168,8 @@ final class SigningLog: ObservableObject {
 		_pending.removeAll(keepingCapacity: true)
 
 		DispatchQueue.main.async {
-			self.sessionEntries.insert(contentsOf: batch, at: 0)
-			if self.sessionEntries.count > Self._maxEntries {
-				self.sessionEntries.removeLast(self.sessionEntries.count - Self._maxEntries)
-			}
-
-			self.entries.insert(contentsOf: batch, at: 0)
-			if self.entries.count > Self._maxEntries {
-				self.entries.removeLast(self.entries.count - Self._maxEntries)
-			}
+			self.sessionEntries = Self.merged(batch, onto: self.sessionEntries)
+			self.entries = Self.merged(batch, onto: self.entries)
 		}
 	}
 }

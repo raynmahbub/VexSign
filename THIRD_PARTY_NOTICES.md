@@ -21,12 +21,26 @@ different obligations.
 | `VexSign/Packages/Vendor/Zsign` | MIT, plus an Apache-2.0 component notice | [`VexSign/Packages/Vendor/Zsign/LICENSE`](VexSign/Packages/Vendor/Zsign/LICENSE), [`VexSign/Packages/Vendor/Zsign/LICENSE_LC`](VexSign/Packages/Vendor/Zsign/LICENSE_LC) |
 | `VexSign/Packages/Vendor/IDeviceKitten` | MIT | [`VexSign/Packages/Vendor/IDeviceKitten/LICENSE`](VexSign/Packages/Vendor/IDeviceKitten/LICENSE) |
 | Anisette server attribution | See bundled notice for applicable terms | [`VexSign/App/iOS/Resources/AnisetteServers-LICENSE.txt`](VexSign/App/iOS/Resources/AnisetteServers-LICENSE.txt) |
+| zstd decoder derived from SayoSign (`VexZstd.c`) | GNU GPL version 3.0 (same as this repository) | [`LICENSE`](LICENSE); provenance below |
 
 `VexSign/Packages/Vendor/README.md` and `VexSign/Packages/Vendor/manifest.json` identify the vendored upstream
 projects, pins, and retained notices. Some package manifests also resolve
 external dependencies or binary targets at build time; consult those manifests
 and the upstream license files for their terms. This table is not a complete
 software bill of materials.
+
+## zstd decoder (`VexZstd.c`)
+
+`VexSign/App/iOS/Infrastructure/Archives/Extraction/Zstd/VexZstd.c` contains third-party GPL-3.0
+code whose decoding core comes from SayoSign's `core/src/zstd.c` (`murk-sus/SayoSign`), taken at
+commit `f250ff324f7b7cad7bb87a33fa9ebc38c837aa8d`. Copyright remains with the upstream author;
+GPL-3.0 obligations are satisfied by this repository's own GPL-3.0 `LICENSE`.
+
+Modified 2026 for VexSign: a caller-supplied output ceiling (bomb guard, also checked against the
+frame's declared content size), verification of the 4-byte XXH64 frame checksum that upstream
+skipped, checked allocations, and buffer/error helpers made private. Its tests are
+`ZstdDecompressionTests`, and their fixtures come from the reference `zstandard` implementation
+rather than from the code under test.
 
 ## Device bootstrap/pairing foundation
 

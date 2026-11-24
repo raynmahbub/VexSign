@@ -43,7 +43,7 @@ struct ImportFoldersView: View {
 				}
 			}
 		}
-		.animation(.default, value: _names.isEmpty)
+		.appAnimation(.default, value: _names.isEmpty)
 		.onAppear(perform: _reload)
 		.sheet(item: $_picking) { folder in
 			ImportFolderPickerView(folder: folder) { name in
