@@ -189,7 +189,9 @@ final class ImportAndInstallationTests: XCTestCase {
         let prefix = (0..<40).map { "d\($0)" }.joined(separator: "/")
         XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(
             relativePath: prefix + "/../../escape", root: root))
-        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(
+        // `.` names the file beside it, so it is normalized rather than refused: a packer that
+        // writes `d0/./file.txt` is describing `d0/file.txt`.
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDestination(
             relativePath: prefix + "/./file.txt", root: root))
     }
 
