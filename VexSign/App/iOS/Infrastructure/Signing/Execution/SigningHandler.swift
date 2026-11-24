@@ -94,7 +94,7 @@ final class SigningHandler: NSObject {
         createdWorkDirectory: Bool? = nil,
         createdSignedDirectory: Bool? = nil,
         committedToDatabase: Bool? = nil,
-        error: String? = nil,
+        error errorMessage: String? = nil,
         incrementCleanupAttempts: Bool = false
     ) {
         let now = Date()
@@ -105,7 +105,7 @@ final class SigningHandler: NSObject {
                 createdWorkDirectory: createdWorkDirectory,
                 createdSignedDirectory: createdSignedDirectory,
                 committedToDatabase: committedToDatabase,
-                error: error,
+                error: errorMessage,
                 incrementCleanupAttempts: incrementCleanupAttempts,
                 now: now
             )
@@ -120,7 +120,7 @@ final class SigningHandler: NSObject {
                 createdSignedDirectory: createdSignedDirectory ?? _ownsSignedDirectory,
                 committedToDatabase: committedToDatabase ?? _didAddToDatabase,
                 cleanupAttempts: incrementCleanupAttempts ? 1 : 0,
-                lastError: error.map(LogRedaction.redact),
+                lastError: errorMessage.map(LogRedaction.redact),
                 createdAt: now,
                 updatedAt: now
             )
@@ -129,7 +129,7 @@ final class SigningHandler: NSObject {
             } catch let saveError {
                 let redacted = LogRedaction.redact(saveError.localizedDescription)
                 Logger.signing.warning(
-                    "Could not save signing recovery journal for \(_uuid, privacy: .public): \(redacted, privacy: .public)"
+                    "Could not save signing recovery journal for \(self._uuid, privacy: .public): \(redacted, privacy: .public)"
                 )
             }
         }
@@ -165,7 +165,7 @@ final class SigningHandler: NSObject {
         } catch {
             let redacted = LogRedaction.redact(error.localizedDescription)
             Logger.signing.warning(
-                "Could not persist initial signing journal for \(_uuid, privacy: .public): \(redacted, privacy: .public)"
+                "Could not persist initial signing journal for \(self._uuid, privacy: .public): \(redacted, privacy: .public)"
             )
         }
 
@@ -539,7 +539,7 @@ final class SigningHandler: NSObject {
         } catch {
             let redacted = LogRedaction.redact(error.localizedDescription)
             Logger.signing.warning(
-                "Could not remove resolved signing recovery journal for \(_uuid, privacy: .public): \(redacted, privacy: .public)"
+                "Could not remove resolved signing recovery journal for \(self._uuid, privacy: .public): \(redacted, privacy: .public)"
             )
         }
 	}

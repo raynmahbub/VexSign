@@ -267,9 +267,6 @@ private var _writeContext: NSManagedObjectContext {
         return try await withCheckedThrowingContinuation { continuation in
             context.perform {
                 do {
-                    if let unavailableError = self.persistentStorageUnavailableError {
-                        throw unavailableError
-                    }
                     let object = try changes(context)
                     if context.hasChanges {
                         try context.save()
