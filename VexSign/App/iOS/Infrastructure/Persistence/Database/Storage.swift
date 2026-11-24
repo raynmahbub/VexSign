@@ -124,6 +124,31 @@ private var _writeContext: NSManagedObjectContext {
 		container.viewContext
 	}
 
+	/// A read that cannot be answered from the model at all.
+	///
+	/// Core Data does not fail a request whose entity name it cannot find: it *raises*
+	/// (`NSFetchRequest could not locate an NSEntityDescription`), and an Objective-C exception
+	/// ends the process instead of reaching a caller that could report it. Both read accessors
+	/// therefore ask the model first, so a wrong name is an empty answer or a Swift error
+	/// depending on which contract the caller signed up for.
+	enum ReadFailure: LocalizedError, Equatable {
+		case unknownEntity(String)
+
+		var errorDescription: String? {
+			switch self {
+			case .unknownEntity(let name):
+				return "\(name) is not part of the VexSign data model, so there is nothing to read from it."
+			}
+		}
+	}
+
+	/// The entity name a request asks for when the model does not carry it.
+	private func unknownEntityName<T>(in request: NSFetchRequest<T>) -> String? {
+		guard let name = request.entityName,
+		      container.managedObjectModel.entitiesByName[name] == nil else { return nil }
+		return name
+	}
+
 	/// Fetches on the view context's own queue, whoever the caller is.
 	///
 	/// `context.fetch` may only run on the queue that owns the context - the
@@ -133,6 +158,7 @@ private var _writeContext: NSManagedObjectContext {
 	/// The caller stays synchronous; only the fetch changes queue, and
 	/// `performAndWait` runs inline when the caller is already on it.
 	func fetchOnQueue<T>(_ request: NSFetchRequest<T>) -> [T] {
+		guard unknownEntityName(in: request) == nil else { return [] }
 		let context = self.context
 		var results: [T] = []
 		context.performAndWait {
@@ -150,6 +176,7 @@ private var _writeContext: NSManagedObjectContext {
 	/// import that committed looks like an import that never happened, and nothing anywhere says
 	/// otherwise. Callers that can say why use this one.
 	func fetchOnQueueThrowing<T>(_ request: NSFetchRequest<T>) throws -> [T] {
+		if let name = unknownEntityName(in: request) { throw ReadFailure.unknownEntity(name) }
 		let context = self.context
 		var result: Result<[T], Error> = .success([])
 		context.performAndWait {

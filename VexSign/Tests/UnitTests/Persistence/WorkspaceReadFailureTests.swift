@@ -15,7 +15,11 @@ final class WorkspaceReadFailureTests: XCTestCase {
         // which is the same shape as a store that cannot be read.
         let request = NSFetchRequest<NSManagedObject>(entityName: "NotAnEntityInThisModel")
 
-        XCTAssertThrowsError(try storage.fetchOnQueueThrowing(request))
+        // Core Data raises for this request rather than failing it, so the accessor answers from
+        // the model first: a name the model does not carry is an error here, not a crash.
+        XCTAssertThrowsError(try storage.fetchOnQueueThrowing(request)) { error in
+            XCTAssertEqual(error as? Storage.ReadFailure, .unknownEntity("NotAnEntityInThisModel"))
+        }
 
         // The non-throwing accessor keeps its "empty is a valid answer" contract for the
         // optional lookups that rely on it.
