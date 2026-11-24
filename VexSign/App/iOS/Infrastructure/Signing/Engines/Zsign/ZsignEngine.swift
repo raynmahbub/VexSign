@@ -89,10 +89,15 @@ enum ZsignEngine {
     /// Cheap diagnostic only: nil does not authenticate a profile, establish
     /// certificate validity, or prove private-key access. Mandatory inventory
     /// admission and execution-time proof remain in SigningResolutionSession.
+    ///
+    /// `refusalReason(for:)` runs it when the engine fails without a word, which is the one
+    /// case where the run has no other explanation to offer. The leaf is passed as the
+    /// fingerprint `SigningIdentityStore` already computed, so this stays a comparison of
+    /// bytes rather than a second parse of the same PKCS#12.
 	static func identityProblem(
 		provisioningProfile: Data?,
 		certificate: Data?,
-		leafCertificate: Data?,
+		leafFingerprint: String?,
 		profile: Certificate?
 	) -> IdentityProblem? {
 		guard let provisioningProfile, !provisioningProfile.isEmpty else { return .missingProvisioningProfile }
@@ -102,15 +107,45 @@ enum ZsignEngine {
 
 		// A .p12 that opens with the stored password always yields its leaf certificate; when
 		// that is nil, either the password is wrong or the file is not a PKCS#12 at all.
-		guard let leafCertificate, !leafCertificate.isEmpty else {
+		guard let leafFingerprint, !leafFingerprint.isEmpty else {
 			return .unreadableCertificate
 		}
 
 		let named = (profile.DeveloperCertificates ?? []).map { SigningIdentity.fingerprint(of: $0) }
-        guard !named.isEmpty, named.contains(SigningIdentity.fingerprint(of: leafCertificate)) else {
+        guard !named.isEmpty, named.contains(leafFingerprint) else {
 			return .certificateNotInProfile
 		}
 		return nil
+	}
+
+	/// The identity refusal behind a run that failed without reporting anything.
+	///
+	/// `ZSignAsset::Init` gives up before the completion handler is installed, so the wrapper
+	/// returns `false` with no error text and `SigningFileHandlerError.engineRefused` could only
+	/// say "the engine refused this app and did not say why". Every precondition it gave up on
+	/// is readable from the request, so the run is turned into the one sentence that names the
+	/// cause and the file to import. Reading three files is only paid for by a failed run.
+	static func refusalReason(for request: Request) -> String? {
+		guard !request.isAdHoc else { return nil }
+		let profileData = contents(of: request.provisionPath)
+		let certificateData = contents(of: request.p12Path)
+		// Expiry is reported by preflight with its own sentence; this diagnostic is about the
+		// pairing, so a profile that parses but has expired still answers the question.
+		let profile = profileData.flatMap { try? ProvisioningProfileParser.parse($0, allowingExpiredForDisplay: true) } // try? ok: an unparseable profile is an answer here
+		let leafFingerprint = certificateData
+			.flatMap { try? SigningIdentityStore.inspect($0, password: request.p12Password) }? // try? ok: reported as .unreadableCertificate
+			.identity.fingerprint
+		return identityProblem(
+			provisioningProfile: profileData,
+			certificate: certificateData,
+			leafFingerprint: leafFingerprint,
+			profile: profile
+		)?.message
+	}
+
+	private static func contents(of path: String) -> Data? {
+		guard !path.isEmpty else { return nil }
+		return try? Data(contentsOf: URL(fileURLWithPath: path)) // try? ok: an unreadable file is reported as missing
 	}
 
 	// MARK: - Signing
@@ -147,10 +182,15 @@ enum ZsignEngine {
 		// The wrapper reports failure two ways: the returned bool, and the error the engine
 		// hands to its completion handler (built from the bundle's failed files). Both are
 		// carried out unchanged; the caller treats either as a failed run.
-		return Outcome(
-			succeeded: success,
-			errorMessage: engineError.withLock { $0 }?.localizedDescription
-		)
+		let reported = engineError.withLock { $0 }?.localizedDescription
+		if !success, reported == nil, let reason = refusalReason(for: request) {
+			// A refusal with no text is `ZSignAsset::Init` giving up: the .p12 does not open,
+			// the profile does not name it, the team is missing. Say which, instead of
+			// "Signing failed" and a log line the engine never wrote.
+			SigningLog.shared.error(reason)
+			return Outcome(succeeded: false, errorMessage: reason)
+		}
+		return Outcome(succeeded: success, errorMessage: reported)
 	}
 
 	/// Removes load commands (injected dylibs) from an executable in place.

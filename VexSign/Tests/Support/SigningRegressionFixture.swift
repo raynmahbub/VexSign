@@ -16,6 +16,7 @@ enum SigningRegressionFixture {
     static func profile(pattern: String = SigningRegressionFixture.team + ".com.example.app", team: String = SigningRegressionFixture.team,
                         prefix: String? = nil, grants: [String: Any] = [:],
                         allDevices: Bool = true, devices: [String]? = nil,
+                        certificates: [Data]? = nil,
                         platform: [String] = ["iOS"], uuid: String = SigningRegressionFixture.profileUUID) throws -> Certificate {
         var entitlements: [String: Any] = ["application-identifier": pattern,
             "com.apple.developer.team-identifier": team, "keychain-access-groups": [(prefix ?? team) + ".*"]]
@@ -26,6 +27,7 @@ enum SigningRegressionFixture {
             "TeamName": "Unit test", "TimeToLive": 2, "Version": 1, "ProvisionsAllDevices": allDevices,
             "Entitlements": entitlements]
         if let devices { value["ProvisionedDevices"] = devices }
+        if let certificates { value["DeveloperCertificates"] = certificates }
         return try PropertyListDecoder().decode(Certificate.self, from: plist(value))
     }
 
