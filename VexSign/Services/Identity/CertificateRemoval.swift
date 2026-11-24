@@ -78,8 +78,18 @@ enum CertificateRemoval {
 		do {
 			// Snapshot only: read-through migration would save unrelated view edits.
             // A locked Keychain refuses the undo offer, not a permission to guess.
-            let stored = try SecureSecretStore.read("certificate.password.\(uuid)")
-            password = stored.map { String(decoding: $0, as: UTF8.self) } ?? cert.password ?? ""
+            let stored = try SecureSecretStore.read(SecureSecretStore.certificatePasswordAccount(uuid))
+            if let stored {
+                // A lossy decode would turn an unreadable secret into a different password
+                // and restore the wrong one on Undo, so refuse the snapshot instead.
+                guard let decoded = String(data: stored, encoding: .utf8) else {
+                    Logger.misc.info("Stored certificate password is unreadable; deleting without Undo.")
+                    return nil
+                }
+                password = decoded
+            } else {
+                password = cert.password ?? ""
+            }
 		} catch {
 			Logger.misc.info("Certificate password unavailable; deleting without Undo.")
 			return nil

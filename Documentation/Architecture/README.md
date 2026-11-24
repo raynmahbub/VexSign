@@ -80,6 +80,16 @@ Cross-area calls go through the protocols in `Shared/Protocols/` (for example
 `SecureTransferProviding`, `SecurityPolicyValidating`), which is what keeps
 `Networking/Downloads/PackageDownloadRedirectDelegate` from importing a policy implementation.
 
+Two worked examples of the split, because they are the ones most easily re-merged by accident:
+
+| Concern | Security owns | Storage / Networking owns |
+| --- | --- | --- |
+| Certificate password migration | `Credentials/CertificatePasswordMigration` — secure write first, plaintext cleared only afterwards, no lossy UTF-8 decode | `Storage/Keychain/CertificateSecrets` — the `CertificatePair` bridge and its private-queue transaction; `SecureSecretStore.certificatePasswordAccount` derives the key |
+| Acceptable transfer | `Policies/TransferAcceptancePolicy` (2xx only, 8 GiB ceiling), `Policies/PackageDownloadURLPolicy` (scheme, redirects) | `Networking/HTTP`, `Networking/Downloads` enforce them while moving bytes |
+
+`Security` is checked to import no SwiftUI, UIKit, Core Data or Nuke, and `Networking` to import no
+UI or persistence framework and to name nothing from `Services/Download`.
+
 ## Repository layout
 
 - `Platform/` — `Extensions/WidgetExtension`, `TV`, `Vision`, `Watch`.
@@ -97,6 +107,8 @@ Cross-area calls go through the protocols in `Shared/Protocols/` (for example
 - Shared models must not become feature-specific dumping grounds.
 - Services coordinate operations; they do not contain SwiftUI screens.
 - Storage owns persistence implementations; Security owns the policy about what may be persisted.
+  `Storage/Keychain` may call into `Security/Credentials` for that policy (the certificate-password
+  bridge), never the other way round: `Security` must not import Core Data.
 - System owns operating-system integrations and never decides a security question on its own.
 - `AppContainer` composes dependencies; only `App/Composition/AppEnvironment` injects them.
 - No circular dependencies between features.

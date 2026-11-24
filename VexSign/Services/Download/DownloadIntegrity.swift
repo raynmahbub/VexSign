@@ -19,21 +19,23 @@ import AltSourceKit
 import NimbleExtensions
 
 enum DownloadIntegrity {
-	/// Generous bound shared with archive inspection so one untrusted IPA
-	/// cannot consume unbounded temporary storage before its contents are checked.
-	static let maximumPackageBytes: Int64 = 8 * 1_024 * 1_024 * 1_024
+	/// The transport ceilings are a security policy, not a download workflow
+	/// detail: `TransferAcceptancePolicy` owns them so `Networking` can enforce the
+	/// same bytes without depending on this layer.
+	static var maximumPackageBytes: Int64 { TransferAcceptancePolicy.maximumPackageBytes }
 
 	static func transferExceedsPackageLimit(expectedBytes: Int64, receivedBytes: Int64) -> Bool {
-		(expectedBytes > 0 && expectedBytes > maximumPackageBytes) || receivedBytes > maximumPackageBytes
+		TransferAcceptancePolicy.transferExceedsPackageLimit(expectedBytes: expectedBytes,
+		                                                     receivedBytes: receivedBytes)
 	}
 
 	static func expectationExceedsPackageLimit(_ expectation: Expectation?) -> Bool {
 		guard let expected = expectation?.byteCount else { return false }
-		return transferExceedsPackageLimit(expectedBytes: expected, receivedBytes: 0)
+		return TransferAcceptancePolicy.transferExceedsPackageLimit(expectedBytes: expected, receivedBytes: 0)
 	}
 
 	static func isAcceptableHTTPStatus(_ statusCode: Int) -> Bool {
-		(200..<300).contains(statusCode)
+		TransferAcceptancePolicy.isAcceptableHTTPStatus(statusCode)
 	}
 
 	// MARK: Expectation

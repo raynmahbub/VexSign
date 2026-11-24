@@ -215,13 +215,50 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         transfer_src = _strip_comments(
             (NETWORKING / "HTTP/TransferSecuritySession.swift").read_text(encoding="utf-8")
         )
+        policy_src = _strip_comments(
+            (VEXSIGN / "Security/Policies/TransferAcceptancePolicy.swift").read_text(encoding="utf-8")
+        )
         integrity_src = _strip_comments(
             (SERVICES / "Download/DownloadIntegrity.swift").read_text(encoding="utf-8")
         )
-        self.assertIn("DownloadIntegrity.isAcceptableHTTPStatus(status)", transfer_src)
-        self.assertIn("(200..<300).contains", integrity_src)
+        # Transport asks the policy, not the download workflow that happens to use it.
+        self.assertIn("TransferAcceptancePolicy.isAcceptableHTTPStatus(status)", transfer_src)
+        self.assertNotIn("DownloadIntegrity", transfer_src)
+        self.assertIn("(200..<300).contains", policy_src)
+        # One definition of the rule: the workflow layer delegates instead of copying it.
+        self.assertNotIn("(200..<300).contains", integrity_src)
+        self.assertIn("TransferAcceptancePolicy.isAcceptableHTTPStatus", integrity_src)
         self.assertIn("PackageDownloadRedirectDelegate", transfer_src)
         self.assertIn("ephemeral", transfer_src)
+
+    def test_security_layer_has_no_ui_or_persistence_dependency(self) -> None:
+        # Security decides; it never renders and it never opens a managed object context.
+        # Storage owns persistence, so a Core Data bridge belongs in Storage/Keychain.
+        forbidden = {"SwiftUI", "UIKit", "CoreData", "Nuke", "AppKit"}
+        offenders = {}
+        for path in sorted((VEXSIGN / "Security").rglob("*.swift")):
+            hits = _imports(_strip_comments(path.read_text(encoding="utf-8"))) & forbidden
+            if hits:
+                offenders[path.relative_to(ROOT).as_posix()] = sorted(hits)
+        self.assertEqual({}, offenders, "Security must not import UI or persistence frameworks")
+
+    def test_networking_layer_has_no_ui_or_workflow_dependency(self) -> None:
+        # Transport compiles without SwiftUI, without persistence, and without the
+        # download workflow that consumes it: the shared rules live in Security/Policies.
+        forbidden = {"SwiftUI", "UIKit", "CoreData", "Nuke", "AppKit"}
+        offenders = {}
+        workflow_types = ("DownloadIntegrity.", "DownloadManager.", "DownloadPreferences.")
+        leaks = {}
+        for path in sorted((NETWORKING).rglob("*.swift")):
+            source = _strip_comments(path.read_text(encoding="utf-8"))
+            hits = _imports(source) & forbidden
+            if hits:
+                offenders[path.relative_to(ROOT).as_posix()] = sorted(hits)
+            named = [name for name in workflow_types if name in source]
+            if named:
+                leaks[path.relative_to(ROOT).as_posix()] = named
+        self.assertEqual({}, offenders, "Networking must not import UI or persistence frameworks")
+        self.assertEqual({}, leaks, "Networking must not depend on the Services/Download workflow")
 
     def test_app_target_declares_each_type_once(self) -> None:
         # A type that is declared in two files cannot compile, and the copy that survives

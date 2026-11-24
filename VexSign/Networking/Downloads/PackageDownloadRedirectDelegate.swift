@@ -34,7 +34,7 @@ final class PackageDownloadRedirectDelegate: NSObject, URLSessionDownloadDelegat
         totalBytesExpectedToWrite: Int64
     ) {
         guard let maximumBytes,
-              DownloadIntegrity.transferExceedsPackageLimit(
+              TransferAcceptancePolicy.transferExceedsPackageLimit(
                   expectedBytes: min(totalBytesExpectedToWrite, maximumBytes + 1),
                   receivedBytes: totalBytesWritten
               ) else { return }

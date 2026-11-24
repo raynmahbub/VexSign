@@ -36,7 +36,7 @@ enum VexSignAPIClient {
         let request = AuthenticatedRequestBuilder.request(url: url)
         let (_, response) = try await VexSignAPI.performDataRequest(request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard DownloadIntegrity.isAcceptableHTTPStatus(status) else {
+        guard TransferAcceptancePolicy.isAcceptableHTTPStatus(status) else {
             throw Failure.httpError(status)
         }
         return true
@@ -52,7 +52,7 @@ enum VexSignAPIClient {
         let request = AuthenticatedRequestBuilder.request(url: url)
         let (data, response) = try await VexSignAPI.performDataRequest(request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard DownloadIntegrity.isAcceptableHTTPStatus(status) else {
+        guard TransferAcceptancePolicy.isAcceptableHTTPStatus(status) else {
             throw Failure.httpError(status)
         }
         guard let decoded = try? JSONDecoder().decode(VexSignAPI.URLsResponse.self, from: data) else {

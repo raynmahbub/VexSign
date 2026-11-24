@@ -35,7 +35,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 		if download.exceededPackageSizeLimit { return }
 
 		if let httpResponse = downloadTask.response as? HTTPURLResponse,
-		   !DownloadIntegrity.isAcceptableHTTPStatus(httpResponse.statusCode) {
+		   !TransferAcceptancePolicy.isAcceptableHTTPStatus(httpResponse.statusCode) {
 			try? FileManager.default.removeItem(at: location) // try? ok: discard failed HTTP error payload
 			let statusCode = httpResponse.statusCode
 			let description = HTTPURLResponse.localizedString(forStatusCode: statusCode)
@@ -98,7 +98,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 	
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
 		guard let download = getDownloadTask(by: downloadTask) else { return }
-		if DownloadIntegrity.transferExceedsPackageLimit(
+		if TransferAcceptancePolicy.transferExceedsPackageLimit(
 			expectedBytes: totalBytesExpectedToWrite,
 			receivedBytes: totalBytesWritten
 		) {
