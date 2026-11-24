@@ -9,7 +9,7 @@
 //  bearer-equivalent token in every preferences dump, iTunes/Finder backup and
 //  diagnostics bundle the app can produce — the same mistake the in-app Web
 //  Manager and the cloud-signing client had already stopped making. This file is
-//  the companion-side equivalent of `Storage/Keychain/SecureSecretStore.swift`,
+//  the companion-side equivalent of `VexSign/Storage/Keychain/SecureSecretStore.swift`,
 //  written separately because that one also carries certificate sealing and
 //  iOS-only error types, while this file is compiled into the tvOS and visionOS
 //  targets too.

@@ -9,7 +9,7 @@ out=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 app="$tmp/Payload/RenewalFixture.app"; mkdir -p "$app"
 sdk=$(xcrun --sdk iphoneos --show-sdk-path)
-xcrun --sdk iphoneos swiftc -parse-as-library -O -target arm64-apple-ios17.0 -sdk "$sdk" "$src/Fixture.swift" "$src/../../../App/iOS/Infrastructure/Devices/Installation/FixtureSlotPacket.swift" -o "$app/RenewalFixture"
+xcrun --sdk iphoneos swiftc -parse-as-library -O -target arm64-apple-ios17.0 -sdk "$sdk" "$src/Fixture.swift" "$src/../../../VexSign/App/iOS/Infrastructure/Devices/Installation/FixtureSlotPacket.swift" -o "$app/RenewalFixture"
 python3 - "$app/Info.plist" "$2" <<'PY'
 import plistlib, sys
 with open(sys.argv[1], 'wb') as f:

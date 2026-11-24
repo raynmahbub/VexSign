@@ -383,9 +383,9 @@ def install_smoke_sources(work):
         shutil.copy2(source, destination)
         hashes[str(source.relative_to(ROOT))] = digest(destination.read_bytes())
     # Include actual platform storage byte-for-byte, not test-only substitutes.
-    for source in [ROOT / "Storage/Keychain/AppleAccountCredentialStore.swift",
-                   ROOT / "Storage/Keychain/AppleAccountResumeJournalStore.swift",
-                   ROOT / "Networking/Security/Storage/AppleAccountStorageRuntimePolicy.swift"]:
+    for source in [ROOT / "VexSign/Storage/Keychain/AppleAccountCredentialStore.swift",
+                   ROOT / "VexSign/Storage/Keychain/AppleAccountResumeJournalStore.swift",
+                   ROOT / "VexSign/Security/VexSign/Storage/AppleAccountStorageRuntimePolicy.swift"]:
         destination = work / 'Sources/NativeSigningLinkSmoke' / source.name
         shutil.copy2(source, destination)
         hashes[str(source.relative_to(ROOT))] = digest(destination.read_bytes())
@@ -447,7 +447,7 @@ def prepare(work, lock):
         'csr_overlay': csr_overlay, 'registration_overlay': registration_overlay, 'profile_overlay': profile_overlay, 'certificate_inventory_overlay': certificate_inventory_overlay,
         'privacy_script_sha256': digest((HERE / "patches/suppress_sdk_logging.py").read_bytes())
     }, indent=2) + '\n')
-    print(f'Prepared {work}; no Apple/account network calls were made. Native compile/link is still required.')
+    print(f'Prepared {work}; no VexSign/System/account network calls were made. Native compile/link is still required.')
 
 
 def main():

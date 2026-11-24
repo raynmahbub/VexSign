@@ -18,7 +18,7 @@
       "watch": "Safe only while the pipeline stays sequential per instance. Two steps run concurrently on one handler would race on `_ipa` and `uniqueWorkDirPayload`."
     },
     {
-      "file": "Shared/Models/Workspace/RemovalUndoLease.swift",
+      "file": "VexSign/Shared/Models/Workspace/RemovalUndoLease.swift",
       "invariant": "Its callback/deadline/resolution state is reachable only under NSLock. Every offer/undo/expire path requires the main thread, the certificate owners call MainActor.assumeIsolated only there, and callbacks execute outside the lock. Copies of the Sendable display token may cross executors but cannot invoke callbacks off-main. Deinit invokes no callback. Expiry clears all secret-capturing closures independently of retained UI tokens. Removing the main-thread preconditions or accessing callbacks without the lock would invalidate the escape.",
       "kind": "unchecked-sendable",
       "risk": "medium",
@@ -32,7 +32,7 @@
       "symbol": "RepositoryDirectoryRedirectPolicy"
     },
     {
-      "file": "Shared/Extensions/StreamObservationCancellation.swift",
+      "file": "VexSign/Shared/Extensions/StreamObservationCancellation.swift",
       "invariant": "Only subscription ownership crosses executors. Taking and clearing the AnyCancellable array is serialized by NSLock; cancellation happens once, outside the lock, and deinit uses the same path. No subscription is added after initialization. Producer closures hop to their owning MainActor before reading manager state. Reading subscriptions unlocked, cancelling under the lock, or mutating a manager directly from termination would break the invariant.",
       "kind": "unchecked-sendable",
       "risk": "medium",

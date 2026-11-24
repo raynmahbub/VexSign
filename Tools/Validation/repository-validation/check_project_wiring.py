@@ -32,19 +32,21 @@ PROJECT = ROOT / "VexSign.xcodeproj/project.pbxproj"
 # the target synchronizes, so each of these has to live under the iOS sync root.
 # Source roots that hold first-party Swift. Every one of them must be reachable
 # from some target's synchronized root, or the code is never compiled.
-SOURCE_ROOTS = ("App", "Platform", "Shared", "Storage", "Networking", "Apple",
-                "DesignSystem", "VexSign/Services", "Tests")
+SOURCE_ROOTS = ("VexSign/App", "VexSign/Features", "VexSign/Shared", "VexSign/Storage",
+                "VexSign/Networking", "VexSign/Security", "VexSign/System",
+                "VexSign/DesignSystem", "VexSign/Services", "VexSign/Resources",
+                "Platform", "Tests")
 
 BUNDLED_RESOURCES = (
-    ("Resources/Localizations/Localizable.xcstrings",
+    ("Localizations/Localizable.xcstrings",
      "iOS falls back to raw keys when the catalogue is not bundled"),
-    ("Resources/Launch Screen.storyboard",
+    ("Launch Screen.storyboard",
      "INFOPLIST_KEY_UILaunchStoryboardName names a storyboard that must ship"),
-    ("Resources/PrivacyInfo.xcprivacy",
+    ("PrivacyInfo.xcprivacy",
      "the privacy manifest is a submission requirement"),
-    ("Resources/ellekit.deb",
+    ("ellekit.deb",
      "TweakHandler loads it from the bundle and ci.yml byte-compares it"),
-    ("Resources/Settings.bundle",
+    ("Settings.bundle",
      "the app's settings pane is a bundled bundle"),
 )
 

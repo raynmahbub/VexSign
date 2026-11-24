@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression guard: a colour literal lives in `DesignSystem/Colors`, nowhere else.
+"""Regression guard: a colour literal lives in `VexSign/DesignSystem/Colors`, nowhere else.
 
 The accessibility guide says not to introduce one-off colours in a feature view, and the tree had 46 of them
 — including the same log palette written twice (a SwiftUI `Color` set in `LogsView`, a `UIColor`
@@ -84,7 +84,7 @@ class ColorPolicyTests(unittest.TestCase):
         self.assertEqual(
             offenders(),
             [],
-            "name the colour in Presentation/DesignSystem/Colors (ThemePalettes.swift) instead of "
+            "name the colour in Presentation/VexSign/DesignSystem/Colors (ThemePalettes.swift) instead of "
             "writing it in the view",
         )
 

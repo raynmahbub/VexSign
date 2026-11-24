@@ -1,4 +1,4 @@
-import type { Infrastructure } from '../../Storage/infrastructure.js';
+import type { Infrastructure } from '../../VexSign/Storage/infrastructure.js';
 
 /**
  * Scan pending PostgreSQL jobs in bounded, rotating UUID pages. Existing Redis

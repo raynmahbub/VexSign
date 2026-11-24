@@ -70,7 +70,7 @@ def native_smoke_app_sources():
         hashes = preparation.install_smoke_sources(Path(directory))
     # The app sources the smoke package copies are the repository-relative ones
     # (everything else in the manifest is a package-relative file).
-    ours = ("App/", "Shared/", "Storage/", "Networking/", "Apple/", "DesignSystem/", "VexSign/")
+    ours = ("VexSign/App/", "VexSign/Shared/", "VexSign/Storage/", "VexSign/Networking/", "VexSign/System/", "VexSign/DesignSystem/", "VexSign/")
     return sorted(path for path in hashes if path.startswith(ours))
 
 
@@ -156,12 +156,12 @@ class WorkflowPolicyTests(unittest.TestCase):
     def test_ci_scope_keeps_native_sources_and_unknown_paths(self):
         native = runpy.run_path(str(ROOT / "Tools/Validation/repository-validation/ci-scope.py"))['needs_native']
         self.assertFalse(native(['Tools/Release/test_release_assets.py', 'Tools/Release/generate-changelog.sh', 'README.md']))
-        for path in ('App/App.swift', 'Tests/Test.swift', 'Packages/NativeSigning/Tests/Test.swift',
+        for path in ('VexSign/App/App.swift', 'Tests/Test.swift', 'Packages/NativeSigning/Tests/Test.swift',
                      'Makefile', 'Packages/SideSign/Package.swift', 'Packages/Vendor/source.cpp', '.github/workflows/ci.yml',
                      '.github/workflows/ci-repair-assistant.yml', 'Tools/Scripts/bootstrap.sh', 'unknown-file'):
             self.assertTrue(native([path]), path)
         # A removed app source must still count when renamed into Markdown.
-        self.assertTrue(native(['App/Old.swift', 'README.md']))
+        self.assertTrue(native(['VexSign/App/Old.swift', 'README.md']))
 
     def test_ci_scope_uses_whole_pr_and_falls_back_to_native(self):
         import json
@@ -223,7 +223,7 @@ class WorkflowPolicyTests(unittest.TestCase):
                 workflow = (WORKFLOWS / name).read_text()
                 self.assertIn('${{ runner.temp }}/VexSign/SourcePackages', workflow)
                 self.assertIn('TMPDIR: ${{ runner.temp }}/', workflow)
-                self.assertNotIn('${{ runner.temp }}/App/', workflow)
+                self.assertNotIn('${{ runner.temp }}/VexSign/App/', workflow)
 
     def test_combined_native_input_uses_an_isolated_swiftpm_artifact_cache(self):
         combined = (ROOT / ".github/workflows/embedded-container.yml").read_text()
@@ -332,7 +332,7 @@ class WorkflowPolicyTests(unittest.TestCase):
     def test_migrated_warning_roots_keep_first_party_and_vendor_boundaries(self):
         reporter = runpy.run_path(str(ROOT / '.github/scripts/xcodebuild_report.py'))
         is_owned, roots = reporter['is_first_party'], reporter['DEFAULT_FIRST_PARTY']
-        for path in ['App/File.swift', 'Tests/Test.swift',
+        for path in ['VexSign/App/File.swift', 'Tests/Test.swift',
                      'Packages/NimbleKit/Sources/File.swift', 'Packages/AltSourceKit/File.swift',
                      'Services/Integrations/File.swift']:
             self.assertTrue(is_owned(path, roots), path)
@@ -342,19 +342,19 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertFalse(is_owned(path, roots), path)
 
     def test_migrated_unbaselined_warning_cannot_silently_bypass_the_gate(self):
-        path = 'App/Infrastructure/File.swift'
+        path = 'VexSign/App/Infrastructure/File.swift'
         result = self._warning_gate([path], [])
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn(path, result.stdout)
         self.assertIn('Fixture compiler warning', result.stdout)
 
     def test_migrated_warning_baselines_and_vendor_exclusions_are_not_relaxed(self):
-        path = 'App/Infrastructure/File.swift'
+        path = 'VexSign/App/Infrastructure/File.swift'
         known = {'file': path, 'message': 'Fixture compiler warning', 'count': 1}
         result = self._warning_gate([path, 'Packages/Vendor/Dependency/File.swift'], [known])
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         # A historical path cannot accidentally whitelist a newly relocated warning.
-        known['file'] = 'App/iOS/VexSign/Infrastructure/File.swift'
+        known['file'] = 'VexSign/App/iOS/VexSign/Infrastructure/File.swift'
         result = self._warning_gate([path], [known])
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
 
@@ -530,7 +530,7 @@ class WorkflowPolicyTests(unittest.TestCase):
                               section)
 
     def test_app_dependencies_and_vendored_package_changes_are_covered(self):
-        for path in ('App/VexSignApp.swift', 'Tests/UnitTests/Application/DesignSystemTests.swift',
+        for path in ('VexSign/App/VexSignApp.swift', 'Tests/UnitTests/Application/DesignSystemTests.swift',
                      'Packages/NimbleKit/Package.swift', 'Packages/AltSourceKit/Package.swift',
                      'VexSign.xcodeproj/project.pbxproj', 'Packages/Vendor/Zsign/Package.swift',
                      'Packages/Vendor/IDeviceKitten/Package.swift',
@@ -542,7 +542,7 @@ class WorkflowPolicyTests(unittest.TestCase):
 
     def test_component_checks_do_not_follow_unrelated_changes(self):
         self.assertTrue(covers('services.yml', 'Services/WebManager/API/main.py'))
-        self.assertFalse(covers('services.yml', 'App/VexSignApp.swift'))
+        self.assertFalse(covers('services.yml', 'VexSign/App/VexSignApp.swift'))
         self.assertTrue(covers('services.yml', 'Services/Cloud/API/main.ts'))
         self.assertFalse(covers('services.yml', 'VexSign/Services/Identity/CertificateInspector.swift'))
         self.assertTrue(covers('platform-check.yml', 'VexSign/Services/Installation/Transport/CompanionStatus.swift'))
@@ -603,7 +603,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertNotIn('deps-release:', makefile)
         self.assertFalse((WORKFLOWS / "pin-release-tls.yml").exists())
         # Utility services are split by concern; the TLS rule applies to all of them.
-        services = '\n'.join(p.read_text() for p in sorted((ROOT / "App/Infrastructure").rglob('*.swift')))
+        services = '\n'.join(p.read_text() for p in sorted((ROOT / "VexSign/App/Infrastructure").rglob('*.swift')))
         self.assertNotIn('downloadSSLCertificates', services)
         resolver = (ROOT / "VexSign/Services/Installation/Installation/TLS/ServerInstaller+TLS.swift").read_text()
         self.assertNotIn('Bundle.main', resolver)
@@ -983,7 +983,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         `Packages/NativeSigning/prepare_smoke.py` copies the app's real Apple-account lifecycle and
         storage sources into the smoke package byte-for-byte, and `swift test` on that package is
         the only place those files are exercised as native-signing input. Three of them live in
-        `App/Infrastructure/`, which the trigger filters did not list — so a change to
+        `VexSign/App/Infrastructure/`, which the trigger filters did not list — so a change to
         `AppleAccountSessionCoordinator.swift` ran the app's simulator tests and silently skipped
         the native regressions that compile the same file. The gap is asserted from the
         preparation script, not from a restated file list, so it cannot reopen quietly.
@@ -1053,7 +1053,7 @@ class WorkflowPolicyTests(unittest.TestCase):
             executable = app / 'VexSign'
             executable.write_bytes(b'fixture only, not an executable')
             payload = app / 'ellekit.deb'
-            original_payload = (ROOT / 'App/Resources/ellekit.deb').read_bytes()
+            original_payload = (ROOT / 'VexSign/Resources/ellekit.deb').read_bytes()
             payload.write_bytes(original_payload)
             info = {'DTPlatformName': 'iphoneos', 'CFBundleExecutable': 'VexSign',
                     'CFBundleShortVersionString': '1.2.3', 'CFBundleVersion': '42'}
@@ -1148,7 +1148,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertFalse((ROOT / "tools").exists())
         self.assertFalse((ROOT / "Scripts").exists())
         self.assertFalse((ROOT / "update-repo.sh").exists())
-        self.assertTrue((ROOT / "Resources/brand/logo.svg").is_file())
+        self.assertTrue((ROOT / "VexSign/Resources/brand/logo.svg").is_file())
         self.assertTrue((ROOT / "icon.png").is_file())  # published feed compatibility
 
     def test_security_schedule_and_release_boundaries_are_preserved(self):

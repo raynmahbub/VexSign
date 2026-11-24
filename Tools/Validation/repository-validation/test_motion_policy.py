@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Regression guard: motion goes through `AppMotion`, never around it.
 
-`DesignSystem/Modifiers/AppMotion.swift` exists because the tree carried two idioms: 46 files
+`VexSign/DesignSystem/Modifiers/AppMotion.swift` exists because the tree carried two idioms: 46 files
 calling `withAnimation(.spring(response: 0.35, dampingFraction: 0.85))` verbatim, which ignored
 Reduce Motion entirely, and a few views writing `_reduceMotion ? nil : .smooth` by hand, which
 was correct but only for the call sites that remembered. Downloads, the app store, the signing
@@ -14,7 +14,7 @@ Two rules follow from that, and both are mechanical:
 * `.animation(_:value:)` is only correct with a `nil` curve, which is how a view says "never
   animate this". Anything else should be `.appAnimation(...)`.
 
-The `DesignSystem/Modifiers` folder is exempt: it is where `AppMotion` is implemented (its own
+The `VexSign/DesignSystem/Modifiers` folder is exempt: it is where `AppMotion` is implemented (its own
 body calls `withAnimation`, because that is the API it wraps), and the one legitimate `.animation`
 there is `AppStyle`'s press effect, which resolves the setting inline and has a theme-dependent
 curve.

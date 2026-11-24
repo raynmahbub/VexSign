@@ -15,10 +15,10 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-APPLICATION = ROOT / "App/Features"
+APPLICATION = ROOT / "VexSign/Features"
 VEXSIGN = ROOT
-ANISETTE_USE_CASE = ROOT / "App/Features/Accounts/UseCases/AnisetteProviderUseCase.swift"
-DEEP_LINK_ROUTER = ROOT / "App/Features/Dashboard/UseCases/DeepLinkRouterUseCase.swift"
+ANISETTE_USE_CASE = ROOT / "VexSign/Features/Accounts/UseCases/AnisetteProviderUseCase.swift"
+DEEP_LINK_ROUTER = ROOT / "VexSign/Features/Dashboard/UseCases/DeepLinkRouterUseCase.swift"
 
 
 def _strip_comments(text: str) -> str:
@@ -65,8 +65,8 @@ class Swift6BuildRegressionTests(unittest.TestCase):
         self.assertNotIn("factory: AnisetteProviderFactory = .shared", source)
 
     def test_coordinated_file_copy_failure_is_a_typed_error_with_its_message(self) -> None:
-        source = _source(VEXSIGN / "Apple/FileCoordination/CoordinatedIncomingFilesAdapter.swift")
-        contract = _source(VEXSIGN / "Shared/Protocols/IncomingFilesProviding.swift")
+        source = _source(VEXSIGN / "VexSign/System/FileCoordination/CoordinatedIncomingFilesAdapter.swift")
+        contract = _source(VEXSIGN / "VexSign/Shared/Protocols/IncomingFilesProviding.swift")
         self.assertIn("struct CoordinatedFileCopyFailure: LocalizedError", contract)
         self.assertIn("reason.localizedDescription", _source(DEEP_LINK_ROUTER))
         self.assertIn(
@@ -88,7 +88,7 @@ class Swift6BuildRegressionTests(unittest.TestCase):
         self.assertNotIn("@unchecked Sendable", source)
 
     def test_certificate_cards_supply_stable_identity_and_one_shared_swipe_binding(self) -> None:
-        source = _source(VEXSIGN / "App/Features/Certificates/Views/CertificatesView.swift")
+        source = _source(VEXSIGN / "VexSign/Features/Certificates/Views/CertificatesView.swift")
         self.assertIn("@State private var _revealedCertificateID: String?", source)
         self.assertIn(r"id: \.element.id", source)
         self.assertIn("rowID: cert.id, revealedRowID: $_revealedCertificateID", source)
@@ -96,7 +96,7 @@ class Swift6BuildRegressionTests(unittest.TestCase):
 
     def test_hosted_swipe_tests_do_not_write_the_read_only_system_accessibility_environment(self) -> None:
         test = _source(ROOT / "Tests/UnitTests/Persistence/LibrarySwipeLayoutTests.swift")
-        modifier = _source(VEXSIGN / "App/Features/Library/Views/LibraryGridSwipeDelete.swift")
+        modifier = _source(VEXSIGN / "VexSign/Features/Library/Views/LibraryGridSwipeDelete.swift")
         self.assertNotIn(r".environment(\.accessibilityReduceMotion", test)
         self.assertIn("reduceMotionRequested: reduceMotion", test)
         self.assertIn("systemReduceMotion: reduceMotion", modifier)
@@ -111,7 +111,7 @@ class Swift6BuildRegressionTests(unittest.TestCase):
         self.assertIn("XCTAssertThrowsError(try SigningIdentityStore.leasedSnapshot(storage: storage))", test)
 
     def test_release_settings_repository_action_uses_existing_support_port(self) -> None:
-        source = _source(VEXSIGN / "App/Features/Settings/Views/SettingsView.swift")
+        source = _source(VEXSIGN / "VexSign/Features/Settings/Views/SettingsView.swift")
         self.assertNotIn("_githubUrl", source)
         self.assertIn("supportUseCase.openRepository()", source)
         self.assertIn("#if !NIGHTLY && !DEBUG", source)

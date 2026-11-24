@@ -133,7 +133,7 @@ final class TweakInjectionDefaultsTests: XCTestCase {
 	}
 
 	func testFrameworkLoadNameUsesBundleAndExecutableNames() {
-		let framework = URL(fileURLWithPath: "/tmp/App/Frameworks/Helper.framework", isDirectory: true)
+		let framework = URL(fileURLWithPath: "/tmp/VexSign/App/Frameworks/Helper.framework", isDirectory: true)
 		let executable = framework.appendingPathComponent("HelperBinary")
 		XCTAssertEqual(TweakFrameworkLoad.name(framework: framework, executable: executable),
 		               "Helper.framework/HelperBinary")
@@ -323,7 +323,7 @@ final class TweakInjectionDefaultsTests: XCTestCase {
 		try fm.createDirectory(at: root, withIntermediateDirectories: true)
 		defer { try? fm.removeItem(at: root) } // try? ok: test teardown
 		let source = root.appendingPathComponent("tweak.dylib")
-		let destination = root.appendingPathComponent("App/Frameworks/tweak.dylib")
+		let destination = root.appendingPathComponent("VexSign/App/Frameworks/tweak.dylib")
 		try Data("new".utf8).write(to: source)
 		try TweakPlacement.move(source, to: destination)
 		XCTAssertFalse(fm.fileExists(atPath: source.path))

@@ -51,7 +51,7 @@ MANAGER = Path("VexSign/Services/Accounts/NativeSigningManager.swift")
 # The wizard is split across three files (`ProvisioningFlowView.swift`, `+Steps.swift` and
 # `ProvisioningFlowSupportingViews.swift`). The caveat copy this gate checks lives in the review
 # step, so the path names that file rather than the type's first one.
-FLOW = Path("App/Features/Accounts/Views/ProvisioningFlowView+Steps.swift")
+FLOW = Path("VexSign/Features/Accounts/Views/ProvisioningFlowView+Steps.swift")
 BACKEND = Path("Packages/NativeSigning/Authentication/NativeAccountBackend.swift")
 AUTOMATION = Path("VexSign/Services/Tasks/BackgroundAutomation.swift")
 SIGNING_METHOD = Path("VexSign/Services/Signing/Execution/SigningMethod.swift")

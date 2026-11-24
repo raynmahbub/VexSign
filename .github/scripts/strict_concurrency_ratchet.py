@@ -32,8 +32,8 @@ from pathlib import Path
 DIAGNOSTIC = re.compile(r"^(?P<path>[^\s:][^:]*\.swift):(?P<line>\d+):(?P<column>\d+):\s*(?P<kind>warning|error):\s*(?P<message>.*)$")
 
 #: Where first-party source lives, mirroring `.swiftformat`'s excludes the other way round.
-FIRST_PARTY_PREFIXES = ("App/", "Shared/", "Storage/", "Networking/", "Apple/",
-                        "DesignSystem/", "VexSign/Services/", "Tests/",
+FIRST_PARTY_PREFIXES = ("VexSign/App/", "VexSign/Shared/", "VexSign/Storage/", "VexSign/Networking/", "VexSign/System/",
+                        "VexSign/DesignSystem/", "VexSign/Services/", "Tests/",
                         "Packages/NimbleKit/", "Packages/AltSourceKit/",
                         "Packages/NativeSigning/", "Packages/DeviceBridge/")
 

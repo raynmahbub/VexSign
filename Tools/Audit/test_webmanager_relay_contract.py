@@ -20,7 +20,7 @@ URL_GUARD = ROOT / "Services/WebManager/API/url_guard.py"
 SWIFT_ACCESS = ROOT / "VexSign/Services/WebManager/WebManagerAccess.swift"
 SWIFT_SERVER = ROOT / "VexSign/Services/WebManager/WebManagerServer.swift"
 SWIFT_API = ROOT / "VexSign/Services/WebManager/WebManagerServer+API.swift"
-SWIFT_LOCAL_HOST = ROOT / "Networking/Security/Transport/LocalNetworkHost.swift"
+SWIFT_LOCAL_HOST = ROOT / "VexSign/Security/Transport/LocalNetworkHost.swift"
 
 
 def _python_constant(path: Path, name: str):

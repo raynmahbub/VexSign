@@ -22,7 +22,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('VEXSIGN_SOURCE_COMMIT="$(shell git rev-parse HEAD)"', self.text('Makefile'))
         ci = self.text('.github/workflows/ci.yml')
         self.assertEqual(ci.count('VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)"'), 2)
-        self.assertIn('$(VEXSIGN_SOURCE_COMMIT)', self.text('Configuration/Build/iOS/Info.plist'))
+        self.assertIn('$(VEXSIGN_SOURCE_COMMIT)', self.text('Configuration/BuildSettings/iOS/Info.plist'))
 
     def test_private_pairing_consumers_use_shared_path(self):
         consumers = {
@@ -66,7 +66,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
     def test_private_install_probes_are_bounded_off_main_and_single_flight(self):
         probe = self.text('VexSign/Services/Installation/Installation/InstalledAppProbe.swift')
         watcher = self.text('VexSign/Services/Installation/Installation/InstallConfirmation.swift')
-        library = self.text('Storage/Repositories/LibraryStatusStore.swift')
+        library = self.text('VexSign/Storage/Repositories/LibraryStatusStore.swift')
         self.assertIn('installedAppWithTimeout(', probe)
         self.assertIn('Thread.isMainThread', probe)
         self.assertIn('DispatchSemaphore(value: 1)', probe)
@@ -104,7 +104,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertNotIn('viewModel.status = .broken', failure)
 
     def test_certificate_cards_follow_refreshed_profiles_and_case_insensitive_file_extensions(self):
-        cell = self.text('App/Features/Certificates/Views/CertificatesCellView.swift')
+        cell = self.text('VexSign/Features/Certificates/Views/CertificatesCellView.swift')
         self.assertIn('private var data: Certificate? { cert.profile }', cell)
         self.assertNotIn('@State var data: Certificate?', cell)
         self.assertNotIn('data = cert.profile', cell)
@@ -140,20 +140,20 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('case .checkDeviceFirst:', retry)
         self.assertIn('requiresDeviceCheckBeforeRetry: kind.requiresDeviceCheckBeforeRetry', queue)
 
-        view = self.text('App/Features/Library/Views/Install/InstallQueueWindow.swift')
+        view = self.text('VexSign/Features/Library/Views/Install/InstallQueueWindow.swift')
         failure_view = view.split('private struct InstallQueueFailureView:', 1)[1].split('// MARK: - View: Paused queue', 1)[0]
         self.assertIn('failure.requiresDeviceCheckBeforeRetry', failure_view)
         self.assertIn('confirmationDialog', failure_view)
         self.assertIn('afterManualDeviceCheck: true', failure_view)
         self.assertIn('I Checked — Install Again', failure_view)
         for path in [
-            'App/Features/Installation/ViewModels/InstallationQueueModel.swift',
-            'App/Features/Installation/UseCases/ObserveInstallationQueueUseCase.swift',
+            'VexSign/Features/Installation/ViewModels/InstallationQueueModel.swift',
+            'VexSign/Features/Installation/UseCases/ObserveInstallationQueueUseCase.swift',
             'VexSign/Services/Installation/Installation/InstallationQueueAdapter.swift',
         ]:
             self.assertIn('afterManualDeviceCheck', self.text(path))
 
-        task_center = self.text('App/Features/Tasks/Views/TaskCenterView.swift')
+        task_center = self.text('VexSign/Features/Tasks/Views/TaskCenterView.swift')
         self.assertIn('task.outcomeUnknown', task_center)
         self.assertIn('allowingUnconfirmedInstall: true', task_center)
         self.assertIn('I Checked — Install Again', task_center)
@@ -162,7 +162,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         for path in ['VexSign/Services/Signing/Execution/SigningService.swift',
                      'VexSign/Services/Installation/Installation/AppInstaller.swift',
                      'VexSign/Services/Import/IPA/AppCloner.swift',
-                     'Storage/Database/Storage+Shared.swift']:
+                     'VexSign/Storage/Database/Storage+Shared.swift']:
             self.assertIn('AppOperationRegistry', self.text(path))
 
     def test_signing_stage_is_reported_before_identity_and_profile_checks(self):
@@ -207,14 +207,14 @@ class WorkflowTracePolicyTests(unittest.TestCase):
     def test_reviewed_repeat_signing_forwards_the_accepted_override(self):
         manager = self.text('VexSign/Services/Signing/Execution/AutoSignManager.swift')
         self.assertIn('overridesBlockingPreflightIssues: overridingBlockingIssues', manager)
-        details = self.text('App/Features/Library/Views/Info/LibraryInfoView.swift')
+        details = self.text('VexSign/Features/Library/Views/Info/LibraryInfoView.swift')
         self.assertIn('let overridesBlockingIssues = checks.canSignAnyway', details)
         self.assertIn('services.signing.signAgain(app, overridingBlockingIssues: overridesBlockingIssues)', details)
         adapter = self.text('VexSign/Services/Signing/Execution/LibrarySigningAdapter.swift')
         self.assertIn('AutoSignManager.shared.sign(row, overridingBlockingIssues: overridingBlockingIssues)', adapter)
 
     def test_library_details_describe_the_copy_not_the_last_run_started_from_it(self):
-        details = self.text('App/Features/Library/Views/Info/LibraryInfoView.swift')
+        details = self.text('VexSign/Features/Library/Views/Info/LibraryInfoView.swift')
         self.assertIn('signingRecords(forCopy: app.uuid)', details)
         self.assertNotIn('latestSigningTask(subjectID:', details)
         self.assertNotIn('signingTrace(subjectID:', details)
@@ -291,14 +291,14 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         elsewhere = {
             'VexSign/Services/Signing/Execution/PackageSigningCoordinator.swift',
             'VexSign/Services/Diagnostics/FeatureStatusRegistry.swift',
-            'App/Features/Signing/Views/SigningView.swift',
-            'App/Features/Signing/ViewModels/SigningWorkspaceModel.swift',
+            'VexSign/Features/Signing/Views/SigningView.swift',
+            'VexSign/Features/Signing/ViewModels/SigningWorkspaceModel.swift',
         }
-        sheet = self.text('App/Features/Signing/Views/SigningView.swift')
+        sheet = self.text('VexSign/Features/Signing/Views/SigningView.swift')
         self.assertIn('source: app, output: signed, options: runOptions, certificate: runCertificate', sheet)
         self.assertIn('deletesSource: runOptions.post_deleteAppAfterSigned', sheet)
         self.assertNotIn('CleanupManager.shared', sheet)
-        application = self.text('App/Features/Signing/UseCases/SigningWorkspaceUseCase.swift')
+        application = self.text('VexSign/Features/Signing/UseCases/SigningWorkspaceUseCase.swift')
         self.assertIn('try provider.finishSuccessfulRun(run.request, output: run.output, deletesSource: deletesSource)', application)
         self.assertIn('try LibraryAppReference(app: output) == run.output', application)
         self.assertIn('deletesSource == run.request.options.post_deleteAppAfterSigned', application)
@@ -321,7 +321,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
             source = path.read_text()
             for gone in ['runAfterSign', 'keepsSignedApp', 'deletesSourceAfterSign']:
                 self.assertNotIn(gone, source, f'{path.relative_to(ROOT)}: {gone}')
-        manager = self.text('Storage/FileSystem/Cache/CleanupManager.swift')
+        manager = self.text('VexSign/Storage/FileSystem/Cache/CleanupManager.swift')
         finish = manager.split('func finishSign(', 1)[1].split('func sweepAfterSigning()', 1)[0]
         # The signed copy is only looked up. The one deletion is bound to the source.
         self.assertIn('outputIsInLibrary: { _holdsSignedCopy($0) }', finish)
@@ -337,7 +337,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertEqual(re.findall(r'case (\w+)', decision), ['keepSource', 'removeSource'])
 
     def test_cleanup_switches_reach_the_rule_as_stored(self):
-        manager = self.text('Storage/FileSystem/Cache/CleanupManager.swift')
+        manager = self.text('VexSign/Storage/FileSystem/Cache/CleanupManager.swift')
         stored = manager.split('extension PostSignArtifacts.Settings {', 1)[1]
         self.assertIn('autoCleanup: defaults.bool(forKey: CleanupManager.Key.enabled)', stored)
         self.assertIn('deleteUnsignedSource: defaults.bool(forKey: CleanupManager.Key.deleteSourceAfterSign)', stored)
@@ -348,18 +348,18 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('runDeletesSource: runDeletesSource', finish)
 
     def test_a_removal_that_was_refused_is_not_reported(self):
-        manager = self.text('Storage/FileSystem/Cache/CleanupManager.swift')
+        manager = self.text('VexSign/Storage/FileSystem/Cache/CleanupManager.swift')
         self.assertIn('let deletion = Storage.shared.deleteAppsWithOutcome(targets)', manager)
         self.assertIn('guard deletion.committed else { return CleanupSummary() }', manager)
         finish = manager.split('func finishSign(', 1)[1].split('func sweepAfterSigning()', 1)[0]
         self.assertIn('guard !removed.removedApps.isEmpty else { return false }', finish)
-        rules = self.text('Storage/FileSystem/Cache/CleanupHistory.swift')
+        rules = self.text('VexSign/Storage/FileSystem/Cache/CleanupHistory.swift')
         prune = rules.split('static func pruneDuplicateSignedApps()', 1)[1]
         self.assertIn('let deletion = Storage.shared.deleteAppsWithOutcome(targets)', prune)
         self.assertIn('guard deletion.committed else { return ([], 0) }', prune)
 
     def test_post_sign_reporting_and_sweep_follow_the_caller(self):
-        manager = self.text('Storage/FileSystem/Cache/CleanupManager.swift')
+        manager = self.text('VexSign/Storage/FileSystem/Cache/CleanupManager.swift')
         finish = manager.split('func finishSign(', 1)[1].split('func sweepAfterSigning()', 1)[0]
         # A flow using up its own import, or a run's own option, is not announced as a cleanup.
         self.assertIn('if cause == .cleanupSetting { summary.absorb(removed) }', finish)
@@ -377,7 +377,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('guard isEnabled else { return }', sweep)
 
     def test_duplicate_pruning_uses_the_retention_rule(self):
-        rules = self.text('Storage/FileSystem/Cache/CleanupHistory.swift')
+        rules = self.text('VexSign/Storage/FileSystem/Cache/CleanupHistory.swift')
         prune = rules.split('static func pruneDuplicateSignedApps()', 1)[1]
         self.assertIn('SignedCopyRetention.surplus(among: copies)', prune)
         self.assertIn('for app in Storage.shared.getAllApps() where app.isSigned {', prune)
@@ -394,14 +394,14 @@ class WorkflowTracePolicyTests(unittest.TestCase):
             register = source.split('func addToDatabase()', 1)[1].split('func clean()', 1)[0]
             self.assertLess(register.index('_didAddToDatabase = true'),
                             register.index('AppOperationRegistry.shared.confirmProduction(of: _uuid)'), path)
-        storage = self.text('Storage/FileSystem/Cache/StorageManager.swift')
+        storage = self.text('VexSign/Storage/FileSystem/Cache/StorageManager.swift')
         snapshot = storage.split('private func _librarySnapshot()', 1)[1].split('// MARK: - Manager extension: purging', 1)[0]
         self.assertIn('productions: .shared', snapshot)
         owns = storage.split('func owns(_ uuid: String, signed: Bool) -> Bool {', 1)[1].split('func ownsCertificate(', 1)[0]
         self.assertIn('productions?.knowsProduction(of: uuid) == true', owns)
 
     def test_every_cleanup_pass_defers_what_a_running_operation_uses(self):
-        manager = self.text('Storage/FileSystem/Cache/CleanupManager.swift')
+        manager = self.text('VexSign/Storage/FileSystem/Cache/CleanupManager.swift')
         clean_now = manager.split('func cleanNow() -> CleanupSummary {', 1)[1].split('// MARK: - Internals', 1)[0]
         self.assertIn('purgeWhatMayBeCleared(of: categories)', clean_now)
         guarded = manager.split('private func purgeWhatMayBeCleared(of', 1)[1].split('private func report(', 1)[0]
@@ -427,14 +427,14 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         stream = http.split('private static func downloadTemporary(', 1)[1].split('private static func dateString(', 1)[0]
         self.assertIn('asyncStreamFile(at: file.path)', stream)
         self.assertIn('withExtendedLifetime(lease)', stream.split('asyncStreamFile(at: file.path)', 1)[1])
-        sweeper = self.text('Networking/Security/Validation/TempStorageSweeper.swift')
+        sweeper = self.text('VexSign/Security/Validation/TempStorageSweeper.swift')
         self.assertIn('registry.acquireCleanup()', sweeper)
         self.assertIn('TemporaryCleanupPolicy.isRetained(', sweeper)
 
     def test_install_archive_and_web_inbox_are_not_cleanup_scratch(self):
         archive = self.text('VexSign/Services/Installation/Installation/InstallationArchive.swift')
         self.assertIn('cleanupLease = try registry.acquireTemporaryWork()', archive)
-        storage = self.text('Storage/FileSystem/Cache/StorageManager.swift')
+        storage = self.text('VexSign/Storage/FileSystem/Cache/StorageManager.swift')
         leftovers = storage.split('static func leftovers(_ library:', 1)[1].split('// MARK: Measuring', 1)[0]
         self.assertNotIn('contents(of: fm.webManagerInbox)', leftovers)
         server = self.text('VexSign/Services/WebManager/WebManagerServer.swift')
@@ -448,7 +448,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('if response.status == .created', dav)
 
     def test_repeat_signing_review_is_worded_by_the_rule_the_run_follows(self):
-        details = self.text('App/Features/Library/Views/Info/LibraryInfoView.swift')
+        details = self.text('VexSign/Features/Library/Views/Info/LibraryInfoView.swift')
         self.assertIn('PostSignArtifacts.repeatSigningNotice(settings: .stored())', details)
         self.assertNotIn('repeat signing replaces this source copy', details)
 

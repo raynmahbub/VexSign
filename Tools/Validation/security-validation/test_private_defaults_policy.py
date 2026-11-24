@@ -63,7 +63,7 @@ class PrivateDefaultsPolicyTests(unittest.TestCase):
     def test_the_legacy_solarium_key_is_cleared_not_set(self):
         # The key must not survive in a container an earlier build wrote it into, which is
         # why the removal is asserted rather than only the absence of a write.
-        source = _strip_comments((ROOT / "App/Bootstrap/AppPreferencesBootstrap.swift").read_text(encoding="utf-8"))
+        source = _strip_comments((ROOT / "VexSign/App/Bootstrap/AppPreferencesBootstrap.swift").read_text(encoding="utf-8"))
         self.assertIn('removeObject(forKey: "com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck")', source)
         self.assertNotIn('set(true, forKey: "com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck")', source)
 

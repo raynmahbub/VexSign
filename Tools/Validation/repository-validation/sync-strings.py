@@ -2,7 +2,7 @@
 """Keep Localizable.xcstrings in step with the literals the app asks for.
 
 Every `"…".localized(…)` / `String.localized("…")` call is a catalogue key. When a key is missing
-from `App/Resources/Localizations/Localizable.xcstrings`, iOS falls back to the literal — which works in
+from `VexSign/Resources/Localizations/Localizable.xcstrings`, iOS falls back to the literal — which works in
 English and silently breaks every other language, so the drift is invisible until someone runs the
 app in German.
 
@@ -40,7 +40,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-CATALOGUE = ROOT / "App/Resources/Localizations/Localizable.xcstrings"
+CATALOGUE = ROOT / "VexSign/Resources/Localizations/Localizable.xcstrings"
 # First-party Swift that can hold user-facing copy. `App` is the shell; the
 # companion targets in `Platform/` and the shared layers and in-process services
 # ship inside the same catalogue.

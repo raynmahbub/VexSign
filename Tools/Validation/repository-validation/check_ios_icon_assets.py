@@ -8,7 +8,7 @@ import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-ICONSET = ROOT / "App/Resources/Assets.xcassets/AppIcon.appiconset"
+ICONSET = ROOT / "VexSign/Resources/Assets.xcassets/AppIcon.appiconset"
 EXPECTED_APPEARANCES = {None, "dark", "tinted"}
 
 
@@ -57,10 +57,10 @@ def main() -> int:
 
     standard = digest(appearances[None])
     for relative in (
-        "App/Resources/icon.png",
+        "VexSign/Resources/icon.png",
         "icon.png",
-        "App/Resources/Assets.xcassets/AppLogo.imageset/AppLogo.png",
-        "App/Resources/Assets.xcassets/Glyph.imageset/vexsign.png",
+        "VexSign/Resources/Assets.xcassets/AppLogo.imageset/AppLogo.png",
+        "VexSign/Resources/Assets.xcassets/Glyph.imageset/vexsign.png",
     ):
         path = ROOT / relative
         if digest(path) != standard:

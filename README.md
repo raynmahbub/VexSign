@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="App/Resources/icon.png" alt="VexSign icon" width="96">
+  <img src="VexSign/Resources/icon.png" alt="VexSign icon" width="96">
   <h1>VexSign</h1>
   <p><b>Import → inspect → sign → install. One on-device IPA workspace.</b></p>
   <p>
@@ -8,7 +8,7 @@
     <a href="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml/badge.svg"></a>
   </p>
   <p><a href="#download">Download</a> · <a href="#build--test">Build</a></p>
-  <img src="Resources/brand/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%">
+  <img src="VexSign/Resources/brand/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%">
 </div>
 
 VexSign combines local IPA signing, app management, repository discovery and
@@ -240,8 +240,8 @@ For upstream changes and pinned revisions, see
 
 Download an IPA or add the VexSign source to a compatible signer:
 
-[![Download IPA](Resources/brand/download-ipa.svg)](https://github.com/raynmahbub/VexSign/releases/latest)
-[![Add Source](Resources/brand/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
+[![Download IPA](VexSign/Resources/brand/download-ipa.svg)](https://github.com/raynmahbub/VexSign/releases/latest)
+[![Add Source](VexSign/Resources/brand/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
 
 - **Self-hosted Safari install:** distributors with an eligible pre-signed IPA can
   generate a first-install site from the signing screen.
@@ -287,7 +287,7 @@ promise to the user and, for a distributed build, to App Review.
 
 | Declared | Where | What it actually buys, and its limit |
 |---|---|---|
-| `UIBackgroundModes: audio` | `Configuration/Build/iOS/Info.plist` | **Not audio playback.** `BackgroundTaskManager` activates an `AVAudioSession(.playback)` and re-arms a background task assertion so an in-flight install, download, signing or Web Manager session survives the app leaving the foreground. iOS may still suspend the app at its own discretion, and an audio interruption (a call, Siri, another app taking the session) stops the keep-alive: `handleAudioInterruption` calls `stop()` when it cannot resume playback. Apple documents the audio mode for apps that play audio for the user; declaring it for a non-audio purpose is a distribution risk. Long operations are **best-effort while backgrounded**, and resume or reconcile when the app returns. |
+| `UIBackgroundModes: audio` | `Configuration/BuildSettings/iOS/Info.plist` | **Not audio playback.** `BackgroundTaskManager` activates an `AVAudioSession(.playback)` and re-arms a background task assertion so an in-flight install, download, signing or Web Manager session survives the app leaving the foreground. iOS may still suspend the app at its own discretion, and an audio interruption (a call, Siri, another app taking the session) stops the keep-alive: `handleAudioInterruption` calls `stop()` when it cannot resume playback. Apple documents the audio mode for apps that play audio for the user; declaring it for a non-audio purpose is a distribution risk. Long operations are **best-effort while backgrounded**, and resume or reconcile when the app returns. |
 | `UIBackgroundModes: download`, `fetch`, `processing` | same | Standard background `URLSession` and `BGTaskScheduler` work. iOS decides when refresh/processing runs; the automation UI says so rather than promising a schedule. |
 | `UIBackgroundModes: remote-notification` | same | Notification delivery, not silent remote execution. |
 | `NSLocalNetworkUsageDescription`, `NSBonjourServices` (`_http._tcp`, `_webdav._tcp`) | same | The in-app Web Manager and companion discovery on the LAN. A locked or backgrounded phone may suspend the server unless the keep-alive above holds, and the user must grant the Local Network permission. |
@@ -367,13 +367,13 @@ The `Makefile` is the supported entry point; `make help` lists every target.
 Project content lives at the repository root in one directory per layer: `App`,
 `Platform`, `Shared`, `Storage`, `Networking`, `Apple`, `DesignSystem`, `Packages`,
 `Services`, `Tests`, `Tools` and `Configuration`. Source-only assets stay under `Resources`;
-anything the app must contain at runtime lives in `App/Resources`, because the
+anything the app must contain at runtime lives in `VexSign/Resources`, because the
 targets use Xcode folder-synchronization and only bundle what is inside their own
-folder. The iOS app at `App/` separates App composition/lifecycle, feature-oriented
+folder. The iOS app at `VexSign/App/` separates App composition/lifecycle, feature-oriented
 Presentation, Application workflows, Domain contracts, Infrastructure adapters,
 Platform-facing code, Security and bundled Resources. The companion targets live in
 `Platform/`: `TV/`, `Vision/`, `Extensions/WidgetExtension/` and `Watch/` (both
-existing targets). `SharedPlatformInfo/` stays in `App/Resources/` because the iOS
+existing targets). `SharedPlatformInfo/` stays in `VexSign/Resources/` because the iOS
 app bundles it. Existing target names,
 bundle identifiers, schemes and the experimental host integration are retained.
 `test_repository_layout.py` enforces the layout, including the exact tool-owned

@@ -14,7 +14,7 @@
   "include": [
     "API/**/*.ts",
     "Configuration/**/*.ts",
-    "Storage/**/*.ts",
+    "VexSign/Storage/**/*.ts",
     "Security/**/*.ts",
     "Signing/**/*.ts",
     "Tests/**/*.ts"

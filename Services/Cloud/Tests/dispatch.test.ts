@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PendingJobDispatcher } from '../Signing/JobQueue/dispatch.js';
-import type { Infrastructure } from '../Storage/infrastructure.js';
+import type { Infrastructure } from '../VexSign/Storage/infrastructure.js';
 
 function id(index: number) { return `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`; }
 function fixture(count: number) {

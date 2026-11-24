@@ -381,7 +381,7 @@ extension NexCerts {
 	private static func _downloadData(from url: URL) async throws -> Data {
 		var request = URLRequest(url: url)
 		request.timeoutInterval = 30
-		request.setValue("App/iOS/VexSign/1.0", forHTTPHeaderField: "User-Agent")
+		request.setValue("VexSign/App/iOS/VexSign/1.0", forHTTPHeaderField: "User-Agent")
 
 		let (data, response) = try await BoundedResponseFetch.fetch(request, maximumBytes: Int64(maxDownloadBytes))
 		// `response.url` is the final URL after any redirects. `sourceHost` is a

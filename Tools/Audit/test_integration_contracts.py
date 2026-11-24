@@ -12,7 +12,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 DOWNLOAD_IMPORT = ROOT / "VexSign/Services/Download/DownloadManager+PackageImport.swift"
-DUPLICATE_REVIEW = ROOT / "Storage/Repositories/ImportDuplicateReview.swift"
+DUPLICATE_REVIEW = ROOT / "VexSign/Storage/Repositories/ImportDuplicateReview.swift"
 ANISETTE_CLIENT = ROOT / "Packages/NativeSigning/Authentication/HTTPSAnisetteProvider.swift"
 ANISETTE_MOCK = ROOT / "Services/Cloud/Anisette/main.swift"
 ANISETTE_CONTRACT = (ROOT / "Tools/Validation/security-validation/evidence"
@@ -89,7 +89,7 @@ class DownloadReleaseMetadataContractTests(unittest.TestCase):
         self.assertNotIn("integrity: nil", block)
 
     def test_persisted_discovery_size_is_optional_with_executable_swift_regressions(self) -> None:
-        model = (ROOT / "Shared/Services/DiscoveryIndex.swift").read_text()
+        model = (ROOT / "VexSign/Shared/Services/DiscoveryIndex.swift").read_text()
         self.assertIn("var downloadByteCount: Int64? = nil", model)
         tests = (ROOT / "Tests/UnitTests/Repositories/RepositoryDiscoveryAdapterTests.swift").read_text()
         for name in (

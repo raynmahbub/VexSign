@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Job } from 'bullmq';
 import type { Config } from '../Configuration/config.js';
-import type { Infrastructure } from '../Storage/infrastructure.js';
+import type { Infrastructure } from '../VexSign/Storage/infrastructure.js';
 import { seal } from '../Security/security.js';
 import { deliverWebhooks, failureCode, fetchAsset, finish, hashingStream, processJob, type WorkerDeps } from '../Signing/Worker/processor.js';
 

@@ -118,7 +118,7 @@ class ArchitectureBoundaryTests(unittest.TestCase):
 
     def test_refactored_views_no_longer_hold_network_persistence_or_business_logic(self) -> None:
         strict_view_checks: dict[str, tuple[str, ...]] = {
-            "App/Features/Library/Views/DirectInstallSheet.swift": (
+            "VexSign/Features/Library/Views/DirectInstallSheet.swift": (
                 "URLSession.shared",
                 "FileManager.default",
                 "AppOperationRegistry.shared",
@@ -128,13 +128,13 @@ class ArchitectureBoundaryTests(unittest.TestCase):
                 "FR.handlePackageFile",
                 "UIAlertController",
             ),
-            "App/Features/Import/Files/Views/IPSWBrowserView.swift": (
+            "VexSign/Features/Import/Files/Views/IPSWBrowserView.swift": (
                 "URLSession.shared",
                 "FileManager.default",
                 "BackgroundTaskManager",
                 "IPSWBrowser.",
             ),
-            "App/Features/Settings/Views/Reset/ResetView.swift": (
+            "VexSign/Features/Settings/Views/Reset/ResetView.swift": (
                 "static func ",
                 "Storage.shared",
                 "TweakManager.shared",
@@ -143,24 +143,24 @@ class ArchitectureBoundaryTests(unittest.TestCase):
                 "UIApplication.shared",
                 "import Nuke",
             ),
-            "App/Features/Updates/FavoritesAndAutoUpdatesSettingsView.swift": (
+            "VexSign/Features/Updates/FavoritesAndAutoUpdatesSettingsView.swift": (
                 "import CoreData",
                 "@FetchRequest",
                 "Storage.shared",
             ),
-            "App/Features/Settings/Views/Security/HiddenAppsSettingsView.swift": (
-                "import CoreData",
-                "@FetchRequest",
-                "AppLockManager.shared",
-                "Storage.shared",
-            ),
-            "App/Features/Settings/Views/Security/SpecificAppLockSettingsView.swift": (
+            "VexSign/Features/Settings/Views/Security/HiddenAppsSettingsView.swift": (
                 "import CoreData",
                 "@FetchRequest",
                 "AppLockManager.shared",
                 "Storage.shared",
             ),
-            "App/Features/Dashboard/About/DiagnosticsCenterView.swift": (
+            "VexSign/Features/Settings/Views/Security/SpecificAppLockSettingsView.swift": (
+                "import CoreData",
+                "@FetchRequest",
+                "AppLockManager.shared",
+                "Storage.shared",
+            ),
+            "VexSign/Features/Dashboard/About/DiagnosticsCenterView.swift": (
                 "import CoreData",
                 "@FetchRequest",
                 "CredentialMigrationDiagnostics.shared",
@@ -169,12 +169,12 @@ class ArchitectureBoundaryTests(unittest.TestCase):
                 "DiagnosticBundleExporter",
                 "UIActivityViewController",
             ),
-            "App/Features/Downloads/Views/DownloadsTabView.swift": (
+            "VexSign/Features/Downloads/Views/DownloadsTabView.swift": (
                 "contentsOfDirectory",
                 "UIPasteboard.general",
                 "UIApplication.open",
             ),
-            "App/Features/Accounts/Views/AnisetteProviderConfigView.swift": (
+            "VexSign/Features/Accounts/Views/AnisetteProviderConfigView.swift": (
                 "HTTPSAnisetteProvider",
                 "NativeV3AnisetteProvider",
                 "AnisetteServerCatalog.bundled",
@@ -195,7 +195,7 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         app_src = _strip_comments((VEXSIGN / "VexSignApp.swift").read_text(encoding="utf-8"))
         self.assertIn("AppContainer.live()", app_src)
         # The container and its stores are injected by AppEnvironment, which is also where
-        # `\.appContainer` is set; the scene applies it once. See App/Composition/AppEnvironment.swift.
+        # `\.appContainer` is set; the scene applies it once. See VexSign/App/Composition/AppEnvironment.swift.
         self.assertIn("AppEnvironment(container: appContainer", app_src)
         # Every external URL goes through the lock-aware entry point; the raw
         # router call there would bypass the App Lock buffering.

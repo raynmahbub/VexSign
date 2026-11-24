@@ -31,7 +31,7 @@ def eligible(pr, files, default):
     paths = {f['filename'] for f in files}
     author, branch = pr['user']['login'], pr['head']['ref']
     if author == 'github-actions[bot]':
-        return ((branch == 'automation/repo-maintenance' and paths == {'App/Resources/Localizations/Localizable.xcstrings'})
+        return ((branch == 'automation/repo-maintenance' and paths == {'VexSign/Resources/Localizations/Localizable.xcstrings'})
                 or (branch == 'automation/release-listing' and paths in (
                     {'Resources/Templates/app-repo.json', 'app-repo.json'},
                     {'app-repo.json'})))

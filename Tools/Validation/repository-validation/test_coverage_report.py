@@ -33,9 +33,9 @@ REPORT = {
     "targets": [{
         "name": "VexSign.app",
         "files": [
-            file_report("/runner/work/project/Storage/Database/Storage.swift", 5, 50),
+            file_report("/runner/work/project/VexSign/Storage/Database/Storage.swift", 5, 50),
             file_report("/runner/work/project/VexSign/Services/Diagnostics/FileLogger.swift", 25, 30),
-            file_report("/runner/work/project/Shared/Models/Empty.swift", 0, 0),
+            file_report("/runner/work/project/VexSign/Shared/Models/Empty.swift", 0, 0),
             file_report("/runner/DerivedData/SourcePackages/checkouts/Nuke/Sources/Task.swift", 0, 400),
             file_report("/runner/work/project/Tests/UnitTests/Application/SomeTests.swift", 0, 200),
         ],
@@ -47,8 +47,8 @@ class FilteringTests(unittest.TestCase):
     def test_dependencies_and_test_bundles_are_excluded(self):
         self.assertFalse(coverage.is_first_party("/x/SourcePackages/checkouts/Nuke/Sources/Task.swift"))
         self.assertFalse(coverage.is_first_party("/x/Tests/UnitTests/Application/SomeTests.swift"))
-        self.assertFalse(coverage.is_first_party("/x/App/Thing.h"))
-        self.assertTrue(coverage.is_first_party("/x/Storage/Database/Storage.swift"))
+        self.assertFalse(coverage.is_first_party("/x/VexSign/App/Thing.h"))
+        self.assertTrue(coverage.is_first_party("/x/VexSign/Storage/Database/Storage.swift"))
 
     def test_summary_uses_totals_and_sorts_worst_first(self):
         percent, covered, executable, files = coverage.summarise(REPORT)
@@ -56,7 +56,7 @@ class FilteringTests(unittest.TestCase):
         self.assertEqual((covered, executable), (30, 100))
         # Zero-line files and dependencies are dropped; worst coverage first.
         self.assertEqual([entry["name"] for entry in files],
-                         ["Storage/Database/Storage.swift", "VexSign/Services/Diagnostics/FileLogger.swift"])
+                         ["VexSign/Storage/Database/Storage.swift", "VexSign/Services/Diagnostics/FileLogger.swift"])
 
     def test_empty_report_does_not_divide_by_zero(self):
         percent, covered, executable, files = coverage.summarise({})
@@ -73,7 +73,7 @@ class RenderingTests(unittest.TestCase):
         markdown = coverage.render_markdown(*coverage.summarise(REPORT))
         self.assertIn("**30.0%**", markdown)
         self.assertIn("| File | Coverage | Covered / Executable |", markdown)
-        self.assertIn("Storage/Database/Storage.swift", markdown)
+        self.assertIn("VexSign/Storage/Database/Storage.swift", markdown)
         self.assertIn("10.0%", markdown)
 
 

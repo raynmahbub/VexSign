@@ -92,7 +92,7 @@ class ProjectWiringTests(unittest.TestCase):
         self.assertEqual(gate.problems(root=self.root, project=self.project), [])
 
     def test_resource_outside_the_sync_root_is_reported(self):
-        (self.root / "App/Resources/ellekit.deb").unlink()
+        (self.root / "App" / "ellekit.deb").unlink()
         found = gate.problems(root=self.root, project=self.project)
         self.assertTrue(any("ellekit.deb" in f and "sync root" in f for f in found), found)
 
@@ -106,7 +106,7 @@ class ProjectWiringTests(unittest.TestCase):
     def test_a_target_may_synchronize_several_roots(self):
         """The layers are separate roots, so a target legitimately lists more than one."""
         # Tests gains an unrelated sibling root; the fixture's App root stays nested
-        # in App/TV, so flatten that first to isolate the property under test.
+        # in VexSign/App/TV, so flatten that first to isolate the property under test.
         text = PROJECT.replace("path = App/TV;", "path = Other/TV;")
         text = text.replace(
             "\t\t\t\tAAAA000000000000000000A3 /* Tests */,\n",
@@ -117,7 +117,8 @@ class ProjectWiringTests(unittest.TestCase):
 
     def test_source_outside_every_root_is_reported(self):
         """A shared layer no root names is never compiled; that is the CI failure."""
-        (self.root / "Shared" / "Stranded.swift").write_text("struct S {}", encoding="utf-8")
+        (self.root / "VexSign/Shared").mkdir(parents=True, exist_ok=True)
+        (self.root / "VexSign/Shared" / "Stranded.swift").write_text("struct S {}", encoding="utf-8")
         found = gate.problems(root=self.root, project=self.project)
         self.assertTrue(any("outside every synchronized root" in f for f in found), found)
 

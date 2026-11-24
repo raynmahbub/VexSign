@@ -135,11 +135,11 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         signing_handler = self.text("VexSign/Services/Signing/Execution/SigningHandler.swift")
         cloner = self.text("VexSign/Services/Import/IPA/AppCloner.swift")
         update_runner = self.text("VexSign/Services/Updates/UpdateAllManager.swift")
-        update_view = self.text("App/Features/Updates/UpdatesView.swift")
+        update_view = self.text("VexSign/Features/Updates/UpdatesView.swift")
         background_automation = self.text("VexSign/Services/Tasks/BackgroundAutomation.swift")
         backup_manager = self.text("VexSign/Services/Backup/BackupManager.swift")
         backup_support = self.text("VexSign/Services/Backup/LibraryBackupSupport.swift")
-        download_button = self.text("App/Features/Sources/Views/Apps/DownloadButtonView.swift")
+        download_button = self.text("VexSign/Features/Sources/Views/Apps/DownloadButtonView.swift")
 
         self.assertIn("var originURL: URL?", download)
         self.assertIn("originURL: originURL", manager)
@@ -212,7 +212,7 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         self.assertIn('probe: InstalledAppProbing = UnavailableInstallationProbe()', installer)
         self.assertIn('paired-installed-version-not-verified', installer)
         for path in ('VexSign/Services/Installation/Installation/DeviceAppRemoval.swift',
-                     'Storage/Repositories/LibraryStatusStore.swift'):
+                     'VexSign/Storage/Repositories/LibraryStatusStore.swift'):
             self.assertNotIn('InstalledAppProbe()', (APP / path).read_text())
 
     def test_storage_path_is_pure_and_recovery_is_inside_both_executor_entrypoints(self):
@@ -223,7 +223,7 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         for operation in ('try await executor.run {', 'try await executor.run(waiterTimeout: waiterTimeout) {'):
             body = heartbeat.split(operation, 1)[1].split('\n    }', 1)[0]
             self.assertLess(body.index('PairingFileStorage.prepare()'), body.index('return try work('))
-        launch = (APP / 'App/Composition/AppLifecycleCoordinator.swift').read_text()
+        launch = (APP / 'VexSign/App/Composition/AppLifecycleCoordinator.swift').read_text()
         self.assertIn('try await PairingBridge.recoverLocalStorage()', launch)
         self.assertNotIn('queryDevice(', launch)
 
@@ -244,7 +244,7 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         # Host tests never silently relax the physical iOS protection gate.
         self.assertIn('#if os(iOS) && !targetEnvironment(simulator)', storage)
         self.assertNotIn('isDataProtectionUnsupported', storage)
-        picker = (APP / 'Apple/DocumentPicker/DocumentPicker.swift').read_text()
+        picker = (APP / 'VexSign/System/DocumentPicker/DocumentPicker.swift').read_text()
         self.assertIn('onFinish?(); return', picker)
         self.assertIn('presenter.presentedViewController == nil', picker)
         self.assertIn('!presenter.isBeingPresented', picker)
@@ -320,7 +320,7 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         self.assertIn('task.context?.installedApplicationEvidence = evidence', queue)
         history = (APP / 'VexSign/Services/Tasks/UnifiedTaskModels.swift').read_text()
         self.assertIn('hasConfirmedInstallation(notAfter: task.updatedAt) != true', history)
-        library = (APP / 'Storage/Repositories/LibraryStatusStore.swift').read_text()
+        library = (APP / 'VexSign/Storage/Repositories/LibraryStatusStore.swift').read_text()
         self.assertIn('guard selectedDeviceBinding == evidence.deviceBinding else { return }', library)
         self.assertIn('receipt.app.evidence?.deviceBinding == binding', library)
         self.assertNotIn('InstalledApp(bundleIdentifier:', library)
@@ -338,7 +338,7 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         self.assertIn('handler.signedArtifact', pipeline)
 
     def test_storage_totals_reclaimability_and_cache_purge_share_no_follow_protection(self):
-        storage = (APP / 'Storage/FileSystem/Cache/StorageManager.swift').read_text()
+        storage = (APP / 'VexSign/Storage/FileSystem/Cache/StorageManager.swift').read_text()
         self.assertIn('StorageAggregateAccounting.totalBytes(in:', storage)
         self.assertNotIn('fm.allocatedSize(', storage)
         self.assertEqual(storage.count('StorageManager.purgeCaches(protectedRoots: library.protectedURLs)'), 2)
@@ -348,7 +348,7 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         self.assertIn('StorageScanner.purgeTemporary(protectedRoots: library.protectedURLs)', storage)
         self.assertIn('static func purgeTemporary(protectedRoots: [URL])', storage)
         self.assertNotIn('nonisolated static func purgeTemporary()', storage)
-        adapters = (APP / 'Storage/Repositories/SubsystemAdapters.swift').read_text()
+        adapters = (APP / 'VexSign/Storage/Repositories/SubsystemAdapters.swift').read_text()
         self.assertEqual(adapters.count('StorageManager.shared.purge(.temporary)'), 2)
         self.assertNotIn('StorageManager.purgeTemporary()', adapters)
         self.assertNotIn('let inbox = contents(of: fm.webManagerInbox)', storage)
@@ -372,7 +372,7 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         self.assertIn('InstallCompletionEvidencePolicy.allowsInstalledOutcome(', final)
         queue = (APP / 'VexSign/Services/Installation/Installation/InstallQueueCore.swift').read_text()
         self.assertIn('InstallCompletionEvidencePolicy.allowsInstalledOutcome(', queue)
-        completion_policy = (APP / 'Shared/Models/Policies/InstallCompletionEvidencePolicy.swift').read_text()
+        completion_policy = (APP / 'VexSign/Shared/Models/Policies/InstallCompletionEvidencePolicy.swift').read_text()
         self.assertIn('method == .pairedDevice && hasExactPairedDeviceEvidence', completion_policy)
         probe = (APP / 'VexSign/Services/Installation/Installation/InstalledAppProbe.swift').read_text()
         paired = probe.split('struct PairedDeviceInstallationProbe:', 1)[1].split('struct UnavailableInstallationProbe:', 1)[0]
