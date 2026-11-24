@@ -130,6 +130,7 @@ final class InstallCompletionEvidencePolicyTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testExportCompletionIsDistinctFromInstallationCompletion() {
         let exported = InstallQueue.InstallOutcome.exported
         XCTAssertNotEqual(exported, .succeeded)
@@ -152,6 +153,7 @@ final class InstallCompletionEvidencePolicyTests: XCTestCase {
         XCTAssertNotEqual(evidence.lifecycleStage, .confirmed)
     }
 
+    @MainActor
     func testStoppingMonitoringAfterHandoffEndsUnconfirmedWhileBeforeHandoffEndsCancelled() {
         XCTAssertEqual(InstallQueue.phaseAfterStoppingMonitoring(hasHandedOff: true), .unconfirmed)
         XCTAssertEqual(InstallQueue.phaseAfterStoppingMonitoring(hasHandedOff: false), .cancelled)
