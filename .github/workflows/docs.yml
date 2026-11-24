@@ -6,15 +6,13 @@ on:
     branches: [main]
     paths:
       - '**/*.md'
-      - 'VexSign/Documentation/**'
-      - 'VexSign/Tools/**'
+      - 'Tools/**'
       - '.github/workflows/docs.yml'
   pull_request:
     branches: [main]
     paths:
       - '**/*.md'
-      - 'VexSign/Documentation/**'
-      - 'VexSign/Tools/**'
+      - 'Tools/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 

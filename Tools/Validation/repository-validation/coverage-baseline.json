@@ -1,0 +1,5 @@
+{
+  "percent": null,
+  "recordedAt": null,
+  "note": "Not recorded yet. The next green simulator run should record it: python3 .github/scripts/coverage_report.py --result-bundle <bundle> --baseline Tools/Validation/repository-validation/coverage-baseline.json --update-baseline, then commit the file. A null baseline prints no trend instead of inventing one."
+}

@@ -2,8 +2,8 @@
 #
 # Linting is a local step: `make lint` reports, `make lint FIX=1` autocorrects.
 # CI does not run SwiftLint and never pushes fixes onto your branch -- the
-# auto-fix commits it used to make rewrote correct code into broken code (see
-# CHANGELOG.md) and restarted the build every time.
+# auto-fix commits it used to make rewrote correct code into broken code and
+# restarted the build every time.
 #
 # Run locally:   make lint            (report, --strict)
 #                make lint FIX=1      (auto-correct)
@@ -11,21 +11,27 @@
 # Only first-party Swift is linted. Submodules ship their own tooling and the
 # generated/vendored directories are not ours to fix.
 included:
-  - VexSign/App/iOS
-  - VexSign/App/WidgetExtension
+  - App
+  - Shared
+  - Storage
+  - Networking
+  - Apple
+  - DesignSystem
+  - VexSign/Services
+  - Platform/Extensions/WidgetExtension
   # The companion app targets are first-party and were simply never listed.
-  - VexSign/App/TV
-  - VexSign/App/Vision
-  - VexSign/App/Watch
-  - VexSign/Tests
-  - VexSign/Packages/AltSourceKit/Sources
-  - VexSign/Packages/NimbleKit/Sources
+  - Platform/TV
+  - Platform/Vision
+  - Platform/Watch
+  - Tests
+  - Packages/AltSourceKit/Sources
+  - Packages/NimbleKit/Sources
   # The Apple-account, PKCS#12/CMS and provisioning-profile code is the most security-sensitive
   # Swift in the repository, so it is the least optional to lint. It was out of scope entirely.
-  - VexSign/Packages/NativeSigning
+  - Packages/NativeSigning
   # The embedded-container host overlay is first-party Swift too, and was in neither list: not
   # included, not excluded, so nothing ever looked at it.
-  - VexSign/Integrations
+  - Services/Integrations
 
 excluded:
   - .build
@@ -35,11 +41,11 @@ excluded:
   # same silent-rot failure as a stale Dependabot `directory`. The parent directory is excluded
   # rather than the two children so a package vendored later inherits the same decision; this is
   # the path `.swiftformat` already excludes, and `test_style_config.py` pins the agreement.
-  - VexSign/Packages/Vendor
+  - Packages/Vendor
   # Vendored from SideStore/Catalyst under AGPL-3.0 (see its Package.swift header) and only
   # patched by hash-checked overlays, so its style is upstream's to own — same reasoning as the
   # two vendored packages above.
-  - VexSign/Packages/SideSign
+  - Packages/SideSign
   # Guards for scratch and extraction directories that are created during vendoring or IPA
   # inspection rather than checked in, so they legitimately do not exist in a clean checkout.
   - packages
@@ -47,10 +53,10 @@ excluded:
   - deps
   - _upstream_vexsign
   - _VexSign
-  - VexSign/Services/WebManager/API
-  - VexSign/Services/Cloud
+  - Services/WebManager/API
+  - Services/Cloud
   - Tools
-  - VexSign/Tools/Development
+  - Tools/Development
   - "**/.build"
   - "**/Package.swift"
 

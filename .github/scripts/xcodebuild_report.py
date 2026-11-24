@@ -47,7 +47,9 @@ BARE_ERROR_RE = re.compile(r"^(?:xcodebuild: )?error: (?P<msg>.*)$")
 DEFAULT_TITLE = "Build"
 # Keep historical log roots readable, but classify the migrated ownership root
 # too. A relocation must never silently disable the first-party warning gate.
-DEFAULT_FIRST_PARTY = ["VexSign", "App", "Packages", "Extensions", "Integrations", "Services", "Tools", "Resources", "Documentation"]
+DEFAULT_FIRST_PARTY = ["VexSign", "App", "Shared", "Storage", "Networking", "Apple", "DesignSystem",
+                       "Packages", "Extensions", "Integrations", "Services", "Tools", "Resources",
+                       "Tests", "Configuration"]
 MAX_ANNOTATIONS = 200
 MAX_LISTED = 80
 

@@ -47,7 +47,7 @@ jobs:
           CI_RUN_ID: ${{ github.event.workflow_run.id }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           BUGFIX_AGENT_MODEL: ${{ vars.BUGFIX_AGENT_MODEL || 'gpt-4.1-mini' }}
-        run: python3 VexSign/Tools/Validation/repository-validation/ci_repair_agent.py propose
+        run: python3 Tools/Validation/repository-validation/ci_repair_agent.py propose
 
       - name: Upload candidate patch
         if: steps.agent.outputs.patch_ready == 'true'
@@ -91,8 +91,8 @@ jobs:
           TARGET_REPO: target
           BUGFIX_ARTIFACT_DIR: bugfix-candidate
         run: |
-          if [ -f trusted/VexSign/Tools/Validation/repository-validation/ci_repair_agent.py ]; then
-            AGENT=trusted/VexSign/Tools/Validation/repository-validation/ci_repair_agent.py
+          if [ -f trusted/Tools/Validation/repository-validation/ci_repair_agent.py ]; then
+            AGENT=trusted/Tools/Validation/repository-validation/ci_repair_agent.py
           elif [ -f trusted/Tools/CI/ci_repair_agent.py ]; then
             AGENT=trusted/Tools/CI/ci_repair_agent.py
           else
@@ -140,8 +140,8 @@ jobs:
           TARGET_REPO: target
           BUGFIX_ARTIFACT_DIR: bugfix-candidate
         run: |
-          if [ -f trusted/VexSign/Tools/Validation/repository-validation/ci_repair_agent.py ]; then
-            AGENT=trusted/VexSign/Tools/Validation/repository-validation/ci_repair_agent.py
+          if [ -f trusted/Tools/Validation/repository-validation/ci_repair_agent.py ]; then
+            AGENT=trusted/Tools/Validation/repository-validation/ci_repair_agent.py
           elif [ -f trusted/Tools/CI/ci_repair_agent.py ]; then
             AGENT=trusted/Tools/CI/ci_repair_agent.py
           else

@@ -1,0 +1,20 @@
+{
+  "Extensions/WidgetExtension": 5,
+  "Features/Accounts": 6,
+  "Features/Certificates": 5,
+  "Features/Dashboard/About": 1,
+  "Features/Dashboard/Home": 18,
+  "Features/Dashboard/Onboarding": 1,
+  "Features/Downloads": 8,
+  "Features/Library": 8,
+  "Features/Settings": 7,
+  "Features/Signing": 4,
+  "Features/Sources": 2,
+  "Features/Tasks": 2,
+  "Features/Updates": 4,
+  "Navigation/Tabs": 2,
+  "TV": 3,
+  "Vision": 1,
+  "Watch/VexSignWatch": 1,
+  "Watch/VexSignWatchWidgets": 2
+}

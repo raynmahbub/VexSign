@@ -4,53 +4,69 @@ name: Platform check
 # which `ci.yml` skips because it only builds the iOS scheme. Unsigned,
 # simulator-agnostic builds: they prove the sources type-check per SDK.
 #
-# The companions mirror the iPhone app (VexSign/Documentation/Development/PLATFORMS.md), so this also guards
-# VexSign/App/iOS/Infrastructure/Devices/Transport/* and the shared Keychain primitive, compiled into the
+# The companions mirror the iPhone app (README.md#declared-capabilities-and-their-limits), so this also guards
+# VexSign/Services/Installation/Transport/* and the shared Keychain primitive, compiled into the
 # iOS, tvOS and visionOS targets — a change that breaks only one shows up here, not on a device.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'VexSign/App/TV/**'
-      - 'VexSign/App/Vision/**'
-      - 'VexSign/App/**'
-      - 'VexSign/Packages/**'
-      - 'VexSign/App/iOS/Infrastructure/Devices/Transport/**'
-      - 'VexSign/App/iOS/Security/Secrets/SecureSecretStore.swift'
-      - 'VexSign/App/iOS/Security/Network/LocalNetworkHost.swift'
-      - 'VexSign/App/SharedPlatformInfo/**'
+      - 'Platform/TV/**'
+      - 'Platform/Vision/**'
+      - 'Platform/Watch/**'
+      - 'Platform/Extensions/**'
+      - 'App/**'
+      - 'Shared/**'
+      - 'Storage/**'
+      - 'Networking/**'
+      - 'Apple/**'
+      - 'DesignSystem/**'
+      - 'VexSign/Services/**'
+      - 'Packages/**'
+      - 'VexSign/Services/Installation/Transport/**'
+      - 'Storage/Keychain/SecureSecretStore.swift'
+      - 'Networking/Security/Transport/LocalNetworkHost.swift'
+      - 'App/Resources/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
-      - 'VexSign/Packages/NimbleKit/**'
-      - 'VexSign/Packages/AltSourceKit/**'
-      - 'VexSign/Packages/Vendor/**'
+      - 'Packages/NimbleKit/**'
+      - 'Packages/AltSourceKit/**'
+      - 'Packages/Vendor/**'
       - '.github/scripts/select_xcode.sh'
       - '.github/scripts/prefetch_spm_artifacts.py'
       - '.github/scripts/xcodebuild_report.py'
       - '.github/workflows/platform-check.yml'
-      - 'VexSign/Configuration/**'
+      - 'Configuration/**'
   pull_request:
     branches: [main]
     paths:
-      - 'VexSign/App/TV/**'
-      - 'VexSign/App/Vision/**'
-      - 'VexSign/App/**'
-      - 'VexSign/Packages/**'
-      - 'VexSign/App/iOS/Infrastructure/Devices/Transport/**'
-      - 'VexSign/App/iOS/Security/Secrets/SecureSecretStore.swift'
-      - 'VexSign/App/iOS/Security/Network/LocalNetworkHost.swift'
-      - 'VexSign/App/SharedPlatformInfo/**'
+      - 'Platform/TV/**'
+      - 'Platform/Vision/**'
+      - 'Platform/Watch/**'
+      - 'Platform/Extensions/**'
+      - 'App/**'
+      - 'Shared/**'
+      - 'Storage/**'
+      - 'Networking/**'
+      - 'Apple/**'
+      - 'DesignSystem/**'
+      - 'VexSign/Services/**'
+      - 'Packages/**'
+      - 'VexSign/Services/Installation/Transport/**'
+      - 'Storage/Keychain/SecureSecretStore.swift'
+      - 'Networking/Security/Transport/LocalNetworkHost.swift'
+      - 'App/Resources/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
-      - 'VexSign/Packages/NimbleKit/**'
-      - 'VexSign/Packages/AltSourceKit/**'
-      - 'VexSign/Packages/Vendor/**'
+      - 'Packages/NimbleKit/**'
+      - 'Packages/AltSourceKit/**'
+      - 'Packages/Vendor/**'
       - '.github/scripts/select_xcode.sh'
       - '.github/scripts/prefetch_spm_artifacts.py'
       - '.github/scripts/xcodebuild_report.py'
       - '.github/workflows/platform-check.yml'
-      - 'VexSign/Configuration/**'
+      - 'Configuration/**'
   workflow_dispatch:
 
 permissions:
@@ -124,9 +140,13 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/DerivedData-${{ matrix.scheme }}/SourcePackages
-          key: spm-platform-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          # The key names the checkout layout, not only the lockfiles. Package.resolved
+          # pins remote sources only, so moving the local packages leaves its hash
+          # unchanged and a pre-move cache can satisfy the key. Bump the version
+          # prefix on any package move.
+          key: spm-platform-v2-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
-            spm-platform-${{ runner.os }}-
+            spm-platform-v2-${{ runner.os }}-
 
       - name: Prefetch verified binary archives
         run: |
@@ -166,7 +186,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/DerivedData-${{ matrix.scheme }}/SourcePackages
-          key: spm-platform-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          key: spm-platform-v2-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
 
       # Inline annotations so a compile error in a companion target can be read
       # from the PR page. Warnings are not gated here: these targets have no
