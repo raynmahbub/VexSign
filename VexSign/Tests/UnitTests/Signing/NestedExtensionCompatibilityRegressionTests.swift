@@ -178,9 +178,9 @@ final class NestedExtensionCompatibilityRegressionTests: XCTestCase {
         )
 
         let byPath = Dictionary(uniqueKeysWithValues: plan.components.map { ($0.path, $0) })
-        XCTAssertEqual(byPath["PlugIns/NotificationService.appex"]?.kind, .plugin)
-        XCTAssertEqual(byPath["PlugIns/ShareExtension.appex"]?.kind, .plugin)
-        XCTAssertEqual(byPath["PlugIns/StatusWidget.appex"]?.kind, .plugin)
+        XCTAssertEqual(byPath["PlugIns/NotificationService.appex"]?.kind, .appExtension)
+        XCTAssertEqual(byPath["PlugIns/ShareExtension.appex"]?.kind, .appExtension)
+        XCTAssertEqual(byPath["PlugIns/StatusWidget.appex"]?.kind, .appExtension)
         XCTAssertEqual(byPath["AppClips/QuickClip.app"]?.kind, .appClip)
         XCTAssertEqual(byPath["Watch/CompanionWatch.app"]?.kind, .watchApp)
         XCTAssertEqual(
@@ -241,10 +241,16 @@ final class NestedExtensionCompatibilityRegressionTests: XCTestCase {
             uuid: "44444444-4444-4444-8444-444444444444",
             grants: ["com.apple.security.application-groups": ["group.com.vexsign.corpus"]]
         )
+        let watchAppExplicit = try makeCandidate(
+            id: "watch-app-explicit",
+            pattern: "\(team).com.vexsign.corpus.watchkitapp",
+            uuid: "55555555-5555-4555-8555-555555555555",
+            platform: ["watchOS"]
+        )
         let watchWildcard = try makeCandidate(
             id: "watch-wildcard",
-            pattern: "\(team).com.vexsign.corpus.watchkitapp*",
-            uuid: "55555555-5555-4555-8555-555555555555",
+            pattern: "\(team).com.vexsign.corpus.watchkitapp.*",
+            uuid: "66666666-6666-4666-8666-666666666666",
             platform: ["watchOS"]
         )
 
@@ -313,7 +319,7 @@ final class NestedExtensionCompatibilityRegressionTests: XCTestCase {
 
         let resolution = CompatibleIdentityResolver.resolve(
             targets: targets,
-            candidates: [mainExplicit, notifExplicit, clipExplicit, wildcard, watchWildcard],
+            candidates: [mainExplicit, notifExplicit, clipExplicit, wildcard, watchAppExplicit, watchWildcard],
             deviceUDID: nil,
             now: SigningRegressionFixture.now
         )
@@ -328,7 +334,7 @@ final class NestedExtensionCompatibilityRegressionTests: XCTestCase {
         XCTAssertEqual(byPath["PlugIns/ShareExtension.appex"]?.candidate?.id, "wildcard")
         XCTAssertEqual(byPath["PlugIns/StatusWidget.appex"]?.candidate?.id, "wildcard")
         XCTAssertEqual(byPath["Helpers/HelperAgent.app"]?.candidate?.id, "wildcard")
-        XCTAssertEqual(byPath["Watch/CompanionWatch.app"]?.candidate?.id, "watch-wildcard")
+        XCTAssertEqual(byPath["Watch/CompanionWatch.app"]?.candidate?.id, "watch-app-explicit")
         XCTAssertEqual(
             byPath["Watch/CompanionWatch.app/PlugIns/CompanionWatchExtension.appex"]?.candidate?.id,
             "watch-wildcard"

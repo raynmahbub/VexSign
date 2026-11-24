@@ -366,8 +366,8 @@ final class ZsignEndToEndIntegrationTests: XCTestCase {
         let root = try makeTempRoot("ZsignRefusal")
         let appURL = root.appendingPathComponent("RefusalApp.app", isDirectory: true)
         try FileManager.default.createDirectory(at: appURL, withIntermediateDirectories: true)
-        try Self.makeSignableArm64MachO(fileType: 2, seedByte: 0x55)
-            .write(to: appURL.appendingPathComponent("RefusalApp"))
+        let originalExecData = Self.makeSignableArm64MachO(fileType: 2, seedByte: 0x55)
+        try originalExecData.write(to: appURL.appendingPathComponent("RefusalApp"))
         try Self.writePlist([
             "CFBundleIdentifier": "com.vexsign.e2e.refuse",
             "CFBundleExecutable": "RefusalApp",
@@ -407,9 +407,15 @@ final class ZsignEndToEndIntegrationTests: XCTestCase {
         )
         let outcome = ZsignEngine.sign(request)
         XCTAssertFalse(outcome.succeeded, "Non-Apple identity must never succeed in device-signing mode.")
-        XCTAssertFalse(
-            FileManager.default.fileExists(atPath: appURL.appendingPathComponent("_CodeSignature/CodeResources").path),
-            "Refused signing run must not emit a forged CodeResources envelope."
+
+        // Verify Zsign refused to sign the Mach-O and never silently degraded to ad-hoc.
+        let refusedExecData = try Data(contentsOf: appURL.appendingPathComponent("RefusalApp"))
+        XCTAssertEqual(
+            refusedExecData,
+            originalExecData,
+            "Refused signing run must leave the Mach-O executable untouched and unsigned."
         )
+        let verifyReport = SignatureVerifier.verify(bundleAt: appURL, expectation: .freshlySigned)
+        XCTAssertFalse(verifyReport.isAcceptable, "Refused signing output must fail SignatureVerifier.")
     }
 }

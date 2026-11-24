@@ -269,6 +269,7 @@ final class StoreRecoveryTests: XCTestCase {
         XCTAssertTrue(fm.fileExists(atPath: stores[0].directoryURL.appendingPathComponent("VexSign.sqlite").path))
     }
 
+    @MainActor
     func testUnavailablePersistentStorageDisablesWritesAndKeepsWarningVisible() async throws {
         let root = try makeTempRoot("StoreUnavailable")
         let storeURL = root.appendingPathComponent("VexSign.sqlite")
@@ -307,6 +308,7 @@ final class StoreRecoveryTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testCorruptSQLiteRecoveryOpensFreshStoreAndPersistsAcrossRestart() async throws {
         let root = try makeTempRoot("StoreRestartRecovery")
         let storeURL = root.appendingPathComponent("VexSign.sqlite")
