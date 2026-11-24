@@ -361,6 +361,25 @@ enum IPAImportPayload {
             return found
         }
 
+        /// Every app bundle inside a `Payload` folder that is itself wrapped in another folder:
+        /// `Root/Wrapped/Payload/App.app`, which is what zipping the directory an archive was
+        /// extracted into produces. Returned as a list so two of them stay ambiguous.
+        func appsInsideWrappedPayloads(in container: URL) throws -> [URL] {
+            let entries = (try? manager.contentsOfDirectory(at: container, includingPropertiesForKeys: nil)) ?? [] // try? ok: unreadable directory holds no app bundle
+            var found: [URL] = []
+            for entry in entries.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                var isDirectory: ObjCBool = false
+                guard manager.fileExists(atPath: entry.path, isDirectory: &isDirectory), isDirectory.boolValue else { continue }
+                if entry.lastPathComponent.lowercased() == "__macosx" { continue }
+                let wrappedPayload = entry.appendingPathComponent("Payload", isDirectory: true)
+                var payloadIsDirectory: ObjCBool = false
+                guard manager.fileExists(atPath: wrappedPayload.path, isDirectory: &payloadIsDirectory),
+                      payloadIsDirectory.boolValue else { continue }
+                found.append(contentsOf: try appsDirectly(in: wrappedPayload))
+            }
+            return found
+        }
+
         // A standard IPA: `Payload/App.app`.
         if let app = try onlyApp(of: try appsDirectly(in: payload)) { return app }
 
@@ -381,16 +400,11 @@ enum IPAImportPayload {
         // Top level: `Root/App.app` beside `iTunesMetadata.plist`.
         if let app = try onlyApp(of: try appsDirectly(in: container)) { return app }
 
-        // A folder wrapped around the standard layout: `Root/Payload/App.app`. Zipping the
-        // folder an archive was extracted into is an ordinary thing to do in Files, and it
-        // used to be refused by the one-level search below, which looks inside `Root` and
-        // finds only a directory called `Payload`.
-        let wrappedPayloads = ((try? manager.contentsOfDirectory(at: container, includingPropertiesForKeys: nil)) ?? []) // try? ok: unreadable directory holds no app bundle
-            .filter { $0.lastPathComponent == "Payload" }
-        if wrappedPayloads.count == 1, let wrapped = wrappedPayloads.first,
-           let app = try onlyApp(of: try appsDirectly(in: wrapped)) {
-            return app
-        }
+        // A folder wrapped around the standard layout: `Root/Wrapped/Payload/App.app`. Zipping
+        // the directory an archive was extracted into is an ordinary thing to do in Files, and
+        // the one-level search below sees only a directory called `Payload` — a directory is
+        // not a bundle, so the archive was refused after a full extraction.
+        if let app = try onlyApp(of: try appsInsideWrappedPayloads(in: container)) { return app }
 
         // One folder deep: `Root/Release/App.app`. Two bundles in different folders are still
         // ambiguous: choosing one by directory order is what this function exists to avoid.
