@@ -26,7 +26,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-PRESENTATION = ROOT / "App/Features"
+PRESENTATION = ROOT / "VexSign/Features"
 MAKEFILE = ROOT / "Makefile"
 
 TEXT_FIELD = re.compile(r"\b(?:Text|Secure)Field\(")

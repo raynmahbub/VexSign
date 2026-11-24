@@ -108,7 +108,7 @@ class ReportParsingTests(unittest.TestCase):
     # Pretty-printed the way JSONEncoder emits it, with real rule names.
     REPORT = """[
   {
-    "file" : "App/Features/Dashboard/Home/Views/AppStoreView.swift",
+    "file" : "VexSign/Features/Dashboard/Home/Views/AppStoreView.swift",
     "line" : 14,
     "reason" : "Replace tabs with spaces",
     "rule_id" : "indent"
@@ -127,7 +127,7 @@ class ReportParsingTests(unittest.TestCase):
         self.assertEqual(
             violations[0],
             drift.Violation(
-                "App/Features/Dashboard/Home/Views/AppStoreView.swift",
+                "VexSign/Features/Dashboard/Home/Views/AppStoreView.swift",
                 14,
                 "indent",
                 "Replace tabs with spaces",
@@ -157,11 +157,11 @@ class ReportParsingTests(unittest.TestCase):
 
     def test_absolute_and_prefixed_paths_normalise_to_the_repository_root(self):
         report = json.dumps(
-            [{"file": str(ROOT / "App/Foo.swift"), "line": 3, "reason": "r", "rule_id": "indent"}]
+            [{"file": str(ROOT / "VexSign/App/Foo.swift"), "line": 3, "reason": "r", "rule_id": "indent"}]
         )
-        self.assertEqual(drift.parse_report(report)[0].path, "App/Foo.swift")
-        relative = json.dumps([{"file": "./App/Bar.swift", "line": 3, "reason": "r", "rule_id": "indent"}])
-        self.assertEqual(drift.parse_report(relative)[0].path, "App/Bar.swift")
+        self.assertEqual(drift.parse_report(report)[0].path, "VexSign/App/Foo.swift")
+        relative = json.dumps([{"file": "./VexSign/App/Bar.swift", "line": 3, "reason": "r", "rule_id": "indent"}])
+        self.assertEqual(drift.parse_report(relative)[0].path, "VexSign/App/Bar.swift")
 
     def test_unattributable_entry_is_dropped_not_guessed(self):
         report = json.dumps([{"file": None, "line": 3, "reason": "r", "rule_id": "indent"}])
@@ -173,11 +173,11 @@ class AttributionTests(unittest.TestCase):
         return drift.Violation(path, line, "indent", "Replace tabs with spaces")
 
     def test_added_file_is_owned_outright(self):
-        found = drift.attribute([self.violation("App/New.swift", 1)], {"App/New.swift"}, {})
+        found = drift.attribute([self.violation("VexSign/App/New.swift", 1)], {"VexSign/App/New.swift"}, {})
         self.assertEqual([violation.line for violation in found], [1])
 
     def test_modified_file_gates_only_the_lines_it_changed(self):
-        path = "App/Old.swift"
+        path = "VexSign/App/Old.swift"
         violations = [self.violation(path, 12), self.violation(path, 400)]
         found = drift.attribute(violations, set(), {path: {400}})
         self.assertEqual(
@@ -187,10 +187,10 @@ class AttributionTests(unittest.TestCase):
         )
 
     def test_violation_in_an_untouched_file_is_not_gated(self):
-        self.assertEqual(drift.attribute([self.violation("App/Other.swift", 5)], set(), {}), [])
+        self.assertEqual(drift.attribute([self.violation("VexSign/App/Other.swift", 5)], set(), {}), [])
 
     def test_no_violations_is_clean(self):
-        self.assertEqual(drift.attribute([], {"App/New.swift"}, {}), [])
+        self.assertEqual(drift.attribute([], {"VexSign/App/New.swift"}, {}), [])
 
 
 class VendoredScopeTests(unittest.TestCase):
@@ -210,7 +210,7 @@ class VendoredScopeTests(unittest.TestCase):
     def test_first_party_swift_stays_in_scope(self):
         excludes = real_excludes()
         for path in (
-            "App/Features/Dashboard/Home/Views/AppStoreView.swift",
+            "VexSign/Features/Dashboard/Home/Views/AppStoreView.swift",
             # NativeSigning is first-party even though it lives under Packages/.
             "Packages/NativeSigning/Sources/Anything.swift",
             "Tests/UnitTests/Persistence/CleanupOperationGuardTests.swift",
@@ -221,7 +221,7 @@ class VendoredScopeTests(unittest.TestCase):
         excludes = drift.load_excludes("exclude *.xcodeproj,.build\n")
         self.assertTrue(drift.is_excluded("VexSign.xcodeproj/project.swift", excludes))
         self.assertTrue(drift.is_excluded(".build/checkouts/Foo.swift", excludes))
-        self.assertFalse(drift.is_excluded("App/Foo.swift", excludes))
+        self.assertFalse(drift.is_excluded("VexSign/App/Foo.swift", excludes))
 
 
 class BaseResolutionTests(unittest.TestCase):
@@ -284,7 +284,7 @@ class GateBehaviourTests(unittest.TestCase):
 
     def test_missing_formatter_fails_loudly_instead_of_passing(self):
         with mock.patch.object(drift, "resolve_base", return_value=BASE), mock.patch.object(
-            drift, "changed_swift_files", return_value=({"App/New.swift"}, set())
+            drift, "changed_swift_files", return_value=({"VexSign/App/New.swift"}, set())
         ), mock.patch.object(drift.shutil, "which", return_value=None):
             self.assertEqual(drift.main([]), drift.EXIT_UNUSABLE)
 

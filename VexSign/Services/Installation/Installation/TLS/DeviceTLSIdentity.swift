@@ -5,7 +5,7 @@ import Security
 
 /// A device-local CA and loopback server identity, never shipped in an IPA or downloaded.
 /// Keychain is the source of truth; files are only a protected cache for NIOSSL.
-/// Renewal keeps the CA. Corrupt Storage/expired CA fail closed, never silently rotate trust.
+/// Renewal keeps the CA. Corrupt VexSign/Storage/expired CA fail closed, never silently rotate trust.
 enum DeviceTLSIdentity {
     private static let lock = NSLock()
     private static let service = "VexSign.LocalInstallTLS.v1"

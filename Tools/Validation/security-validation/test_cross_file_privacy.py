@@ -204,7 +204,7 @@ MODULE_ROOTS = {
 def module_of(path: Path) -> str:
     """Files in different targets are separate modules; `private` never spans them.
 
-    The clean root adds shared parent directories (`App/`, `Packages/`), so the
+    The clean root adds shared parent directories (`VexSign/App/`, `Packages/`), so the
     first path component is no longer a Swift module name. Match the longest
     known target root instead of accidentally merging independent packages.
     """

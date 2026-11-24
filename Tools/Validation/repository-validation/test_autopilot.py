@@ -67,7 +67,7 @@ class AutopilotTests(unittest.TestCase):
         pr['user']['login'] = 'github-actions[bot]'
         pr['head']['ref'] = 'automation/release-listing'
         self.assertTrue(controller.eligible(pr, self.files('app-repo.json'), 'main'))
-        self.assertFalse(controller.eligible(pr, self.files('App/App.swift'), 'main'))
+        self.assertFalse(controller.eligible(pr, self.files('VexSign/App/App.swift'), 'main'))
         pr['head']['ref'] = 'automation/unknown'
         self.assertFalse(controller.eligible(pr, self.files('app-repo.json'), 'main'))
 

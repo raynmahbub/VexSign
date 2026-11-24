@@ -210,7 +210,7 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
         source = (ROOT / "VexSign/Services/Repository/RepositoryDirectoryClient.swift").read_text()
         for required in ("URLSessionConfiguration.ephemeral", "maximumBytes", "sameOrigin", "redirects <= 5", "X-API-Key", "try Task.checkCancellation()", "session.invalidateAndCancel()"):
             self.assertIn(required, source)
-        ui = (ROOT / "App/Features/Sources/Views/SourcesAddView+Repositories.swift").read_text()
+        ui = (ROOT / "VexSign/Features/Sources/Views/SourcesAddView+Repositories.swift").read_text()
         self.assertNotIn("URLSession", ui, "transport must not move back into the screen")
 
     def test_cloud_signing_requests_that_are_reachable_are_bounded(self) -> None:

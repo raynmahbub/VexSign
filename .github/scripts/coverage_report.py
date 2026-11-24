@@ -40,8 +40,8 @@ from pathlib import Path
 
 # Only first-party app code is interesting; dependencies and the test bundle
 # itself would dominate the "least covered" list otherwise.
-FIRST_PARTY_PREFIXES = ("App/", "VexSign/Services/", "Shared/", "Storage/", "Networking/",
-                        "Apple/", "DesignSystem/")
+FIRST_PARTY_PREFIXES = ("VexSign/App/", "VexSign/Services/", "VexSign/Shared/", "VexSign/Storage/", "VexSign/Networking/",
+                        "VexSign/System/", "VexSign/DesignSystem/")
 EXCLUDE_MARKERS = ("/SourcePackages/", "/Checkouts/", "VexSignTests", ".xctest")
 
 
@@ -78,7 +78,7 @@ def _relative(name: str) -> str:
     for prefix in FIRST_PARTY_PREFIXES:
         marker = "/" + prefix
         if marker in name:
-            return name.split(marker)[-1] if prefix == "App/" else prefix + name.split(marker)[-1]
+            return name.split(marker)[-1] if prefix == "VexSign/App/" else prefix + name.split(marker)[-1]
     return name
 
 

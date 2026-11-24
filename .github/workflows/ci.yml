@@ -27,16 +27,16 @@ on:
   push:
     branches: [main]
     paths:
-      - 'App/**'
+      - 'VexSign/App/**'
       - 'Tests/**'
-      - 'Shared/**'
-      - 'Storage/**'
-      - 'Networking/**'
-      - 'Apple/**'
-      - 'DesignSystem/**'
+      - 'VexSign/Shared/**'
+      - 'VexSign/Storage/**'
+      - 'VexSign/Networking/**'
+      - 'VexSign/System/**'
+      - 'VexSign/DesignSystem/**'
       - 'VexSign/Services/**'
       - 'Platform/Extensions/WidgetExtension/**'
-      - 'App/Resources/SharedPlatformInfo/**'
+      - 'VexSign/Resources/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
       - 'Packages/NimbleKit/**'
@@ -54,7 +54,7 @@ on:
       - 'render.yaml'
       - 'Tools/Audit/**'
       - 'Tools/**'
-      - 'App/**'
+      - 'VexSign/App/**'
       - 'Packages/**'
       - 'Services/Integrations/**'
       - 'Resources/**'
@@ -73,16 +73,16 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'App/**'
+      - 'VexSign/App/**'
       - 'Tests/**'
-      - 'Shared/**'
-      - 'Storage/**'
-      - 'Networking/**'
-      - 'Apple/**'
-      - 'DesignSystem/**'
+      - 'VexSign/Shared/**'
+      - 'VexSign/Storage/**'
+      - 'VexSign/Networking/**'
+      - 'VexSign/System/**'
+      - 'VexSign/DesignSystem/**'
       - 'VexSign/Services/**'
       - 'Platform/Extensions/WidgetExtension/**'
-      - 'App/Resources/SharedPlatformInfo/**'
+      - 'VexSign/Resources/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
       - 'Packages/NimbleKit/**'
@@ -100,7 +100,7 @@ on:
       - 'render.yaml'
       - 'Tools/Audit/**'
       - 'Tools/**'
-      - 'App/**'
+      - 'VexSign/App/**'
       - 'Packages/**'
       - 'Services/Integrations/**'
       - 'Resources/**'
@@ -474,7 +474,7 @@ jobs:
           test -f "${APP}/Info.plist"
           # A .deb uses the AR container format but is a runtime resource, not
           # a Mach-O static library. Prove the file-type repair still bundles it.
-          if ! cmp -s "${GITHUB_WORKSPACE}/App/Resources/ellekit.deb" "${APP}/ellekit.deb"; then
+          if ! cmp -s "${GITHUB_WORKSPACE}/VexSign/Resources/ellekit.deb" "${APP}/ellekit.deb"; then
             echo "::error::Built app must bundle the original ellekit.deb as a byte-identical resource."
             exit 1
           fi

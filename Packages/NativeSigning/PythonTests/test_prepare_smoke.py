@@ -139,9 +139,9 @@ class PreparationTests(unittest.TestCase):
 
     def test_assembly_uses_actual_platform_stores_and_lifetime_guard(self):
         module.install_smoke_sources(self.root)
-        for source_path in ['Storage/Keychain/AppleAccountCredentialStore.swift',
-                            'Storage/Keychain/AppleAccountResumeJournalStore.swift',
-                            'Networking/Security/Storage/AppleAccountStorageRuntimePolicy.swift']:
+        for source_path in ['VexSign/Storage/Keychain/AppleAccountCredentialStore.swift',
+                            'VexSign/Storage/Keychain/AppleAccountResumeJournalStore.swift',
+                            'VexSign/Security/VexSign/Storage/AppleAccountStorageRuntimePolicy.swift']:
             actual = (self.root / 'Sources/NativeSigningLinkSmoke' / Path(source_path).name).read_bytes()
             self.assertEqual(actual, (REPO / source_path).read_bytes())
             self.assertNotIn(b'import NimbleExtensions', actual)
@@ -150,9 +150,9 @@ class PreparationTests(unittest.TestCase):
         bridge = (self.root / 'Sources/NativeSigningLinkSmoke/SideSignAccountBridge.swift').read_text()
         self.assertIn('private let lifetime: (any NativeAccountBackendLifetime)?', bridge)
         # Foundation extraction must not silently orphan the four localized errors.
-        vault = (REPO / "Storage/Keychain/AppleAccountCredentialStore.swift").read_text()
+        vault = (REPO / "VexSign/Storage/Keychain/AppleAccountCredentialStore.swift").read_text()
         keys = re.findall(r'NSLocalizedString\("([^"\n]+)"', vault)
-        catalogue = json.loads((REPO / "App/Resources/Localizations/Localizable.xcstrings").read_text())['strings']
+        catalogue = json.loads((REPO / "VexSign/Resources/Localizations/Localizable.xcstrings").read_text())['strings']
         self.assertEqual(len(keys), 4)
         self.assertTrue(all(key in catalogue for key in keys))
 
@@ -512,7 +512,7 @@ class PreparationTests(unittest.TestCase):
         module.check_codec_baseline(lock)
         self.assertIn('sdkRevision = "' + lock['sidesign']['commit'] + '"', codec)
         self.assertIn('maximumBytes = 1024 * 1024', codec)
-        vault = (REPO / "Storage/Keychain/AppleAccountCredentialStore.swift").read_text()
+        vault = (REPO / "VexSign/Storage/Keychain/AppleAccountCredentialStore.swift").read_text()
         self.assertIn('maximumSessionBytes: Int { 1024 * 1024 }', vault)
 
     def test_sdk_revision_change_requires_a_codec_review(self):

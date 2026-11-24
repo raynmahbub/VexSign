@@ -6,7 +6,7 @@ eighteen in `VexSignApp`, fifteen for the window, wrapped onto a single line fou
 Adding a store to `AppContainer` meant remembering both, and forgetting one did not fail the
 build: the window opened and crashed with "No ObservableObject of type … found" at first access.
 
-`App/Composition/AppEnvironment.swift` is now the only place that injects the container and the
+`VexSign/App/Composition/AppEnvironment.swift` is now the only place that injects the container and the
 stores built from it. Everything else reads `@Environment(\\.appContainer)` or the
 `@EnvironmentObject` the modifier already placed in the environment.
 
@@ -88,7 +88,7 @@ class EnvironmentInjectionTests(unittest.TestCase):
         self.assertEqual(
             offenders(),
             [],
-            "inject through AppEnvironment (App/Composition/AppEnvironment.swift); read "
+            "inject through AppEnvironment (VexSign/App/Composition/AppEnvironment.swift); read "
             "@Environment(\\.appContainer) elsewhere",
         )
 

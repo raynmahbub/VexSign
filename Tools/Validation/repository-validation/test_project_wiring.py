@@ -27,9 +27,9 @@ PROJECT = """
 			path = App;
 			sourceTree = "<group>";
 		};
-		AAAA000000000000000000A2 /* App/TV */ = {
+		AAAA000000000000000000A2 /* VexSign/App/TV */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = App/TV;
+			path = VexSign/App/TV;
 			sourceTree = "<group>";
 		};
 		AAAA000000000000000000A3 /* Tests */ = {
@@ -46,7 +46,7 @@ PROJECT = """
 		AAAA000000000000000000B2 /* VexSignTV */ = {
 			isa = PBXNativeTarget;
 			fileSystemSynchronizedGroups = (
-				AAAA000000000000000000A2 /* App/TV */,
+				AAAA000000000000000000A2 /* VexSign/App/TV */,
 			);
 		};
 		AAAA000000000000000000B3 /* VexSignTests */ = {
@@ -86,13 +86,13 @@ class ProjectWiringTests(unittest.TestCase):
 
     def test_un_nesting_is_accepted(self):
         """The shape the fix ships: a sibling folder, still one root per target."""
-        self.project.write_text(PROJECT.replace("path = App/TV;", "path = Platform/TV;"),
+        self.project.write_text(PROJECT.replace("path = VexSign/App/TV;", "path = Platform/TV;"),
                                 encoding="utf-8")
         (self.root / "Platform" / "TV").mkdir(parents=True, exist_ok=True)
         self.assertEqual(gate.problems(root=self.root, project=self.project), [])
 
     def test_resource_outside_the_sync_root_is_reported(self):
-        (self.root / "App/Resources/ellekit.deb").unlink()
+        (self.root / "VexSign/Resources/ellekit.deb").unlink()
         found = gate.problems(root=self.root, project=self.project)
         self.assertTrue(any("ellekit.deb" in f and "sync root" in f for f in found), found)
 
@@ -106,8 +106,8 @@ class ProjectWiringTests(unittest.TestCase):
     def test_a_target_may_synchronize_several_roots(self):
         """The layers are separate roots, so a target legitimately lists more than one."""
         # Tests gains an unrelated sibling root; the fixture's App root stays nested
-        # in App/TV, so flatten that first to isolate the property under test.
-        text = PROJECT.replace("path = App/TV;", "path = Other/TV;")
+        # in VexSign/App/TV, so flatten that first to isolate the property under test.
+        text = PROJECT.replace("path = VexSign/App/TV;", "path = Other/TV;")
         text = text.replace(
             "\t\t\t\tAAAA000000000000000000A3 /* Tests */,\n",
             "\t\t\t\tAAAA000000000000000000A3 /* Tests */,\n"

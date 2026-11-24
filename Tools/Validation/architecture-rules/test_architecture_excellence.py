@@ -52,17 +52,17 @@ CORE_SYSTEMS = (
 # drift, not a substitute for Xcode compilation or device acceptance.
 # The application layer is the use-case folders; rows inside a feature's
 # Views/ViewModels/Models are presentation and belong to the presentation rules.
-APPLICATION_ROOTS = ("App/Features/Library/UseCases", "App/Features/Import/UseCases",
-                     "App/Features/Signing/UseCases", "App/Features/Certificates/UseCases",
-                     "App/Features/Accounts/UseCases", "App/Features/Devices/UseCases",
-                     "App/Features/Installation/UseCases", "App/Features/Sources/UseCases",
-                     "App/Features/Downloads/UseCases", "App/Features/Tasks/UseCases",
-                     "App/Features/Backup/UseCases", "App/Features/Dashboard/UseCases",
-                     "App/Features/Settings/UseCases", "Shared/Models/Workspace")
+APPLICATION_ROOTS = ("VexSign/Features/Library/UseCases", "VexSign/Features/Import/UseCases",
+                     "VexSign/Features/Signing/UseCases", "VexSign/Features/Certificates/UseCases",
+                     "VexSign/Features/Accounts/UseCases", "VexSign/Features/Devices/UseCases",
+                     "VexSign/Features/Installation/UseCases", "VexSign/Features/Sources/UseCases",
+                     "VexSign/Features/Downloads/UseCases", "VexSign/Features/Tasks/UseCases",
+                     "VexSign/Features/Backup/UseCases", "VexSign/Features/Dashboard/UseCases",
+                     "VexSign/Features/Settings/UseCases", "VexSign/Shared/Models/Workspace")
 
 RULES: dict[str, dict[str, object]] = {
     "domain_forbidden_imports": {
-        "roots": ("Shared/Models",),
+        "roots": ("VexSign/Shared/Models",),
         "patterns": (r"^\s*import\s+(SwiftUI|UIKit|CoreData|Nuke|NativeSigning|IDeviceSwift|AltSourceKit|SwiftSoup)\b",),
     },
     "application_platform_imports": {
@@ -74,39 +74,39 @@ RULES: dict[str, dict[str, object]] = {
         "patterns": (r"^\s*import\s+(NativeSigning|IDeviceSwift|AltSourceKit|SwiftSoup)\b",),
     },
     "presentation_direct_storage": {
-        "roots": ("App/Features",),
+        "roots": ("VexSign/Features",),
         "patterns": (r"Storage\.shared", r"@FetchRequest", r"^\s*import\s+CoreData\b", r"FileManager\.default"),
     },
     "views_coredata_imports": {
-        "roots": ("App/Features",),
+        "roots": ("VexSign/Features",),
         "patterns": (r"^\s*import\s+CoreData\b",),
     },
     "views_direct_storage": {
-        "roots": ("App/Features",),
+        "roots": ("VexSign/Features",),
         "patterns": (r"Storage\.shared", r"@FetchRequest"),
     },
     "views_direct_install": {
-        "roots": ("App/Features",),
+        "roots": ("VexSign/Features",),
         "patterns": (r"DirectInstaller\.shared\.install", r"InstallQueue\.shared\.enqueue", r"AppInstaller\.shared"),
     },
     "views_direct_signing": {
-        "roots": ("App/Features",),
+        "roots": ("VexSign/Features",),
         "patterns": (r"SigningService", r"SigningHandler", r"ZsignEngine", r"PackageImportService\.importPackage"),
     },
     "presentation_file_io": {
-        "roots": ("App/Features",),
+        "roots": ("VexSign/Features",),
         "patterns": (r"\b(?:Data|String)\s*\(contentsOf:", r"\bFileHandle\s*\(", r"\.write\(to:", r"contentsOfDirectory\("),
     },
     "presentation_consumed_engine_owners": {
-        "roots": ("App/Features",),
+        "roots": ("VexSign/Features",),
         "patterns": (r"\b(?:UnifiedTaskCenter|NativeSigningManager|BackupManager|BackupCrypto|CloudSigningClient|AppCloner|TweakManager|EntitlementsManager|OptionsManager|CertificateRemoval|CertificateExporter)\b",),
     },
     "presentation_managed_record_types": {
-        "roots": ("App/Features",),
+        "roots": ("VexSign/Features",),
         "patterns": (r"(?:\b(?:as[?!]?|is)\s+|:\s*|->\s*)(?:any\s+)?\[?(?:Signed|Imported|CertificatePair|AltSource)\b",),
     },
     "views_urlsession_shared": {
-        "roots": ("App/Features",),
+        "roots": ("VexSign/Features",),
         "patterns": (r"URLSession\.shared",),
     },
 }
@@ -156,7 +156,7 @@ def write_baseline() -> None:
         payload.setdefault("history", []).append({
             "previousGeneratedAt": payload.get("generatedAt"),
             "rules": previous,
-            "reason": "Consumed feature ports replace legacy Storage/I/O/engine access; original review retained.",
+            "reason": "Consumed feature ports replace legacy VexSign/Storage/I/O/engine access; original review retained.",
         })
     payload["generatedAt"] = datetime.now(timezone.utc).date().isoformat()
     payload["description"] = "Reviewed whole-Presentation boundary ratchet; zero violations are allowed and synthetic probes keep each rule live."
@@ -208,23 +208,23 @@ class ArchitectureExcellenceTests(unittest.TestCase):
     def test_rules_detect_synthetic_violations(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "Shared/Models").mkdir(parents=True)
-            (root / "App/Features/Test/Views").mkdir(parents=True)
-            (root / "Shared/Models/Bad.swift").write_text("import SwiftUI\n", encoding="utf-8")
-            (root / "App/Features/Library/UseCases").mkdir(parents=True)
-            (root / "App/Features/Library/UseCases/Bad.swift").write_text("import UIKit\n", encoding="utf-8")
-            (root / "App/Features/Test/Views/Bad.swift").write_text(
+            (root / "VexSign/Shared/Models").mkdir(parents=True)
+            (root / "VexSign/Features/Test/Views").mkdir(parents=True)
+            (root / "VexSign/Shared/Models/Bad.swift").write_text("import SwiftUI\n", encoding="utf-8")
+            (root / "VexSign/Features/Library/UseCases").mkdir(parents=True)
+            (root / "VexSign/Features/Library/UseCases/Bad.swift").write_text("import UIKit\n", encoding="utf-8")
+            (root / "VexSign/Features/Test/Views/Bad.swift").write_text(
                 "import CoreData\nStorage.shared\nURLSession.shared\nData(contentsOf: url)\nlet row: CertificatePair\nUnifiedTaskCenter.shared\n", encoding="utf-8"
             )
-            (root / "App/Features/Test/Views/Good.swift").write_text(
+            (root / "VexSign/Features/Test/Views/Good.swift").write_text(
                 "let isSigned: Bool\napp.isSigned\nfunc value(isSigned: Bool) {}\n", encoding="utf-8"
             )
             found = compute_violations(root)
-            self.assertEqual(found["presentation_managed_record_types"], ["App/Features/Test/Views/Bad.swift"])
-            self.assertIn("Shared/Models/Bad.swift", found["domain_forbidden_imports"])
-            self.assertIn("App/Features/Library/UseCases/Bad.swift", found["application_platform_imports"])
+            self.assertEqual(found["presentation_managed_record_types"], ["VexSign/Features/Test/Views/Bad.swift"])
+            self.assertIn("VexSign/Shared/Models/Bad.swift", found["domain_forbidden_imports"])
+            self.assertIn("VexSign/Features/Library/UseCases/Bad.swift", found["application_platform_imports"])
             for rule in ("views_coredata_imports", "views_direct_storage", "views_urlsession_shared", "presentation_file_io", "presentation_consumed_engine_owners", "presentation_managed_record_types"):
-                self.assertIn("App/Features/Test/Views/Bad.swift", found[rule])
+                self.assertIn("VexSign/Features/Test/Views/Bad.swift", found[rule])
 
     def test_drift_guard_is_wired_into_local_and_ci_gates(self) -> None:
         for path in (MAKEFILE, CI):

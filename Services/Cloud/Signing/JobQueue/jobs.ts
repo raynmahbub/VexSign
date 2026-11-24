@@ -1,5 +1,5 @@
 import { createHmac, randomUUID } from 'node:crypto';
-import type { Infrastructure } from '../../Storage/infrastructure.js';
+import type { Infrastructure } from '../../VexSign/Storage/infrastructure.js';
 import { seal } from '../../Security/security.js';
 import type { SignRequest } from '../../API/DTOs/contracts.js';
 

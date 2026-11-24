@@ -24,7 +24,7 @@ SPEC.loader.exec_module(ratchet)
 
 FIRST_PARTY = "/work/Packages/NimbleKit/Sources/NimbleExtensions/String.swift:12:9: warning: 'nonisolated' is redundant"
 THIRD_PARTY = "/work/Packages/Vendor/Nuke/Sources/Task.swift:88:1: warning: sendability of function types"
-APP = "/work/Storage/Database/Storage.swift:40:5: error: main actor-isolated property"
+APP = "/work/VexSign/Storage/Database/Storage.swift:40:5: error: main actor-isolated property"
 NOISE = "Compiling VexSign\nwarning: unable to find package manifest"
 
 
@@ -34,7 +34,7 @@ class SplitTests(unittest.TestCase):
         self.assertEqual(len(found), 2)
         self.assertEqual([entry["file"] for entry in found], [
             "Packages/NimbleKit/Sources/NimbleExtensions/String.swift",
-            "Storage/Database/Storage.swift",
+            "VexSign/Storage/Database/Storage.swift",
         ])
         self.assertEqual(found[1]["kind"], "error")
 

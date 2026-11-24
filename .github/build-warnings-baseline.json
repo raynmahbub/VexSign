@@ -108,7 +108,7 @@
       "count": 1
     },
     {
-      "file": "Apple/BackgroundTasks/BackgroundTaskManager.swift",
+      "file": "VexSign/System/BackgroundTasks/BackgroundTaskManager.swift",
       "message": "capture of 'self' with non-Sendable type 'BackgroundTaskManager?' in a '@Sendable' closure",
       "count": 1
     },

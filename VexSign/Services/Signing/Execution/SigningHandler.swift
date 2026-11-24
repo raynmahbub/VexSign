@@ -408,7 +408,7 @@ final class SigningHandler: NSObject {
 	}
 	
 	private func _directory() async throws -> URL {
-		// Documents/App/iOS/VexSign/Signed/\(UUID)
+		// Documents/VexSign/App/iOS/VexSign/Signed/\(UUID)
 		_fileManager.signed(_uuid)
 	}
 	

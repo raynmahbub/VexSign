@@ -24,11 +24,11 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SIGNING_STAGES = ROOT / "Shared/Models/Enums/SigningStage.swift"
-TASK_TRACE = ROOT / "Shared/Models/Entities/TaskSigningTrace.swift"
+SIGNING_STAGES = ROOT / "VexSign/Shared/Models/Enums/SigningStage.swift"
+TASK_TRACE = ROOT / "VexSign/Shared/Models/Entities/TaskSigningTrace.swift"
 JOURNAL = ROOT / "VexSign/Services/Tasks/TaskHistoryJournal.swift"
 MODELS = ROOT / "VexSign/Services/Tasks/UnifiedTaskModels.swift"
-TASK_CENTER = ROOT / "App/Features/Tasks/Views/TaskCenterView.swift"
+TASK_CENTER = ROOT / "VexSign/Features/Tasks/Views/TaskCenterView.swift"
 
 # Append only. These strings are in every task record ever written.
 FROZEN_STAGES = [
@@ -122,7 +122,7 @@ class TaskHistoryResilienceTests(unittest.TestCase):
     # ---- The user is told ---------------------------------------------------------------
 
     def test_every_journal_issue_has_a_message(self) -> None:
-        source = (ROOT / "Shared/Models/Enums/TaskHistoryIssue.swift").read_text()
+        source = (ROOT / "VexSign/Shared/Models/Enums/TaskHistoryIssue.swift").read_text()
         names = [name.strip() for line in re.findall(r"case ([\w, ]+)\n", source) for name in line.split(",")]
         self.assertTrue(names)
         centre = TASK_CENTER.read_text()

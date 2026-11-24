@@ -135,8 +135,8 @@ class NestedBundlePolicyTests(unittest.TestCase):
 
 class SigningReadinessWiringTests(unittest.TestCase):
     def test_checklist_action_and_review_share_one_completed_readiness_policy(self):
-        screen = (ROOT / "App/Features/Signing/Views/SigningView.swift").read_text()
-        review = (ROOT / "App/Features/Signing/Views/SigningPreflightReviewView.swift").read_text()
+        screen = (ROOT / "VexSign/Features/Signing/Views/SigningView.swift").read_text()
+        review = (ROOT / "VexSign/Features/Signing/Views/SigningPreflightReviewView.swift").read_text()
         self.assertIn("let readiness = _currentReadiness", screen)
         self.assertIn("readiness: _currentReadiness", screen)
         self.assertIn(".disabled(!_currentReadiness.canApprove)", screen)
@@ -148,8 +148,8 @@ class SigningReadinessWiringTests(unittest.TestCase):
         self.assertIn("Review Signing Issues", screen)
 
     def test_changed_inputs_and_cancelled_inspections_cannot_enable_an_old_approval(self):
-        screen = (ROOT / "App/Features/Signing/Views/SigningView.swift").read_text()
-        review = (ROOT / "App/Features/Signing/Views/SigningPreflightReviewView.swift").read_text()
+        screen = (ROOT / "VexSign/Features/Signing/Views/SigningView.swift").read_text()
+        review = (ROOT / "VexSign/Features/Signing/Views/SigningPreflightReviewView.swift").read_text()
         for token in ["_readinessInput == _inspectionInput", ".task(id: _inspectionInput)",
                       "input == _inspectionInput", "!Task.isCancelled", "_reviewedAuthorization == _currentReadiness.resolution?.authorization"]:
             self.assertIn(token, screen)
@@ -159,10 +159,10 @@ class SigningReadinessWiringTests(unittest.TestCase):
             "A second independently owned inspection can disagree with the main action panel")
 
     def test_profile_mismatch_diagnostics_name_the_actual_authorization_without_renaming(self):
-        source = (ROOT / "Shared/Services/CompatibleIdentityResolver.swift").read_text()
+        source = (ROOT / "VexSign/Shared/Services/CompatibleIdentityResolver.swift").read_text()
         for token in ["profile.Name", "appID", "target.bundleIdentifier", "identifiers will not be changed"]:
             self.assertIn(token, source)
-        screen = (ROOT / "App/Features/Signing/Views/SigningView.swift").read_text()
+        screen = (ROOT / "VexSign/Features/Signing/Views/SigningView.swift").read_text()
         self.assertIn("[issue.detail, issue.remediation]", screen)
         self.assertIn("component.issues", screen)
 
@@ -240,13 +240,13 @@ class SigningCredentialAndOutputWiringTests(unittest.TestCase):
         self.assertNotIn('Data([0x30, 0x03, 0x02, 0x01, 0x00])', tests)
 
     def test_account_signing_transition_requires_exact_imported_identity_and_separate_review(self):
-        source = (ROOT / "App/Features/Signing/Views/SigningView.swift").read_text()
+        source = (ROOT / "VexSign/Features/Signing/Views/SigningView.swift").read_text()
         self.assertIn('return accountHandoff.certificate(in: certificates)', source)
         self.assertIn('guard accountHandoff.matches(app)', source)
         self.assertIn('options.automaticallyResolveSigningIdentity = false', source)
         self.assertIn('options.signingOption = .default', source)
         self.assertIn('guard _accountHandoffIsCurrent else', source)
-        contract = (ROOT / 'Shared/Protocols/AppleAccountWorkspaceProviding.swift').read_text()
+        contract = (ROOT / 'VexSign/Shared/Protocols/AppleAccountWorkspaceProviding.swift').read_text()
         for condition in ('matches.count == 1', '!candidate.revoked', 'candidate.profile?.ExpirationDate == expiresAt',
                           'candidate.expiration.map({ $0 > now }) == true'):
             self.assertIn(condition, contract)
@@ -265,7 +265,7 @@ class SigningCredentialAndOutputWiringTests(unittest.TestCase):
         self.assertIn("if hasValidUUID", source)
 
     def test_password_migration_never_saves_the_callers_context_or_lossily_decodes_a_secret(self):
-        source = (ROOT / "Networking/Security/Certificates/CertificateSecrets.swift").read_text()
+        source = (ROOT / "VexSign/Security/Certificates/CertificateSecrets.swift").read_text()
         self.assertIn("String(data: stored, encoding: .utf8)", source)
         self.assertNotIn("String(decoding: stored", source)
         self.assertIn("transaction.performAndWait", source)
@@ -290,7 +290,7 @@ class DeepLinkCertificateConsentTests(unittest.TestCase):
     user has to say yes; the files must also be removed once the outcome is known.
     """
 
-    ROUTER = ROOT / "App/Features/Dashboard/UseCases/DeepLinkRouterUseCase.swift"
+    ROUTER = ROOT / "VexSign/Features/Dashboard/UseCases/DeepLinkRouterUseCase.swift"
 
     def test_the_import_waits_for_a_confirmation(self) -> None:
         source = self.ROUTER.read_text()
@@ -311,7 +311,7 @@ class DeepLinkCertificateConsentTests(unittest.TestCase):
         self.assertNotIn("FileManager.default.removeItem", source,
                          "application use cases reach the filesystem through their port")
         self.assertIn("func discardTemporaryFile(_ url: URL)",
-                      (ROOT / "Shared/Protocols/IncomingFilesProviding.swift").read_text())
+                      (ROOT / "VexSign/Shared/Protocols/IncomingFilesProviding.swift").read_text())
 
 
 class BundledSigningMaterialTests(unittest.TestCase):

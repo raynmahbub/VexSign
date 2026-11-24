@@ -125,13 +125,13 @@ def check(found, escapes):
 def self_test():
     """The gate is only worth running if it fails on drift. Prove it with fixtures."""
     escape = {
-        "file": "App/A.swift",
+        "file": "VexSign/App/A.swift",
         "symbol": "A",
         "kind": "unchecked-sendable",
         "invariant": "reason",
         "risk": "low",
     }
-    found = {"App/A.swift": [(1, "unchecked-sendable")]}
+    found = {"VexSign/App/A.swift": [(1, "unchecked-sendable")]}
     failures = []
 
     def expect_reject(label, found_fixture, entries):

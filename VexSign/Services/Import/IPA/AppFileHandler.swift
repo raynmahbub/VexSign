@@ -270,7 +270,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
     }
 
 	private func _directory() async throws -> URL {
-		// Documents/App/iOS/VexSign/Unsigned/\(UUID)
+		// Documents/VexSign/App/iOS/VexSign/Unsigned/\(UUID)
 		_fileManager.unsigned(_uuid)
 	}
 

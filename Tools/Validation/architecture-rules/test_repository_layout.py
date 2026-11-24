@@ -28,7 +28,7 @@ ROOT_LAYERS = {
 APP_LAYERS = {"Features", "Navigation", "Resources", "Composition", "Bootstrap"}
 SKIP = {".git", "node_modules", "dist", "__pycache__", ".pytest_cache", ".venv", ".build", ".swiftpm"}
 ALIASES = (
-    ("App/Resources/icon.png", "icon.png"),
+    ("VexSign/Resources/icon.png", "icon.png"),
     ("Resources/Templates/app-repo.json", "app-repo.json"),
     ("Resources/Templates/repos.json", "repos.json"),
     ("Configuration/Signing/license_plist.yml", "license_plist.yml"),
@@ -63,7 +63,7 @@ class RepositoryLayoutTests(unittest.TestCase):
         self.assertEqual({p.name for p in ROOT.iterdir() if p.is_dir()} - {".git", ".githooks", ".github", ".arena", ".cache", "__pycache__", ".build", ".swiftpm", ".vite", "build", "dist", "node_modules"},
                          ROOT_LAYERS | {"VexSign", "VexSign.xcodeproj", "VexSign.xcworkspace"})
         # The intermediate wrapper is gone: sources live at the repository root.
-        for legacy in ("App/iOS", "VexSign/Packages", "VexSign/Tests", "VexSign/Tools",
+        for legacy in ("VexSign/App/iOS", "VexSign/Packages", "VexSign/Tests", "VexSign/Tools",
                        "VexSign/Configuration", "VexSign/Resources",
                        "VexSign/Integrations", "Integrations", "app", "services", "res"):
             self.assertFalse((ROOT / legacy).exists(), f"legacy root remains: {legacy}")
@@ -119,7 +119,7 @@ class RepositoryLayoutTests(unittest.TestCase):
         for layer in ("Models/Entities", "Models/ValueObjects", "Models/Enums", "Models/Policies",
                       "Models/Results", "Protocols", "Errors", "Localization", "Services"):
             self.assertTrue(list((ROOT / "Shared" / layer).rglob("*.swift")), layer)
-        self.assertTrue((ROOT / "Shared/Protocols/SigningEngine.swift").is_file())
+        self.assertTrue((ROOT / "VexSign/Shared/Protocols/SigningEngine.swift").is_file())
         for layer in ("Components", "Styles", "Typography"):
             self.assertTrue(list((ROOT / "DesignSystem" / layer).rglob("*.swift")), layer)
 
@@ -129,11 +129,11 @@ class RepositoryLayoutTests(unittest.TestCase):
             self.assertTrue(list((ROOT / "VexSign/Services" / service).rglob("*.swift")), service)
         for layer in ("Database", "Keychain", "FileSystem", "Repositories"):
             self.assertTrue(list((ROOT / "Storage" / layer).rglob("*.swift")), layer)
-        self.assertTrue((ROOT / "Storage/Database/VexSign.xcdatamodeld").is_dir())
+        self.assertTrue((ROOT / "VexSign/Storage/Database/VexSign.xcdatamodeld").is_dir())
         for layer in ("Security/Validation", "Security/Transport", "Security/Archives",
                       "Security/Certificates", "Security/Storage", "Security/Logging"):
             self.assertTrue((ROOT / "Networking" / layer).is_dir(), layer)
-        self.assertTrue(list((ROOT / "Networking/Security").rglob("*.swift")))
+        self.assertTrue(list((ROOT / "VexSign/Security").rglob("*.swift")))
         for layer in ("DeviceServices", "BackgroundTasks", "Notifications", "Compatibility",
                       "FileCoordination", "AppIntents", "Haptics"):
             self.assertTrue(list((ROOT / "Apple" / layer).rglob("*.swift")), layer)
@@ -142,9 +142,9 @@ class RepositoryLayoutTests(unittest.TestCase):
         self.assertTrue((APP / "Resources/Assets.xcassets/Contents.json").is_file())
         self.assertTrue((APP / "Resources/AppIcon.icon/icon.json").is_file())
         self.assertTrue((APP / "Resources/Settings.bundle/Root.plist").is_file())
-        self.assertTrue((ROOT / "App/Resources/Localizations/Localizable.xcstrings").is_file())
+        self.assertTrue((ROOT / "VexSign/Resources/Localizations/Localizable.xcstrings").is_file())
         self.assertTrue((APP / "Resources/ellekit.deb").is_file())
-        self.assertTrue((ROOT / "App/Resources/icon.png").is_file())
+        self.assertTrue((ROOT / "VexSign/Resources/icon.png").is_file())
 
     def test_packages_use_the_canonical_sources_wrapper(self):
         expected = {"NativeSigning", "DeviceBridge", "SideSign", "AltSourceKit", "NimbleKit", "Vendor"}
@@ -165,8 +165,8 @@ class RepositoryLayoutTests(unittest.TestCase):
         for suite in ("UnitTests", "IntegrationTests", "SecurityTests", "PerformanceTests", "Support"):
             self.assertTrue(list((ROOT / "Tests" / suite).rglob("*")), suite)
         for name in ("Shared.xcconfig", "Debug.xcconfig", "Release.xcconfig"):
-            self.assertTrue((ROOT / "Configuration/Build" / name).is_file(), name)
-        self.assertTrue((ROOT / "Configuration/Build/iOS/Info.plist").is_file())
+            self.assertTrue((ROOT / "Configuration/BuildSettings" / name).is_file(), name)
+        self.assertTrue((ROOT / "Configuration/BuildSettings/iOS/Info.plist").is_file())
         self.assertTrue((ROOT / "Configuration/Entitlements/iOS/VexSign.entitlements").is_file())
         for tool in ("Validation", "Scripts", "Release", "Build", "Audit"):
             self.assertTrue(list((ROOT / "Tools" / tool).rglob("*")), tool)
@@ -184,7 +184,7 @@ class RepositoryLayoutTests(unittest.TestCase):
             self.assertIn("rootDir: Services/WebManager", blueprint.read_text())
 
     def test_domain_is_foundation_only_and_has_no_concrete_io_or_globals(self):
-        files = list((ROOT / "Shared/Models").rglob("*.swift"))
+        files = list((ROOT / "VexSign/Shared/Models").rglob("*.swift"))
         self.assertTrue(files)
         for path in files:
             source = code(path)
@@ -206,14 +206,14 @@ class RepositoryLayoutTests(unittest.TestCase):
                 self.assertNotRegex(source, pattern, str(path))
 
     def test_library_display_contract_is_a_domain_value_boundary(self):
-        contract = code(ROOT / "Shared/Models/Entities/LibraryApp.swift")
+        contract = code(ROOT / "VexSign/Shared/Models/Entities/LibraryApp.swift")
         self.assertIn("protocol AppInfoPresentable", contract)
         self.assertNotIn("NSManagedObject", contract)
         self.assertNotIn("CoreData", contract)
-        self.assertIn("struct LibraryAppRecord", code(ROOT / "Shared/Models/Entities/WorkspaceSnapshot.swift"))
+        self.assertIn("struct LibraryAppRecord", code(ROOT / "VexSign/Shared/Models/Entities/WorkspaceSnapshot.swift"))
 
     def test_engine_port_is_used_by_the_existing_pipeline(self):
-        self.assertIn("protocol SigningEngine", (ROOT / "Shared/Protocols/SigningEngine.swift").read_text())
+        self.assertIn("protocol SigningEngine", (ROOT / "VexSign/Shared/Protocols/SigningEngine.swift").read_text())
         self.assertIn("struct ZsignAdapter: SigningEngine",
                       (ROOT / "VexSign/Services/Signing/Engines/Zsign/ZsignAdapter.swift").read_text())
         self.assertIn("engine.sign(request)",
@@ -249,7 +249,7 @@ class RepositoryLayoutTests(unittest.TestCase):
         references = re.findall(r"baseConfigurationReference = ([A-F0-9]+) /\* (Debug|Release)\.xcconfig \*/;", pbx)
         self.assertEqual(len(references), 4)
         for name in ("Shared", "Debug", "Release"):
-            path = ROOT / "Configuration/Build" / (name + ".xcconfig")
+            path = ROOT / "Configuration/BuildSettings" / (name + ".xcconfig")
             self.assertTrue(path.is_file())
             if name != "Shared":
                 self.assertIn('#include "Shared.xcconfig"', path.read_text())
@@ -257,15 +257,15 @@ class RepositoryLayoutTests(unittest.TestCase):
             self.assertTrue((ROOT / relative).exists(), macro + relative)
 
     def test_bridging_header_includes_resolve_under_the_new_roots(self):
-        header = ROOT / "Configuration/Build/iOS/VexSign-Bridging-Header.h"
+        header = ROOT / "Configuration/BuildSettings/iOS/VexSign-Bridging-Header.h"
         includes = re.findall(r'^\s*#(?:include|import)\s+"([^"]+)"', header.read_text(), re.M)
         self.assertEqual(len(includes), 4, includes)
         resolved = {(header.parent / relative).resolve() for relative in includes}
         self.assertEqual(resolved, {
             ROOT / "VexSign/Services/Import/Extraction/Zstd/VexZstd.h",
             ROOT / "VexSign/Services/Import/IPA/MachO/MachOUtils.h",
-            ROOT / "Apple/DeviceServices/iconPoc.h",
-            ROOT / "Apple/Compatibility/EmbeddedContainerRuntime.h",
+            ROOT / "VexSign/System/DeviceCommunication/iconPoc.h",
+            ROOT / "VexSign/System/Compatibility/EmbeddedContainerRuntime.h",
         })
         for path in resolved:
             self.assertTrue(path.is_file(), str(path))
@@ -312,10 +312,10 @@ class RepositoryLayoutTests(unittest.TestCase):
     def test_ci_filters_and_validation_entry_points_follow_the_new_tree(self):
         workflows = ROOT / ".github/workflows"
         text = "\n".join(p.read_text() for p in workflows.glob("*.yml"))
-        for pattern in ("App/**", "Packages/**", "Tests/**", "Tools/**",
+        for pattern in ("VexSign/App/**", "Packages/**", "Tests/**", "Tools/**",
                         "Configuration/**", "Services/Cloud/**", "Services/WebManager/**",
-                        "Shared/**", "VexSign/Services/**", "Storage/**", "Networking/**",
-                        "Apple/**", "DesignSystem/**", "Resources/**"):
+                        "VexSign/Shared/**", "VexSign/Services/**", "VexSign/Storage/**", "VexSign/Networking/**",
+                        "VexSign/System/**", "VexSign/DesignSystem/**", "Resources/**"):
             self.assertIn(pattern, text, pattern)
         for path in (ROOT / "Makefile", workflows / "ci.yml"):
             self.assertIn("Tools/Validation/architecture-rules/test_repository_layout.py", path.read_text())

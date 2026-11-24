@@ -26,7 +26,7 @@ extension FileManager {
 		}
 		
 		let path = url.path
-		if path.contains("/Library/CloudStorage/") || path.contains("/File Provider Storage/") {
+		if path.contains("/Library/CloudStorage/") || path.contains("/File Provider VexSign/Storage/") {
 			return true
 		}
 		

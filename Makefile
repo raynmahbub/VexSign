@@ -240,7 +240,7 @@ verify: docs-check project-wiring
 	  "python3 Tools/Validation/repository-validation/test_motion_policy.py" \
 	  "#keyboard: a form with text fields can always dismiss the keyboard" \
 	  "python3 Tools/Validation/repository-validation/test_keyboard_dismissal_policy.py" \
-	  "#colours: literals live in DesignSystem/Colors, not in views" \
+	  "#colours: literals live in VexSign/DesignSystem/Colors, not in views" \
 	  "python3 Tools/Validation/repository-validation/test_color_policy.py" \
 	  "#injection: the container graph is injected in one place" \
 	  "python3 Tools/Validation/repository-validation/test_environment_injection_policy.py" \
@@ -344,7 +344,7 @@ audit-packages:
 # `--strict` promotes warnings to errors, and the tree carries a large pre-existing
 # backlog (`line_length` alone counts in the thousands, including files that were
 # already in scope), so lint a path you are editing rather than expecting a green
-# whole-tree run: `swiftlint --strict App/Infrastructure/...`.
+# whole-tree run: `swiftlint --strict VexSign/App/Infrastructure/...`.
 #   make lint              # report (fails on any violation)
 #   make lint FIX=1        # auto-correct in place, then review the diff
 lint:

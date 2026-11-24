@@ -1,6 +1,6 @@
 {
- "Shared/Extensions/StreamObservationCancellation.swift": 1,
- "Shared/Models/Workspace/RemovalUndoLease.swift": 1,
+ "VexSign/Shared/Extensions/StreamObservationCancellation.swift": 1,
+ "VexSign/Shared/Models/Workspace/RemovalUndoLease.swift": 1,
  "VexSign/Services/Download/Download.swift": 1,
  "VexSign/Services/Import/IPA/AppFileHandler.swift": 1,
  "VexSign/Services/Repository/RepositoryDirectoryClient.swift": 1

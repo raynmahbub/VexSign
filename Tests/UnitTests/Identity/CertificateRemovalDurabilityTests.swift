@@ -72,7 +72,7 @@ final class CertificateRemovalDurabilityTests: XCTestCase {
 	/// capturable from a unit test without a custom log handler.
 	@MainActor
 	func testTheFileRemovalFailureIsReportedNotSwallowed() throws {
-		let source = try RepositorySourceFixture.read("Storage/Database/Storage+Certificate.swift")
+		let source = try RepositorySourceFixture.read("VexSign/Storage/Database/Storage+Certificate.swift")
 		let start = try XCTUnwrap(source.range(of: "func deleteCertificate(for cert: CertificatePair)"))
 		let body = String(source[start.lowerBound...])
 

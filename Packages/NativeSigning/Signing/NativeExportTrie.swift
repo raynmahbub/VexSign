@@ -2,7 +2,7 @@ import Foundation
 
 /// Bounded regular/weak regular export trie subset. This reads file metadata only,
 /// never resolves a symbol or executes an exported function. Reexports, absolute/
-/// TLS exports, resolver stubs and Shared/cyclic node graphs are unsupported.
+/// TLS exports, resolver stubs and VexSign/Shared/cyclic node graphs are unsupported.
 struct NativeExportTrie {
     private struct Reader {
         let bytes: [UInt8]
