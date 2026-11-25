@@ -195,8 +195,8 @@ final class DiagnosticsRepositoryAdapter: DiagnosticsProviding {
         )
     }
 
-    func exportDiagnosticArchiveURL() -> URL? {
-        DiagnosticBundleExporter.createDiagnosticBundle(outcomes: operationOutcomes)
+    func exportDiagnosticArchiveURL() async -> URL? {
+        await DiagnosticBundleExporter.createDiagnosticBundle(outcomes: operationOutcomes)
     }
 }
 

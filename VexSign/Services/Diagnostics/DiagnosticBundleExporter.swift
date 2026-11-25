@@ -15,7 +15,7 @@ enum DiagnosticBundleExporter {
 	/// Pass the composition root's journal so the export sees outcomes written in
 	/// this process; the fallback is for callers without an injected container.
 	@MainActor
-	static func createDiagnosticBundle(outcomes: OperationOutcomeJournal? = nil) -> URL? {
+	static func createDiagnosticBundle(outcomes: OperationOutcomeJournal? = nil) async -> URL? {
 		let fm = FileManager.default
 		let stamp = _timestamp()
 		let bundleName = "VexSign-Diagnostics-\(stamp)"

@@ -248,6 +248,7 @@ jobs:
           # A count is not a reason: every escape needs its invariant on record.
           python3 Tools/Validation/security-validation/test_concurrency_audit.py --self-test
           python3 Tools/Validation/security-validation/test_concurrency_audit.py
+          python3 Tools/Validation/security-validation/test_swift6_native_regressions.py
           python3 Tools/Validation/security-validation/test_device_foundation.py
           python3 Tools/Validation/security-validation/test_install_monitoring_policy.py
           python3 Tools/Validation/security-validation/check-native-handoff.py

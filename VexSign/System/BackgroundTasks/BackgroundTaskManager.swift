@@ -21,7 +21,7 @@ import UserNotifications
 final class BackgroundTaskManager {
 
 	private var backgroundTaskID: UIBackgroundTaskIdentifier?
-	private var cycleTask: Task<Void, Never>?
+	private var cycleTimer: Timer?
 	private var isRunning = false
     private let expirationEvent = Notification.Name("VexSign.backgroundTask.expired.\(UUID().uuidString)")
 
@@ -52,21 +52,23 @@ final class BackgroundTaskManager {
 		isRunning = false
 
         NotificationCenter.default.removeObserver(self, name: expirationEvent, object: nil)
-		cycleTask?.cancel()
-		cycleTask = nil
+		cycleTimer?.invalidate()
+		cycleTimer = nil
 		stopBackgroundTask()
 	}
 
 	/// Renewing the assertion on a timer is only a best-effort extension. iOS may still
 	/// suspend the app; the operation's own recovery path owns the final result.
 	private func startBackgroundCycle() {
-		cycleTask?.cancel()
-		cycleTask = Task { [weak self] in
-			while !Task.isCancelled {
-				await MainActor.run { self?.renewBackgroundTask() }
-				try? await Task.sleep(for: .seconds(10))
-			}
+		cycleTimer?.invalidate()
+		// A main-run-loop timer keeps UIApplication's background assertion on the
+		// main actor without capturing a weak `self` in a @Sendable Task. Swift 6
+		// rejected that capture, and a background-thread assertion was never valid.
+		let timer = Timer(timeInterval: 10, repeats: true) { [weak self] _ in
+			self?.renewBackgroundTask()
 		}
+		RunLoop.main.add(timer, forMode: .common)
+		cycleTimer = timer
 	}
 
 	private func renewBackgroundTask() {

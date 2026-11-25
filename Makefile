@@ -217,6 +217,7 @@ verify: docs-check project-wiring
 	  "python3 Tools/Validation/security-validation/concurrency-discipline.py" \
 	  "#concurrency audit (every escape needs a reason)" \
 	  "python3 Tools/Validation/security-validation/test_concurrency_audit.py" \
+	  "python3 Tools/Validation/security-validation/test_swift6_native_regressions.py" \
 	  "#device foundation preparation/security wiring (not Swift tests)" \
 	  "python3 Tools/Validation/security-validation/test_device_foundation.py" \
 	  "python3 Tools/Validation/security-validation/test_install_monitoring_policy.py" \
