@@ -55,10 +55,18 @@ final class AccessibilityIdentifiersTests: XCTestCase {
 			A11y.Signing.workflow,
 			A11y.Signing.attemptWorkflow,
 			A11y.Signing.preflightCannotSign,
+			A11y.Signing.paidCertificate,
+			A11y.Signing.freeAppleID,
+			A11y.Signing.trollStore,
+			A11y.Signing.identityDeliverySeparation,
 			A11y.Install.start,
 			A11y.Install.progress,
 			A11y.Install.appName,
 			A11y.Install.status,
+			A11y.Tasks.downloadOptions,
+			A11y.Tasks.importFromFiles,
+			A11y.Settings.signingMethods,
+			A11y.Settings.installationEngine,
 			A11y.Home.search,
 			A11y.Home.importPackages,
 			A11y.Library.installedBadge,
@@ -67,7 +75,8 @@ final class AccessibilityIdentifiersTests: XCTestCase {
 			A11y.Library.lockBadge,
 			A11y.Library.resign,
 			A11y.Library.export,
-			A11y.Library.selectionToggle
+			A11y.Library.selectionToggle,
+			A11y.Library.importPackages
 		]
 
 		for identifier in expected {

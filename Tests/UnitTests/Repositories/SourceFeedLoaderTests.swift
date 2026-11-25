@@ -171,16 +171,18 @@ final class SourceFeedLoaderTests: XCTestCase {
 		XCTAssertTrue(message.contains("size limit"))
 	}
 
-	func testAddSourcePathRefusesASchemaThatIsNotARepository() async {
+	/// A schema we cannot decode is not a transport failure: the fetched bytes stay
+	/// available to the snapshot cache so a later build can read them without a
+	/// second download.
+	func testAddSourcePathKeepsASchemaThatIsNotARepositoryAsInvalidPayload() async {
 		let payload = Data("{\"unexpected\":\"shape\"}".utf8)
 		let result = await Self.loader(returning: .success(payload))
 			.load(url: url, headers: [:], identifier: "malformed")
 
-		guard case let .failed(message, rateLimited) = result.outcome else {
-			return XCTFail("expected a malformed source to be refused, got \(result.outcome)")
+		guard case let .invalid(kept) = result.outcome else {
+			return XCTFail("expected an invalid payload outcome, got \(result.outcome)")
 		}
-		XCTAssertFalse(rateLimited)
-		XCTAssertFalse(message.isEmpty)
+		XCTAssertEqual(kept, payload)
 	}
 }
 

@@ -7,8 +7,10 @@ final class CombinedSourceNewsTests: XCTestCase {
         let news = newsIDs.map { """
         {"identifier":"\($0)","title":"\($0)","caption":"Story \($0)"}
         """ }.joined(separator: ",")
+        // ASRepository refuses a feed with no apps, so every fixture carries a
+        // minimal decodable app even though these tests only assert on news.
         let json = """
-        {"identifier":"\(id)","name":"\(id)","apps":[],"news":[\(news)]}
+        {"identifier":"\(id)","name":"\(id)","apps":[{"name":"Fixture","bundleIdentifier":"com.example.fixture","iconURL":"https://example.com/icon.png","versions":[{"version":"1.0"}]}],"news":[\(news)]}
         """
         return try JSONDecoder().decode(ASRepository.self, from: Data(json.utf8))
     }

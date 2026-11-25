@@ -45,6 +45,25 @@ class Swift6NativeRegressions(unittest.TestCase):
         self.assertNotIn("if let rejection = Self.validate(payload)", text)
         self.assertNotIn("if let rejection = Self.validateShape(feedPayload)", text)
 
+    def test_malformed_source_test_expects_a_cached_invalid_payload(self):
+        text = source("Tests/UnitTests/Repositories/SourceFeedLoaderTests.swift")
+        self.assertIn("func testAddSourcePathKeepsASchemaThatIsNotARepositoryAsInvalidPayload", text)
+        self.assertIn("case let .invalid(kept) = result.outcome", text)
+        self.assertNotIn("testAddSourcePathRefusesASchemaThatIsNotARepository", text)
+
+    def test_accessibility_contract_covers_every_declared_identifier(self):
+        text = source("Tests/UnitTests/Application/AccessibilityIdentifiersTests.swift")
+        for identifier in ("A11y.Signing.paidCertificate", "A11y.Signing.trollStore",
+                           "A11y.Signing.identityDeliverySeparation", "A11y.Tasks.downloadOptions",
+                           "A11y.Tasks.importFromFiles", "A11y.Settings.signingMethods",
+                           "A11y.Settings.installationEngine", "A11y.Library.importPackages"):
+            self.assertIn(identifier, text, f"the A11y contract test no longer covers {identifier}")
+
+    def test_combined_news_fixtures_are_decodable_repositories(self):
+        text = source("Tests/UnitTests/Sources/CombinedSourceNewsTests.swift")
+        self.assertIn('"apps":[{"name":"Fixture"', text)
+        self.assertNotIn('"apps":[]', text)
+
     def test_expiry_warning_fixture_matches_the_notice_window(self):
         text = source("Tests/UnitTests/Identity/ImportedCertificateRefreshPolicyTests.swift")
         self.assertIn(".notice", text)
