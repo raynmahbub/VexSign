@@ -115,13 +115,6 @@ struct SourceFeedLoader: Sendable {
 				feedPayload = payload
 			}
 
-			if let rejection = Self.validateShape(feedPayload) {
-				return SourceFeedResult(
-					identifier: identifier,
-					outcome: .failed(message: rejection, rateLimited: false)
-				)
-			}
-
 			// The decode that follows runs off the main actor by design, so the
 			// "this will block the interface" signal is always false here.
 			willDecode?(false)

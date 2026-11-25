@@ -32,10 +32,13 @@ class Swift6NativeRegressions(unittest.TestCase):
         self.assertIn("importIdentity: {", text)
         self.assertNotIn("importIdentity: { expected in", text)
 
-    def test_source_feed_validation_runs_after_github_adaptation(self):
+    def test_source_feed_only_size_gates_before_github_adaptation(self):
         text = source("VexSign/Services/Repository/SourceFeedLoader.swift")
-        self.assertIn("if let rejection = Self.validateShape(feedPayload)", text)
+        self.assertIn("guard payload.count <= RepositoryNetworkPolicy.maxFeedBytes", text)
+        # Shape is checked by Self.decode after adaptation; an undecodable feed
+        # becomes .invalid(payload:) so the cache can still keep the bytes.
         self.assertNotIn("if let rejection = Self.validate(payload)", text)
+        self.assertNotIn("if let rejection = Self.validateShape(feedPayload)", text)
 
     def test_expiry_warning_fixture_matches_the_notice_window(self):
         text = source("Tests/UnitTests/Identity/ImportedCertificateRefreshPolicyTests.swift")
