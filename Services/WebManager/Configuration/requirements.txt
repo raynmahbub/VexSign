@@ -1,6 +1,6 @@
 # Exact pins: Render reinstalls on every deploy, so floating versions could pull
 # a breaking FastAPI/Starlette release with no code change on our side.
-fastapi==0.163.2
+fastapi==0.165.0
 uvicorn==0.54.0
 python-multipart==0.0.34
 # Imported directly (`from pydantic import BaseModel` in main.py and admin.py), so
