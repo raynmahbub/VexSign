@@ -75,7 +75,7 @@ class VexSignUITestCase: XCTestCase {
 
     /// Stable identifier helper for rows whose visible label is fragmented by
     /// SwiftUI (icon + text + accessory) and cannot be matched reliably.
-    func tapIdentifier(_ identifier: String, timeout: TimeInterval = 12,
+    func tapIdentifier(_ identifier: String, timeout: TimeInterval = 20,
                        file: StaticString = #filePath, line: UInt = #line) {
         let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         // A SwiftUI NavigationLink can carry an identifier on its nested Label
@@ -92,9 +92,10 @@ class VexSignUITestCase: XCTestCase {
                 row.tap()
                 return
             }
-            let scroll = app.scrollViews.firstMatch
-            guard scroll.exists, scroll.isHittable else { break }
-            scroll.swipeUp()
+            // SwiftUI Form creates deep rows lazily. Swipe the screen itself:
+            // the first scroll view query can point at a wrapper that does not
+            // move the Settings form, leaving this row unborn forever.
+            app.swipeUp()
         }
         XCTFail(
             "No tappable element with identifier \(identifier) (element=\(element.exists), row=\(row.exists))",

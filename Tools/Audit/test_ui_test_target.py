@@ -83,6 +83,7 @@ class UITestTargetTests(unittest.TestCase):
         # that Label being hittable, so the helper must also try the containing
         # Form row before failing. This is the simulator failure we hit twice.
         self.assertIn("app.cells.containing(.any, identifier: identifier)", combined)
+        self.assertIn("app.swipeUp()", combined)
         settings = (ROOT / "VexSign/Features/Settings/Views/SettingsView.swift").read_text()
         self.assertIn(".accessibilityIdentifier(A11y.Settings.installationEngine)", settings)
         self.assertIn("scroll.swipeUp()", combined)
