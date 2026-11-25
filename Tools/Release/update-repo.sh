@@ -29,7 +29,7 @@ set -eu
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)"
 cd "$ROOT"
 
-JSON_FILE="Resources/Templates/app-repo.json"
+JSON_FILE="VexSign/Resources/Templates/app-repo.json"
 
 handle_error() {
   echo "Error: $1" >&2
@@ -243,7 +243,7 @@ jq --arg tag "$tag" \
           title: ("VexSign " + $version),
           caption: $caption,
           tintColor: "C96FAD",
-          imageURL: "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
+          imageURL: "https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/Icons/AppIcon/icon.png",
           notify: true,
           url: $url } ]
       + [ (.news // [])[] | select(.identifier != ("vexsign-" + $version)) ]

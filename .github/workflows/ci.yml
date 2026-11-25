@@ -62,12 +62,12 @@ on:
       - 'Package.resolved'
       - 'Makefile'
 
-      # Published root compatibility aliases: changes must run the alias gate.
-      - 'app-repo.json'
-      - 'repos.json'
-      - 'icon.png'
-      - 'license_plist.yml'
-      - 'render.yaml'
+      # Canonical published assets (no root aliases remain).
+      - 'VexSign/Resources/Templates/app-repo.json'
+      - 'VexSign/Resources/Templates/repos.json'
+      - 'VexSign/Resources/Icons/AppIcon/**'
+      - 'Config/Signing/license_plist.yml'
+      - 'Services/WebManager/Configuration/render.yaml'
       - 'Tools/Audit/**'
       - 'Tools/**'
       - 'VexSign/App/**'
@@ -114,12 +114,12 @@ on:
       - 'Package.resolved'
       - 'Makefile'
 
-      # Published root compatibility aliases: changes must run the alias gate.
-      - 'app-repo.json'
-      - 'repos.json'
-      - 'icon.png'
-      - 'license_plist.yml'
-      - 'render.yaml'
+      # Canonical published assets (no root aliases remain).
+      - 'VexSign/Resources/Templates/app-repo.json'
+      - 'VexSign/Resources/Templates/repos.json'
+      - 'VexSign/Resources/Icons/AppIcon/**'
+      - 'Config/Signing/license_plist.yml'
+      - 'Services/WebManager/Configuration/render.yaml'
       - 'Tools/Audit/**'
       - 'Tools/**'
       - 'VexSign/App/**'

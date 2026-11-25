@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="VexSign V Pen outline">
+<g fill="none" stroke="#1D1D1F" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M242 214L480 682" stroke-width="66"/>
+  <path d="M782 214L544 682" stroke-width="66"/>
+  <path d="M454 644L570 644L512 842Z" stroke-width="34"/>
+  <circle cx="512" cy="738" r="18" stroke-width="18"/>
+  <path d="M512 756V812" stroke-width="11"/>
+  <path d="M500 846C560 888 636 875 688 840C662 882 722 890 780 868C838 850 837 808 800 812" stroke-width="13"/>
+</g>
+</svg>

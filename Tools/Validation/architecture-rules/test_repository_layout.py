@@ -27,19 +27,14 @@ ROOT_LAYERS = {
 }
 APP_LAYERS = {"Navigation", "Composition", "Bootstrap"}
 SKIP = {".git", "node_modules", "dist", "__pycache__", ".pytest_cache", ".venv", ".build", ".swiftpm"}
-ALIASES = (
-    ("VexSign/Resources/icon.png", "icon.png"),
-    ("VexSign/Resources/Templates/app-repo.json", "app-repo.json"),
-    ("VexSign/Resources/Templates/repos.json", "repos.json"),
-    ("Config/Signing/license_plist.yml", "license_plist.yml"),
-    ("Services/WebManager/Configuration/render.yaml", "render.yaml"),
-)
+# No root compatibility aliases remain: the root holds only LICENSE,
+# Makefile and README.md. Published assets live at canonical paths.
+ALIASES = ()
 # The root is an entry surface, not a place to grow data files. Dotfiles are allowed
 # as tool configuration; every other root file must be on this reviewed list.
 ROOT_FILES = {
     ".editorconfig", ".gitattributes", ".gitignore", ".swiftformat", ".swiftlint.yml",
-    "LICENSE", "Makefile", "README.md", "app-repo.json", "icon.png",
-    "license_plist.yml", "render.yaml", "repos.json",
+    "LICENSE", "Makefile", "README.md",
 }
 # Paths explicitly rejected by the adopted root contract. A synchronized-root move is
 # a build change, so these must fail at the portable gate rather than at a macOS-only build.
@@ -209,7 +204,7 @@ class RepositoryLayoutTests(unittest.TestCase):
         self.assertTrue((ROOT / "VexSign/Resources/Settings.bundle/Root.plist").is_file())
         self.assertTrue((ROOT / "VexSign/Resources/Localizations/Localizable.xcstrings").is_file())
         self.assertTrue((ROOT / "VexSign/Resources/ellekit.deb").is_file())
-        self.assertTrue((ROOT / "VexSign/Resources/icon.png").is_file())
+        self.assertTrue((ROOT / "VexSign/Resources/Icons/AppIcon/icon.png").is_file())
 
     def test_packages_use_the_canonical_sources_wrapper(self):
         expected = {"NativeSigning", "DeviceBridge", "SideSign", "AltSourceKit", "NimbleKit", "Vendor"}
@@ -246,7 +241,7 @@ class RepositoryLayoutTests(unittest.TestCase):
             self.assertTrue((web / name).is_file(), name)
         self.assertEqual(json.loads((cloud / "package.json").read_text())["scripts"]["start"],
                          "node dist/API/main.js")
-        for blueprint in (ROOT / "render.yaml", web / "Configuration/render.yaml"):
+        for blueprint in (web / "Configuration/render.yaml",):
             self.assertIn("rootDir: Services/WebManager", blueprint.read_text())
 
     def test_domain_is_foundation_only_and_has_no_concrete_io_or_globals(self):
@@ -358,11 +353,14 @@ class RepositoryLayoutTests(unittest.TestCase):
         missing = sorted(r for r in reads if not (ROOT / r).is_file())
         self.assertEqual(missing, [], "source fixtures point at files that do not exist")
 
-    def test_compatibility_aliases_are_byte_identical(self):
+    def test_published_feed_uses_canonical_paths(self):
         for canonical, alias in ALIASES:
             self.assertEqual((ROOT / canonical).read_bytes(), (ROOT / alias).read_bytes(), alias)
-        self.assertEqual(json.loads((ROOT / "app-repo.json").read_text())["sourceURL"],
-                         "https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json")
+        for name in ("icon.png", "app-repo.json", "repos.json",
+                     "license_plist.yml", "render.yaml"):
+            self.assertFalse((ROOT / name).exists(), name)
+        self.assertEqual(json.loads((ROOT / "VexSign/Resources/Templates/app-repo.json").read_text())["sourceURL"],
+                         "https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/Templates/app-repo.json")
 
     def test_no_placeholder_or_empty_scaffolding(self):
         for path in ROOT.rglob("*"):

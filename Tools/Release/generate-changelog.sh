@@ -227,5 +227,5 @@ fi
 printf '\n---\n\n'
 IPA_VERSION="${VERSION%%-*}"
 printf -- '- 📦 Download: `VexSign-%s.ipa` attached below\n' "$IPA_VERSION"
-printf -- '- 📲 AltStore source: `https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json`\n'
+printf -- '- 📲 AltStore source: `https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/Templates/app-repo.json`\n'
 printf -- '- 💬 Report issues: https://github.com/raynmahbub/VexSign/issues\n'

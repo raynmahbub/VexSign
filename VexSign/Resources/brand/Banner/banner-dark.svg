@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" width="1500" height="500" role="img" aria-label="VexSign — Sign, install, and manage apps on your device">
+  <defs>
+    <radialGradient id="vs-banner-glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#7C79F5" stop-opacity="0.22"/><stop offset="1" stop-color="#7C79F5" stop-opacity="0"/></radialGradient>
+    <linearGradient id="vs-banner-tile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7C79F5"/><stop offset="1" stop-color="#5A57D6"/></linearGradient>
+    <radialGradient id="vs-banner-lens" cx="0.5" cy="-0.1" r="0.9"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.12"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1500" height="500" rx="28" fill="#15151D"/>
+  <ellipse cx="250" cy="70" rx="440" ry="240" fill="url(#vs-banner-glow)"/>
+  <ellipse cx="1380" cy="450" rx="440" ry="240" fill="url(#vs-banner-glow)"/>
+  <rect x="118" y="132" width="236" height="236" rx="52.79" fill="url(#vs-banner-tile)"/>
+  <rect x="118" y="132" width="236" height="236" rx="52.79" fill="url(#vs-banner-lens)"/>
+  <g transform="translate(118 132) scale(.230469)">
+<defs>
+  <mask id="vs-banner-mark-cuts">
+    <rect width="1024" height="1024" fill="#FFFFFF"/>
+    <circle cx="512" cy="738" r="18" fill="#000000"/>
+    <path d="M508 756H516V812H508Z" fill="#000000"/>
+  </mask>
+</defs>
+<g fill="#FFFFFF" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" mask="url(#vs-banner-mark-cuts)">
+  <path d="M242 214L480 682" fill="none" stroke-width="105"/>
+  <path d="M782 214L544 682" fill="none" stroke-width="105"/>
+  <path d="M454 644L570 644L512 842Z" stroke="none"/>
+  <path d="M500 846C560 888 636 875 688 840C662 882 722 890 780 868C838 850 837 808 800 812" fill="none" stroke-width="13"/>
+</g>
+  </g>
+  <text x="414" y="236" font-family="-apple-system, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="84" font-weight="700" letter-spacing="-3.5" fill="#F5F5F7">VexSign</text>
+  <text x="418" y="302" font-family="-apple-system, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="32" fill="#A1A1AA">Sign, install, and manage apps — entirely on your device.</text>
+  <text x="418" y="350" font-family="-apple-system, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="22" font-weight="600" letter-spacing=".6" fill="#A1A1AA">iOS 16+   ·   ON-DEVICE   ·   GPL-3.0</text>
+</svg>

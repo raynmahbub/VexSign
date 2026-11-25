@@ -9,7 +9,6 @@ on:
       - 'Services/Cloud/**'
       - 'Services/Cloud/Anisette/**'
       - 'Services/WebManager/Configuration/render.yaml'
-      - 'render.yaml'
       - '.github/workflows/services.yml'
   pull_request:
     branches: [main]
@@ -18,7 +17,6 @@ on:
       - 'Services/Cloud/**'
       - 'Services/Cloud/Anisette/**'
       - 'Services/WebManager/Configuration/render.yaml'
-      - 'render.yaml'
       - '.github/workflows/services.yml'
   schedule:
     - cron: '0 6 * * 2'   # weekly dependency advisories, even without source edits

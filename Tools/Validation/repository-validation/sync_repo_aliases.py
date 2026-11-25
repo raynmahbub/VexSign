@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Keep canonical repository assets and their published root aliases identical.
+"""Keep the two Xcode entry points' package resolutions identical.
 
-The clean root owns canonical files under Resources/ and Services/WebManager/, while a
-few stable root paths remain because remote feeds, README images, Render and the
-LicensePlist Xcode plugin discover them there. Copies — not symlinks — are used
-so raw.githubusercontent.com and macOS checkouts see the actual bytes.
+The repository root is clean: published assets live at their canonical paths
+(`VexSign/Resources/Templates/`, `VexSign/Resources/Icons/AppIcon/`,
+`Config/Signing/`, `Services/WebManager/Configuration/`) and no root
+compatibility aliases remain. `ALIASES` is therefore empty; the table is kept
+so a future alias can be reintroduced deliberately, with a gate, rather than
+by accident.
 
 `MIRRORED` covers a different kind of duplicate: files Xcode writes in two places
 for two entry points (`VexSign.xcodeproj` and `VexSign.xcworkspace`). Neither is
@@ -21,13 +23,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-ALIASES = (
-    ("VexSign/Resources/icon.png", "icon.png"),
-    ("VexSign/Resources/Templates/app-repo.json", "app-repo.json"),
-    ("VexSign/Resources/Templates/repos.json", "repos.json"),
-    ("Config/Signing/license_plist.yml", "license_plist.yml"),
-    ("Services/WebManager/Configuration/render.yaml", "render.yaml"),
-)
+# No root compatibility aliases: the root holds only LICENSE, Makefile and
+# README.md. Canonical published assets live under VexSign/Resources/,
+# Config/ and Services/WebManager/Configuration/.
+ALIASES = ()
 
 
 MIRRORED = (
@@ -46,7 +45,7 @@ def problems() -> list[str]:
             result.append(f"missing canonical file: {canonical_rel}")
             continue
         if not alias.is_file():
-            result.append(f"missing root compatibility alias: {alias_rel}")
+            result.append(f"missing compatibility alias: {alias_rel}")
             continue
         if canonical.read_bytes() != alias.read_bytes():
             result.append(f"alias drift: {alias_rel} differs from {canonical_rel}")

@@ -34,7 +34,7 @@ struct SourcesAddView: View {
 
 	@State var recommendedSourcesData: [(url: URL, data: ASRepository)] = []
 	let recommendedSources: [URL] = [
-		"https://raw.githubusercontent.com/raynmahbub/VexSign/refs/heads/main/app-repo.json",
+		"https://raw.githubusercontent.com/raynmahbub/VexSign/refs/heads/main/VexSign/Resources/Templates/app-repo.json",
 		"https://raw.githubusercontent.com/Aidoku/Aidoku/altstore/apps.json",
 		"https://github.com/chachillie/Flycast-iOS/raw/main/flycast-ios.json",
 		"https://xitrix.github.io/iTorrent/AltStore.json",

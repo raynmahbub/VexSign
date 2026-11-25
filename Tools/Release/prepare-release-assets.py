@@ -41,7 +41,7 @@ def prepare(output, version, channel, repository):
                                     env={**os.environ, 'VERSION': version}, text=True)
     warning = ('Experimental pre-release; may contain regressions. Does not update the stable source listing.'
                if channel != 'stable' else 'Stable channel. The unsigned IPA still requires a valid signing identity.')
-    intro = (f'![VexSign app icon]({raw}/icon.png)\n\n'
+    intro = (f'![VexSign app icon]({raw}/VexSign/Resources/Icons/AppIcon/icon.png)\n\n'
              f'> **{channel.title()}** — {warning}\n\n'
              f'Commit: [`{commit[:7]}`](https://github.com/{repository}/commit/{commit}) · '
              f'[Install and platform limits]({raw}/README.md#declared-capabilities-and-their-limits)\n\n'
@@ -62,7 +62,7 @@ def prepare(output, version, channel, repository):
               'is a design illustration, **not a screenshot or proof of device testing**. '
               'The app icon and preview are also attached.\n')
     (output / 'CHANGELOG.md').write_text(intro + notes + ending)
-    shutil.copyfile(ROOT / "icon.png", output / 'VexSign-icon.png')
+    shutil.copyfile(ROOT / "VexSign/Resources/Icons/AppIcon/icon.png", output / 'VexSign-icon.png')
     shutil.copyfile(ROOT / "VexSign/Resources/brand/home-preview.svg", output / 'Home-layout-preview.svg')
     with ipas[0].open('rb') as handle:
         digest = hashlib.file_digest(handle, 'sha256').hexdigest()

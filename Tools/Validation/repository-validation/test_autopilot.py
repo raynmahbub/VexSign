@@ -66,10 +66,10 @@ class AutopilotTests(unittest.TestCase):
         pr = self.pr()
         pr['user']['login'] = 'github-actions[bot]'
         pr['head']['ref'] = 'automation/release-listing'
-        self.assertTrue(controller.eligible(pr, self.files('app-repo.json'), 'main'))
+        self.assertTrue(controller.eligible(pr, self.files('VexSign/Resources/Templates/app-repo.json'), 'main'))
         self.assertFalse(controller.eligible(pr, self.files('VexSign/App/App.swift'), 'main'))
         pr['head']['ref'] = 'automation/unknown'
-        self.assertFalse(controller.eligible(pr, self.files('app-repo.json'), 'main'))
+        self.assertFalse(controller.eligible(pr, self.files('VexSign/Resources/Templates/app-repo.json'), 'main'))
 
     def test_required_workflows(self):
         self.assertEqual(controller.required_workflows(['Services/Cloud/package.json']), ['ci.yml', 'services.yml'])

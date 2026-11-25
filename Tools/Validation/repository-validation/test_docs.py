@@ -65,6 +65,9 @@ class DocumentationTests(unittest.TestCase):
             self.assertIn('Resources/brand/' + name, readme)
             ET.parse(checker.ROOT / 'VexSign/Resources/brand' / name)
         self.assertIn('https://github.com/raynmahbub/VexSign/releases/latest', readme)
+        self.assertIn('VexSign/Resources/brand/Motion/hero.gif', readme)
+        self.assertTrue((checker.ROOT / 'VexSign/Resources/brand/Motion/hero.gif').is_file())
+        self.assertTrue((checker.ROOT / 'Docs/Design/Brand.md').is_file())
         self.assertIn('VexSign-unsigned-', readme)
         self.assertIn('14 days', readme)
         self.assertIn('applies to new uploads', readme)  # Older runs do not retroactively gain artifacts.

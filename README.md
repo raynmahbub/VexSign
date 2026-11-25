@@ -1,14 +1,12 @@
 <div align="center">
-  <img src="VexSign/Resources/icon.png" alt="VexSign icon" width="96">
-  <h1>VexSign</h1>
+  <img src="VexSign/Resources/brand/Motion/hero.gif" alt="VexSign — sign, install, and manage apps entirely on your device" width="800">
   <p><b>Import → inspect → sign → install. One on-device IPA workspace.</b></p>
   <p>
     <a href="https://github.com/raynmahbub/VexSign/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/raynmahbub/VexSign?label=latest%20release"></a>
     <a href="https://github.com/raynmahbub/VexSign/blob/main/LICENSE"><img alt="GPL-3.0 license" src="https://img.shields.io/badge/license-GPL--3.0-blue.svg"></a>
     <a href="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml/badge.svg"></a>
   </p>
-  <p><a href="#download">Download</a> · <a href="#features">Features</a> · <a href="#build--test">Build</a> · <a href="Docs/Architecture.md">Architecture</a></p>
-  <img src="VexSign/Resources/brand/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%">
+  <p><a href="#download">Download</a> · <a href="#features">Features</a> · <a href="#build--test">Build</a> · <a href="Docs/Architecture.md">Architecture</a> · <a href="Docs/Design/Brand.md">Brand</a></p>
 </div>
 
 VexSign combines local IPA signing, app management, repository discovery and
@@ -252,7 +250,7 @@ For upstream changes and pinned revisions, see
 Download an IPA or add the VexSign source to a compatible signer:
 
 [![Download IPA](VexSign/Resources/brand/download-ipa.svg)](https://github.com/raynmahbub/VexSign/releases/latest)
-[![Add Source](VexSign/Resources/brand/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
+[![Add Source](VexSign/Resources/brand/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2FVexSign%2FResources%2FTemplates%2Fapp-repo.json)
 
 - **Self-hosted Safari install:** distributors with an eligible pre-signed IPA can
   generate a first-install site from the signing screen.
@@ -273,9 +271,9 @@ signer, paste the source URL below manually.
 
 Already using a compatible signer? Open one of these links to add the stable VexSign feed:
 
-- [Add to VexSign](vexsign://source/https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json)
-- [Add to AltStore](altstore://source?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
-- [Add to SideStore](sidestore://source?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
+- [Add to VexSign](vexsign://source/https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/Templates/app-repo.json)
+- [Add to AltStore](altstore://source?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2FVexSign%2FResources%2FTemplates%2Fapp-repo.json)
+- [Add to SideStore](sidestore://source?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2FVexSign%2FResources%2FTemplates%2Fapp-repo.json)
 
 If a link does not open your app, copy the stable source URL shown below and add it manually.
 
@@ -289,7 +287,7 @@ and sign it with an existing sideloading tool/identity. Existing VexSign users c
 sign an update in-app. Stable source URL:
 
 ```text
-https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json
+https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/Templates/app-repo.json
 ```
 
 Read the [Web Manager contract](Tools/Validation/security-validation/evidence/service-contracts.md) before enabling those flows.
@@ -438,11 +436,15 @@ VexSign/
 └── Makefile                 Supported build and verification commands
 ```
 
-**Why a few assets remain at the root:** `app-repo.json`, `repos.json`, `icon.png`,
-`license_plist.yml` and `render.yaml` are published compatibility aliases used by
-feeds and external tools. Edit their canonical files, not the root copies;
-`python3 Tools/Validation/repository-validation/sync_repo_aliases.py --check`
-verifies they stay in sync.
+**Published assets live at canonical paths** (the root holds only `LICENSE`,
+`Makefile` and `README.md`): the AltStore feed is
+`VexSign/Resources/Templates/app-repo.json`, the repos list is
+`VexSign/Resources/Templates/repos.json`, the app icon set is
+`VexSign/Resources/Icons/AppIcon/` (standard, light, dark and tinted variants —
+see that folder's README), the LicensePlist config is
+`Config/Signing/license_plist.yml`, and the Render blueprint is
+`Services/WebManager/Configuration/render.yaml`. Regenerate icon variants with
+`python3 Tools/Release/generate-app-icons.py`.
 
 Feature use cases and shared workspace contracts use injected ports. Legacy
 UI-to-storage/service coupling is still tracked, not claimed to be fully removed.

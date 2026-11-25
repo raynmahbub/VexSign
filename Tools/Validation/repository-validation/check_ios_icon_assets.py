@@ -57,14 +57,33 @@ def main() -> int:
 
     standard = digest(appearances[None])
     for relative in (
-        "VexSign/Resources/icon.png",
-        "icon.png",
+        "VexSign/Resources/Icons/AppIcon/icon.png",
+        "VexSign/Resources/brand/AppIcon/app-icon-1024.png",
         "VexSign/Resources/Assets.xcassets/AppLogo.imageset/AppLogo.png",
         "VexSign/Resources/Assets.xcassets/Glyph.imageset/vexsign.png",
     ):
         path = ROOT / relative
         if digest(path) != standard:
             raise ValueError(f"brand asset drift: {relative} differs from the standard iOS icon")
+
+    for appearance, relatives in (
+        ("dark", (
+            "VexSign/Resources/Icons/AppIcon/icon-dark.png",
+            "VexSign/Resources/brand/AppIcon/app-icon-dark-1024.png",
+        )),
+        ("tinted", (
+            "VexSign/Resources/Icons/AppIcon/icon-tinted.png",
+            "VexSign/Resources/brand/AppIcon/app-icon-tinted-1024.png",
+        )),
+    ):
+        for relative in relatives:
+            if digest(appearances[appearance]) != digest(ROOT / relative):
+                raise ValueError(f"brand asset drift: {relative} differs from the {appearance} iOS icon")
+
+    source_mark = ROOT / "VexSign/Resources/brand/Source/vpen-mark-1024.png"
+    composer_mark = ROOT / "VexSign/Resources/AppIcon.icon/Assets/vexsign.png"
+    if digest(source_mark) != digest(composer_mark):
+        raise ValueError("brand asset drift: Icon Composer V·Pen differs from the source mark")
 
     if digest(appearances["dark"]) == standard or digest(appearances["tinted"]) == standard:
         raise ValueError("dark and tinted appearances must retain their own treatments")

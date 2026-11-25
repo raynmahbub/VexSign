@@ -17,11 +17,13 @@ ALL_PAIRS = module.ALIASES + module.MIRRORED
 
 
 class RepositoryAliasTests(unittest.TestCase):
-    def test_alias_table_is_stable_and_canonical_first(self):
-        self.assertEqual(len(module.ALIASES), 5)
-        for canonical, alias in module.ALIASES:
-            self.assertIn("/", canonical)
-            self.assertNotIn("/", alias)
+    def test_alias_table_is_empty_root_is_clean(self):
+        # The root holds only LICENSE, Makefile and README.md; published
+        # assets live at canonical paths and no root aliases remain.
+        self.assertEqual(module.ALIASES, ())
+        for name in ("icon.png", "app-repo.json", "repos.json",
+                     "license_plist.yml", "render.yaml"):
+            self.assertFalse((module.ROOT / name).exists(), name)
 
     def test_mirrored_resolution_files_are_the_two_xcode_entry_points(self):
         self.assertEqual(len(module.MIRRORED), 1)
