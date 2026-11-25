@@ -32,7 +32,9 @@ final class ImportedCertificateRefreshPolicyTests: XCTestCase {
             ImportedCertificateRefreshPolicy.warning(
                 for: credential(profileDays: 200, certificateDays: 10), now: now
             ),
-            .soon
+            // Ten days is inside the 14-day notice window but outside the
+            // 7-day soon window: the earlier leaf expiry still drives the level.
+            .notice
         )
         XCTAssertEqual(
             ImportedCertificateRefreshPolicy.warning(for: credential(profileDays: 30), now: now),

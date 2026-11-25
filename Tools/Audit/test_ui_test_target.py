@@ -66,12 +66,15 @@ class UITestTargetTests(unittest.TestCase):
         self.assertIn("XCTAttachment(screenshot:", combined)
         for interaction in ("tabBars.buttons", "swipeLeft()", "Import IPA / TIPA",
                             "Import from Files…", "Download options", "Signing Methods",
-                            "Installation Engine", "waitForNavigationTitle"):
+                            "settings.installationEngine", "waitForNavigationTitle"):
             self.assertIn(interaction, combined, f"missing UI interaction: {interaction}")
         # A simulator tap can prove an entry point exists; it cannot prove iOS
         # accepted an install. Keep that claim in the device report only.
         self.assertIn("a UI test cannot assert iOS accepted an install", combined)
         self.assertIn('tapLabel("Free Apple ID")', combined)
+        self.assertIn('tapIdentifier("settings.installationEngine")', combined)
+        settings = (ROOT / "VexSign/Features/Settings/Views/SettingsView.swift").read_text()
+        self.assertIn('.accessibilityIdentifier("settings.installationEngine")', settings)
         self.assertIn("scroll.swipeUp()", combined)
 
     def test_launch_flag_only_dismisses_onboarding(self):

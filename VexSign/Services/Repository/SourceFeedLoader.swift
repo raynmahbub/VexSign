@@ -90,15 +90,14 @@ struct SourceFeedLoader: Sendable {
 					outcome: .failed(message: .localized("Couldn't load this source"), rateLimited: false)
 				)
 			}
-			// The add-source screen used to trust NBFetchService's body without the cap and
-			// structural check that RepositorySyncEngine and the GitHub release path apply.
-			// Apply the same policy here so a source cannot be accepted on one screen and
-			// rejected on another, and so a huge payload is never decoded on a background
-			// thread for a view that will refuse it anyway.
-			if let rejection = Self.validate(payload) {
+			// The byte cap applies to the raw response. The structural check must
+			// run *after* the GitHub release adapter: a release API response is not
+			// an ASRepository feed until it has been adapted, so validating it here
+			// rejected every virtual GitHub source before it could be decoded.
+			guard payload.count <= RepositoryNetworkPolicy.maxFeedBytes else {
 				return SourceFeedResult(
 					identifier: identifier,
-					outcome: .failed(message: rejection, rateLimited: false)
+					outcome: .failed(message: .localized("Repository exceeds the source size limit."), rateLimited: false)
 				)
 			}
 
@@ -114,6 +113,13 @@ struct SourceFeedLoader: Sendable {
 				}
 			} else {
 				feedPayload = payload
+			}
+
+			if let rejection = Self.validateShape(feedPayload) {
+				return SourceFeedResult(
+					identifier: identifier,
+					outcome: .failed(message: rejection, rateLimited: false)
+				)
 			}
 
 			// The decode that follows runs off the main actor by design, so the
@@ -154,6 +160,12 @@ struct SourceFeedLoader: Sendable {
 		guard payload.count <= RepositoryNetworkPolicy.maxFeedBytes else {
 			return .localized("Repository exceeds the source size limit.")
 		}
+		return validateShape(payload)
+	}
+
+	/// Structural check for an already-adapted feed. Callers that fetch a raw
+	/// response must adapt a GitHub release first, then call this.
+	static func validateShape(_ payload: Data) -> String? {
 		do {
 			_ = try RepositoryImporter.decode(payload)
 			return nil

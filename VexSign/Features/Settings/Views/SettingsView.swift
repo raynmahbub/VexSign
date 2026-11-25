@@ -90,6 +90,7 @@ struct SettingsView: View {
                     }
                     NavigationLink(destination: InstallationView()) {
                         Label(.localized("Installation Engine"), systemImage: "arrow.down.app.fill")
+                            .accessibilityIdentifier("settings.installationEngine")
                     }
                 } footer: {
                     Text(.localized("Choose your signing identity, manage profiles and tweaks, and configure installation. Signing and installation have separate prerequisites."))

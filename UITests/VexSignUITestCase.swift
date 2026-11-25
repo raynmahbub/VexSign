@@ -60,6 +60,24 @@ class VexSignUITestCase: XCTestCase {
         XCTFail("No tappable element labelled \(label)", file: file, line: line)
     }
 
+    /// Stable identifier helper for rows whose visible label is fragmented by
+    /// SwiftUI (icon + text + accessory) and cannot be matched reliably.
+    func tapIdentifier(_ identifier: String, timeout: TimeInterval = 12,
+                       file: StaticString = #filePath, line: UInt = #line) {
+        let element = app.descendants[matching: .any, identifier: identifier].firstMatch
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists && element.isHittable {
+                element.tap()
+                return
+            }
+            let scroll = app.scrollViews.firstMatch
+            guard scroll.exists, scroll.isHittable else { break }
+            scroll.swipeUp()
+        }
+        XCTFail("No element with identifier \(identifier)", file: file, line: line)
+    }
+
     /// SwiftUI lists recycle off-screen rows. Scroll before declaring a label
     /// missing, but keep a bounded deadline so a broken screen still fails.
     func waitForText(_ text: String, timeout: TimeInterval = 8,

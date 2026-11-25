@@ -32,6 +32,16 @@ class Swift6NativeRegressions(unittest.TestCase):
         self.assertIn("importIdentity: {", text)
         self.assertNotIn("importIdentity: { expected in", text)
 
+    def test_source_feed_validation_runs_after_github_adaptation(self):
+        text = source("VexSign/Services/Repository/SourceFeedLoader.swift")
+        self.assertIn("if let rejection = Self.validateShape(feedPayload)", text)
+        self.assertNotIn("if let rejection = Self.validate(payload)", text)
+
+    def test_expiry_warning_fixture_matches_the_notice_window(self):
+        text = source("Tests/UnitTests/Identity/ImportedCertificateRefreshPolicyTests.swift")
+        self.assertIn(".notice", text)
+        self.assertIn("certificateDays: 10", text)
+
     def test_account_refresh_test_uses_the_no_argument_import_step(self):
         text = source("Tests/UnitTests/Accounts/ManualAccountRefreshTests.swift")
         self.assertIn("importIdentity: { [self] in", text)

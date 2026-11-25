@@ -21,7 +21,7 @@ final class SigningWorkflowUITests: VexSignUITestCase {
 
     func testInstallationMethodIsASeparateScreen() {
         app.tabBars.buttons["Settings"].tap()
-        tapLabel("Installation Engine")
+        tapIdentifier("settings.installationEngine")
         waitForNavigationTitle("Installation")
 
         waitForText("1. Signing identity")
