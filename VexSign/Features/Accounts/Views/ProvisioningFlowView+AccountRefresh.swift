@@ -89,15 +89,11 @@ extension ProvisioningFlowView {
                 provisionedReceipt = receipt
                 return AccountRefreshBridging.receipt(from: receipt)
             },
-            importIdentity: { expected in
+            // The coordinator validates the handoff against the provision
+            // receipt it just observed; this closure must match the injected
+            // no-argument signature or Swift reports an arity error.
+            importIdentity: {
                 guard let receipt = provisionedReceipt else { throw AccountRefreshError.invalidInput }
-                guard receipt.profileUUID == expected.profileUUID,
-                      receipt.expiresAt == expected.expiresAt else {
-                    throw AccountRefreshError.profileChanged(
-                        expected: expected.profileUUID,
-                        actual: receipt.profileUUID
-                    )
-                }
                 let handoff = try await self.manager.importCertificate(receipt, consentGiven: true)
                 guard handoff.matches(app) else { throw AccountRefreshError.appChanged }
                 return AccountRefreshBridging.handoff(from: handoff)

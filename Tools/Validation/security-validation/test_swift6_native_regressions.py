@@ -27,6 +27,11 @@ class Swift6NativeRegressions(unittest.TestCase):
         self.assertNotIn("Task { [weak self]", text)
         self.assertNotIn("MainActor.run", text)
 
+    def test_account_refresh_injected_closures_keep_their_arity(self):
+        text = source("VexSign/Features/Accounts/Views/ProvisioningFlowView+AccountRefresh.swift")
+        self.assertIn("importIdentity: {", text)
+        self.assertNotIn("importIdentity: { expected in", text)
+
     def test_diagnostic_export_is_async_through_every_boundary(self):
         exporter = source("VexSign/Services/Diagnostics/DiagnosticBundleExporter.swift")
         protocol = source("VexSign/Shared/Protocols/SubsystemBoundaries.swift")
