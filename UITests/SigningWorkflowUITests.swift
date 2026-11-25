@@ -11,7 +11,7 @@ import XCTest
 final class SigningWorkflowUITests: VexSignUITestCase {
     func testSigningMethodsShowsBothIdentities() {
         app.tabBars.buttons["Settings"].tap()
-        tapLabel("Signing Methods")
+        tapIdentifier(UIID.settingsSigning)
         waitForNavigationTitle("Signing Methods")
 
         waitForText("Signing identity · imported certificate")
@@ -21,7 +21,7 @@ final class SigningWorkflowUITests: VexSignUITestCase {
 
     func testInstallationMethodIsASeparateScreen() {
         app.tabBars.buttons["Settings"].tap()
-        tapIdentifier("settings.installationEngine")
+        tapIdentifier(UIID.settingsInstallation)
         waitForNavigationTitle("Installation")
 
         waitForText("1. Signing identity")
@@ -30,15 +30,18 @@ final class SigningWorkflowUITests: VexSignUITestCase {
 
     func testAppleAccountSelectionDoesNotOpenAContainerChoice() {
         app.tabBars.buttons["Settings"].tap()
-        tapLabel("Signing Methods")
+        tapIdentifier(UIID.settingsSigning)
         waitForNavigationTitle("Signing Methods")
         waitForText("Signing identity · Apple Account")
         // The caption is conditional: it appears only after the identity is chosen.
-        tapLabel("Free Apple ID")
+        tapIdentifier(UIID.freeAppleID)
 
         // The identity explanation is present, but the delivery picker belongs to
         // the separate Installation screen only.
-        waitForText("Choosing this identity does not select a container. Review the installation method under Settings → Installation.")
+        XCTAssertTrue(
+            app.staticTexts[UIID.identityDelivery].waitForExistence(timeout: 5),
+            "Selecting the Apple Account identity must explain that delivery is separate"
+        )
         XCTAssertFalse(
             app.staticTexts["Installation method"].exists,
             "Choosing an identity must not switch the delivery screen in place"

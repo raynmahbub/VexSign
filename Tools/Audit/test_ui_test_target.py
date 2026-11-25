@@ -64,17 +64,21 @@ class UITestTargetTests(unittest.TestCase):
         combined = "\n".join(path.read_text() for path in sources)
         self.assertIn("XCUIApplication()", combined)
         self.assertIn("XCTAttachment(screenshot:", combined)
-        for interaction in ("tabBars.buttons", "swipeLeft()", "Import IPA / TIPA",
-                            "Import from Files…", "Download options", "Signing Methods",
-                            "settings.installationEngine", "waitForNavigationTitle"):
+        for interaction in ("tabBars.buttons", "swipeLeft()", "UIID.homeImport",
+                            "UIID.tasksImportFiles", "UIID.tasksOptions", "Signing Methods",
+                            "UIID.settingsInstallation", "UIID.freeAppleID", "UIID.identityDelivery",
+                            "waitForNavigationTitle"):
             self.assertIn(interaction, combined, f"missing UI interaction: {interaction}")
         # A simulator tap can prove an entry point exists; it cannot prove iOS
         # accepted an install. Keep that claim in the device report only.
         self.assertIn("a UI test cannot assert iOS accepted an install", combined)
-        self.assertIn('tapLabel("Free Apple ID")', combined)
-        self.assertIn('tapIdentifier("settings.installationEngine")', combined)
-        settings = (ROOT / "VexSign/Features/Settings/Views/SettingsView.swift").read_text()
-        self.assertIn('.accessibilityIdentifier("settings.installationEngine")', settings)
+        self.assertIn('tapIdentifier(UIID.freeAppleID)', combined)
+        a11y = (ROOT / "VexSign/App/Navigation/State/AccessibilityIdentifiers.swift").read_text()
+        for identifier in ("vexsign.home.import", "vexsign.library.import", "vexsign.tasks.downloadoptions",
+                           "vexsign.tasks.importfiles", "vexsign.settings.signingmethods",
+                           "vexsign.settings.installationengine", "vexsign.signing.method.freeappleid",
+                           "vexsign.signing.identitydelivery"):
+            self.assertIn(identifier, a11y)
         self.assertIn("scroll.swipeUp()", combined)
 
     def test_launch_flag_only_dismisses_onboarding(self):

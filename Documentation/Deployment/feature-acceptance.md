@@ -65,6 +65,10 @@ and fill every case:
 }
 ```
 
+Each feature also carries four explicit scenario slots: `positive`, `negative`,
+`cancellation` and `recovery`. A feature that works on the happy path is not accepted
+until every applicable scenario has its own evidence.
+
 For a `needsDevice` case, `evidence` is not a substitute for the device fields. A
 placeholder, a simulator-only result, or a note containing “synthetic” is rejected.
 

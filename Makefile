@@ -193,6 +193,7 @@ verify: docs-check project-wiring
 	  "python3 Tools/Validation/repository-validation/test_autopilot.py" \
 	  "python3 Tools/Release/test_release_assets.py" \
 	  "python3 Tools/Audit/test_device_acceptance.py" \
+  "python3 Tools/Audit/test_device_runner_preflight.py" \
 	  "python3 Tools/Audit/test_feature_acceptance.py" \
 	  "python3 Tools/Audit/test_quality_report.py" \
   "python3 Tools/Audit/test_combined_report.py" \

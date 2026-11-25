@@ -71,6 +71,50 @@ def test_section(label, report, results):
     return lines, failed
 
 
+def classify(jobs, unit, ui):
+    """Turn job results into actionable failure classes, never into passes."""
+    classes = []
+    for name, result in jobs.items():
+        if result == "success":
+            continue
+        if result in ("cancelled", "timed_out"):
+            kind = "infrastructure"
+        elif name == "quick":
+            kind = "policy"
+        elif name == "build":
+            kind = "compile"
+        elif name == "tests":
+            kind = "unit"
+        elif name == "ui-tests":
+            kind = "ui"
+        elif name == "concurrency":
+            kind = "concurrency"
+        elif name == "device":
+            kind = "device"
+        else:
+            kind = "unknown"
+        classes.append({"job": name, "result": result, "kind": kind})
+    for label, report in (("unit", unit), ("ui", ui)):
+        if isinstance(report, dict) and report.get("crash_signals"):
+            classes.append({"job": label, "result": "failure", "kind": "crash"})
+    return classes
+
+
+def qualification(jobs, unit, ui, device):
+    """Simulator qualification excludes hardware; release adds the device job."""
+    required = ("quick", "build", "tests", "ui-tests")
+    simulator = all(jobs.get(name) == "success" for name in required)
+    simulator = simulator and all(
+        isinstance(report, dict) and report.get("status") == "passed" for report in (unit, ui)
+    )
+    device_ok = jobs.get("device") == "success" and isinstance(device, dict) and bool(device.get("cases"))
+    return {
+        "simulator_qualified": simulator,
+        "release_qualified": bool(simulator and device_ok),
+        "required": list(required),
+    }
+
+
 def build(artifacts, jobs):
     artifacts = Path(artifacts) if artifacts else None
     unit = load_json(find_json(artifacts, "quality-report.json"))
@@ -119,6 +163,17 @@ def build(artifacts, jobs):
     else:
         lines.append("- **BLOCKED** — no device report. A simulator pass is not hardware evidence.")
 
+    classifications = classify(jobs, unit, ui)
+    qualified = qualification(jobs, unit, ui, device)
+    lines.extend(["", "## Failure classification", ""])
+    lines.extend([f"- `{item['job']}`: **{item['kind']}** ({item['result']})" for item in classifications]
+                 or ["- None"])
+    lines.extend([
+        "", "## Release qualification", "",
+        f"- Simulator qualified: {qualified['simulator_qualified']}",
+        f"- Release qualified (requires device): {qualified['release_qualified']}",
+    ])
+
     lines.extend([
         "", "## Honest limits", "",
         "- A report is not a test run. Only executed leaf results from the xcresult count.",
@@ -127,7 +182,8 @@ def build(artifacts, jobs):
         "",
     ])
     return {"status": "failed" if failed else "passed", "jobs": jobs,
-            "unit": unit, "ui": ui, "device": device, "coverage": coverage}, "\n".join(lines)
+            "unit": unit, "ui": ui, "device": device, "coverage": coverage,
+            "classification": classifications, "qualification": qualified}, "\n".join(lines)
 
 
 def main():

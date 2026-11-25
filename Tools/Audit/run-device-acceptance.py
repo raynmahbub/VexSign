@@ -11,13 +11,43 @@ come from a UI test target or a named tester, and the report enforces that.
 """
 
 import argparse
+import hashlib
+import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BUNDLE_ID = "com.vexsign.app"
+
+
+COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def preflight_errors(device, identity, commit, listed_devices, identities):
+    """Refuse to touch a device unless the runner declared every prerequisite."""
+    errors = []
+    if not COMMIT_RE.match(commit or ""):
+        errors.append("a full 40-character source commit is required")
+    if not device.strip():
+        errors.append("no device UDID")
+    elif device.strip() not in listed_devices:
+        errors.append(f"UDID {device} is not connected to this runner")
+    if not identity.strip():
+        errors.append("no development signing identity")
+    elif identity.strip() not in identities:
+        errors.append("the configured signing identity is not in the runner keychain")
+    return errors
 
 
 def run(command, log):
@@ -34,7 +64,7 @@ def main():
     parser.add_argument("--device", default=os.environ.get("VEXSIGN_DEVICE_UDID", ""),
                         help="Device UDID; defaults to VEXSIGN_DEVICE_UDID")
     parser.add_argument("--report", type=Path, help="feature-acceptance.py report to verify")
-    parser.add_argument("--commit", help="Commit bound to the device report")
+    parser.add_argument("--commit", required=True, help="40-character commit bound to this device run")
     parser.add_argument("--log", type=Path, default=Path(".artifacts/device-acceptance.log"))
     parser.add_argument("--run-tests", action="store_true", help="Run VexSignTests on the device destination")
     args = parser.parse_args()
@@ -42,16 +72,30 @@ def main():
     xcrun = shutil.which("xcrun")
     if not xcrun:
         parser.exit(2, "error: xcrun not found; physical-device tests need macOS/Xcode\n")
-    if not args.device.strip():
-        parser.exit(2, "error: no device UDID; pass --device or set VEXSIGN_DEVICE_UDID\n")
     if not args.ipa.is_file():
         parser.exit(1, f"error: IPA not found: {args.ipa}\n")
-    if not os.environ.get("VEXSIGN_DEVICE_SIGNING_IDENTITY", "").strip():
-        parser.exit(2, "error: set VEXSIGN_DEVICE_SIGNING_IDENTITY to the development certificate used for this IPA\n")
+    identity = os.environ.get("VEXSIGN_DEVICE_SIGNING_IDENTITY", "").strip()
+
+    listed = subprocess.run([xcrun, "devicectl", "list", "devices"],
+                            capture_output=True, text=True, check=False)
+    identities = subprocess.run(["/usr/bin/security", "find-identity", "-v", "-p", "codesigning"],
+                                capture_output=True, text=True, check=False)
+    errors = preflight_errors(
+        args.device, identity, args.commit,
+        listed.stdout + listed.stderr,
+        identities.stdout + identities.stderr,
+    )
+    if errors:
+        for error in errors:
+            print(f"PREFLIGHT FAIL {error}")
+        parser.exit(2, "error: device runner preflight failed; no install was attempted\n")
+
+    ipa_hash = sha256(args.ipa)
+    print(f"IPA SHA-256: {ipa_hash}")
 
     args.log.parent.mkdir(parents=True, exist_ok=True)
     with args.log.open("a", encoding="utf-8") as log:
-        log.write(f"device={args.device} ipa={args.ipa}\n\n")
+        log.write(f"commit={args.commit} device={args.device} ipa={args.ipa} sha256={ipa_hash}\n\n")
         status = run([xcrun, "devicectl", "device", "install", "app",
                       "--device", args.device, str(args.ipa.resolve())], log)
         if status != 0:
@@ -73,7 +117,7 @@ def main():
                 "-resultBundlePath", str((ROOT / ".artifacts/VexSignDevice.xcresult").resolve()),
                 "CODE_SIGNING_ALLOWED=YES",
                 "CODE_SIGNING_REQUIRED=YES",
-                "CODE_SIGN_IDENTITY=" + os.environ["VEXSIGN_DEVICE_SIGNING_IDENTITY"],
+                "CODE_SIGN_IDENTITY=" + identity,
                 "test",
             ], log)
             if status != 0:

@@ -88,6 +88,7 @@ on:
       - '.github/workflows/ci-repair-assistant.yml'
       - 'Configuration/**'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'VexSign/App/**'
@@ -325,6 +326,7 @@ jobs:
           python3 Tools/Validation/architecture-rules/test_architecture_excellence.py
           python3 Tools/Validation/repository-validation/test_ci_repair_agent.py
           python3 Tools/Audit/test_device_acceptance.py
+          python3 Tools/Audit/test_device_runner_preflight.py
           python3 Tools/Audit/test_feature_acceptance.py
           python3 Tools/Audit/test_quality_report.py
           python3 Tools/Audit/test_combined_report.py

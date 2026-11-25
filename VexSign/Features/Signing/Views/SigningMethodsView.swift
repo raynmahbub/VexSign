@@ -74,6 +74,7 @@ struct SigningMethodsView: View {
                 if selectedMethod == .freeAppleID {
                     Text(.localized("Choosing this identity does not select a container. Review the installation method under Settings → Installation."))
                         .font(.caption).foregroundStyle(.secondary)
+                        .accessibilityIdentifier(A11y.Signing.identityDeliverySeparation)
                     freeAppleIDContent
                 }
             } header: {
@@ -274,7 +275,16 @@ struct SigningMethodsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(Self.identifier(for: method))
         .opacity(availability.isAvailable ? 1.0 : 0.6)
+    }
+
+    private static func identifier(for method: SigningMethod) -> String {
+        switch method {
+        case .paidCertificate: return A11y.Signing.paidCertificate
+        case .freeAppleID: return A11y.Signing.freeAppleID
+        case .trollStore: return A11y.Signing.trollStore
+        }
     }
 
     private var freeAppleIDContent: some View {

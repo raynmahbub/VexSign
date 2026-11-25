@@ -46,13 +46,19 @@ Every native run uploads:
 - `quality-report.json` / `quality-report.md`: passed, failed, skipped, blocked,
   crash signals and the exact executed-test count.
 - `combined-report.json` / `combined-report.md`: one summary of every job, with
-  missing or skipped layers called out instead of being folded into a pass.
+  missing or skipped layers called out instead of being folded into a pass. It
+  classifies failures as policy, compile, unit, UI, crash, device or infrastructure
+  and records `simulator_qualified` separately from `release_qualified`.
 - `coverage.json` and the `xcresult` on failure.
 - build logs for Debug, Release and the analyzer.
 - `ui-tests` result bundle, log, test-results JSON and quality report on **every**
   attempt: XCUITest screenshots are attachments inside the `xcresult`, including
   the final frame captured when an assertion stops a test early.
 - `feature-acceptance.json` from the device job, with one case per registered feature.
+
+UI tests drive stable `A11y` identifiers instead of translated labels, and the
+device runner refuses to install until the UDID, signing identity and commit are
+preflighted against the connected runner.
 
 An app-source change with no test change fails the portable regression gate
 (`Tools/Validation/repository-validation/check_regression_tests.py`). That gate

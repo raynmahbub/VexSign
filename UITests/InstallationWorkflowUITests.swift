@@ -12,7 +12,7 @@ import XCTest
 final class InstallationWorkflowUITests: VexSignUITestCase {
     func testHomeShowsImportAction() {
         app.tabBars.buttons["Home"].tap()
-        waitForText("Import IPA / TIPA")
+        XCTAssertTrue(app.buttons[UIID.homeImport].waitForExistence(timeout: 5))
         attachScreenshot("home-import")
     }
 
@@ -24,11 +24,11 @@ final class InstallationWorkflowUITests: VexSignUITestCase {
         )
 
         // Do not invoke the file picker: prove the entry point is reachable.
-        let options = app.buttons["Download options"]
+        let options = app.buttons[UIID.tasksOptions]
         XCTAssertTrue(options.waitForExistence(timeout: 5), "Download toolbar menu is missing")
         options.tap()
         XCTAssertTrue(
-            app.buttons["Import from Files…"].waitForExistence(timeout: 5),
+            app.buttons[UIID.tasksImportFiles].waitForExistence(timeout: 5),
             "The Tasks workspace should expose an import action"
         )
         attachScreenshot("tasks-import")

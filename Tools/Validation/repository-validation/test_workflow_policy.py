@@ -194,6 +194,13 @@ class WorkflowPolicyTests(unittest.TestCase):
                                check=True, capture_output=True)
                 self.assertEqual(output.read_text(), f'native={expected}\n')
 
+    def test_pull_request_ci_includes_ui_and_workflow_changes(self):
+        events = block((WORKFLOWS / 'ci.yml').read_text(), 'on', 0)
+        pr = block(events, 'pull_request', 2)
+        self.assertIn('types: [opened, synchronize, reopened, ready_for_review]', pr)
+        self.assertIn("- 'UITests/**'", pr)
+        self.assertIn("- '.github/workflows/ci.yml'", pr)
+
     def test_consolidated_triage_retains_permissions_and_prevents_recursion(self):
         text = (ROOT / ".github/workflows/repo-maintenance.yml").read_text()
         triage = block(block(text, 'jobs', 0), 'open-or-update-issue', 2)
@@ -495,7 +502,12 @@ class WorkflowPolicyTests(unittest.TestCase):
                     pr = block(events, 'pull_request', 2)
                     self.assertIn('    branches: [main]', pr)
                     push = block(events, 'push', 2)
-                    self.assertEqual(pr.replace('pull_request:', 'push:', 1), push)
+                    # PRs also declare which events reopen validation; that line
+                    # is not part of the path-filter parity check.
+                    pr_paths = "\n".join(
+                        line for line in pr.splitlines() if not line.strip().startswith('types:')
+                    )
+                    self.assertEqual(pr_paths.replace('pull_request:', 'push:', 1), push)
                 else:
                     self.assertNotRegex(events, r'(?m)^  pull_request(?:_target)?:')
 

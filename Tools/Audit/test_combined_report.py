@@ -42,6 +42,20 @@ class CombinedReportTests(unittest.TestCase):
         self.assertIn("Screenshot/attachment records in xcresult JSON: 2", markdown)
         self.assertIn("no device report", markdown)
 
+    def test_failure_classes_and_release_qualification_are_explicit(self):
+        (self.dir / "quality-report.json").write_text(json.dumps(passed_report()))
+        (self.dir / "ui-quality-report.json").write_text(json.dumps(passed_report()))
+        report, markdown = combined.build(self.dir, {
+            "quick": "success", "build": "success", "tests": "success",
+            "ui-tests": "cancelled", "device": "skipped",
+        })
+        kinds = {item["job"]: item["kind"] for item in report["classification"]}
+        self.assertEqual(kinds["ui-tests"], "infrastructure")
+        self.assertEqual(kinds["device"], "device")
+        self.assertFalse(report["qualification"]["simulator_qualified"])
+        self.assertFalse(report["qualification"]["release_qualified"])
+        self.assertIn("Failure classification", markdown)
+
     def test_skipped_job_and_crash_marker_stay_failed(self):
         broken = passed_report()
         broken["crash_signals"] = ["Thread 2 Crashed"]

@@ -22,7 +22,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / "VexSign/Services/Diagnostics/FeatureStatusRegistry.swift"
-SCHEMA = 1
+SCHEMA = 2
+SCENARIOS = ("positive", "negative", "cancellation", "recovery")
 STAMP = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ")
 SYNTHETIC = re.compile(r"synthetic|fixture|simulated|placeholder|todo|not device", re.IGNORECASE)
 
@@ -83,6 +84,15 @@ def build_report(ipa, commit, registry_path=REGISTRY):
             "device_model": "",
             "os_version": "",
             "observed_at_utc": "",
+            # One feature can work on the happy path and still fail when the
+            # operation is cancelled or recovery is needed. Require all four.
+            "scenarios": {
+                scenario: {
+                    "result": "pending", "evidence": "", "notes": "", "tester": "",
+                    "device_model": "", "os_version": "", "observed_at_utc": "",
+                }
+                for scenario in SCENARIOS
+            },
         }
     return {
         "schema": SCHEMA,
@@ -120,38 +130,55 @@ def check_report(report, ipa, commit, registry_path=REGISTRY):
         case = cases.get(identifier)
         if not isinstance(case, dict):
             continue
-        if case.get("result") != "pass":
-            errors.append(f"{identifier}: requires explicit result=pass")
         if case.get("source_status") != entry["source_status"] or case.get("kind") != entry["kind"]:
             errors.append(f"{identifier}: registry status changed after init")
-        notes = case.get("notes")
-        if not isinstance(notes, str) or not notes.strip():
-            errors.append(f"{identifier}: requires observation notes")
-        if case.get("kind") == "unit":
-            evidence = case.get("evidence")
-            if not isinstance(evidence, str) or not evidence.startswith("Tests/"):
-                errors.append(f"{identifier}: unit evidence must name a Tests/ file")
+        validate_observation(identifier, case, entry["kind"], errors)
+        scenarios = case.get("scenarios")
+        if not isinstance(scenarios, dict):
+            errors.append(f"{identifier}: scenario matrix is missing")
+            continue
+        if set(scenarios) != set(SCENARIOS):
+            errors.append(f"{identifier}: scenario matrix must cover {', '.join(SCENARIOS)}")
+        for scenario in SCENARIOS:
+            observation = scenarios.get(scenario)
+            if not isinstance(observation, dict):
+                errors.append(f"{identifier}/{scenario}: missing scenario evidence")
                 continue
-            path = ROOT / evidence
-            if not path.is_file() or "func test" not in path.read_text(encoding="utf-8"):
-                errors.append(f"{identifier}: unit evidence file does not contain an XCTest case")
-        elif case.get("kind") == "device":
-            for field in ("tester", "device_model", "os_version", "observed_at_utc"):
-                value = case.get(field)
-                if not isinstance(value, str) or not value.strip():
-                    errors.append(f"{identifier}: missing {field}")
-            stamp = case.get("observed_at_utc", "")
-            if not isinstance(stamp, str) or not STAMP.fullmatch(stamp):
-                errors.append(f"{identifier}: observed_at_utc must be YYYY-MM-DDTHH:MM:SSZ")
-            try:
-                datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")
-            except (TypeError, ValueError):
-                errors.append(f"{identifier}: observed_at_utc is not a real timestamp")
-            if isinstance(notes, str) and SYNTHETIC.search(notes):
-                errors.append(f"{identifier}: synthetic notes cannot certify a device observation")
-        else:
-            errors.append(f"{identifier}: unknown evidence kind {case.get('kind')!r}")
+            validate_observation(f"{identifier}/{scenario}", observation, entry["kind"], errors)
     return errors
+
+
+def validate_observation(prefix, observation, kind, errors):
+    """One observation must be explicit, non-synthetic and bound to real evidence."""
+    if observation.get("result") != "pass":
+        errors.append(f"{prefix}: requires explicit result=pass")
+    notes = observation.get("notes")
+    if not isinstance(notes, str) or not notes.strip():
+        errors.append(f"{prefix}: requires observation notes")
+    if kind == "unit":
+        evidence = observation.get("evidence")
+        if not isinstance(evidence, str) or not evidence.startswith("Tests/"):
+            errors.append(f"{prefix}: unit evidence must name a Tests/ file")
+            return
+        path = ROOT / evidence
+        if not path.is_file() or "func test" not in path.read_text(encoding="utf-8"):
+            errors.append(f"{prefix}: unit evidence file does not contain an XCTest case")
+    elif kind == "device":
+        for field in ("tester", "device_model", "os_version", "observed_at_utc"):
+            value = observation.get(field)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(f"{prefix}: missing {field}")
+        stamp = observation.get("observed_at_utc", "")
+        if not isinstance(stamp, str) or not STAMP.fullmatch(stamp):
+            errors.append(f"{prefix}: observed_at_utc must be YYYY-MM-DDTHH:MM:SSZ")
+        try:
+            datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")
+        except (TypeError, ValueError):
+            errors.append(f"{prefix}: observed_at_utc is not a real timestamp")
+        if isinstance(notes, str) and SYNTHETIC.search(notes):
+            errors.append(f"{prefix}: synthetic notes cannot certify a device observation")
+    else:
+        errors.append(f"{prefix}: unknown evidence kind {kind!r}")
 
 
 def main():
@@ -176,7 +203,8 @@ def main():
                 handle.write("\n")
         except FileExistsError:
             parser.exit(1, f"error: {args.report} already exists; refusing to overwrite evidence\n")
-        print(f"Created {args.report} with {len(report['cases'])} pending feature cases.")
+        print(f"Created {args.report} with {len(report['cases'])} pending feature cases "
+              f"and {len(SCENARIOS)} scenario slots each.")
         return
 
     try:

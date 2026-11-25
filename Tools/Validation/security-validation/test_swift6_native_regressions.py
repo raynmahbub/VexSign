@@ -32,6 +32,11 @@ class Swift6NativeRegressions(unittest.TestCase):
         self.assertIn("importIdentity: {", text)
         self.assertNotIn("importIdentity: { expected in", text)
 
+    def test_ui_identifier_query_uses_the_xcuitest_api(self):
+        text = source("UITests/VexSignUITestCase.swift")
+        self.assertIn("app.descendants(matching: .any).matching(identifier: identifier)", text)
+        self.assertNotIn("app.descendants[matching:", text)
+
     def test_source_feed_only_size_gates_before_github_adaptation(self):
         text = source("VexSign/Services/Repository/SourceFeedLoader.swift")
         self.assertIn("guard payload.count <= RepositoryNetworkPolicy.maxFeedBytes", text)

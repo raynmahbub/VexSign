@@ -129,6 +129,7 @@ private struct DownloadsTabContent: View {
             Menu {
                 Button(.localized("Download from URL…"), systemImage: "link") { showAddSheet = true }
                 Button(.localized("Import from Files…"), systemImage: "square.and.arrow.down") { showImportPicker = true }
+                    .accessibilityIdentifier(A11y.Tasks.importFromFiles)
                 if !downloadManager.downloads.isEmpty || !viewModel.downloadedFiles.isEmpty {
                     Divider()
                     Button(.localized("Pause All"), systemImage: "pause.fill") { downloadManager.pauseAllDownloads() }
@@ -141,6 +142,7 @@ private struct DownloadsTabContent: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .accessibilityLabel(Text(.localized("Download options")))
+                    .accessibilityIdentifier(A11y.Tasks.downloadOptions)
             }
         }
         ToolbarItem(placement: .topBarLeading) {

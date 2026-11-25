@@ -8,6 +8,19 @@
 
 import XCTest
 
+/// Mirrors the production A11y identifiers without importing the app module.
+/// A rename here fails the UI test, not the build.
+enum UIID {
+    static let homeImport = "vexsign.home.import"
+    static let libraryImport = "vexsign.library.import"
+    static let tasksOptions = "vexsign.tasks.downloadoptions"
+    static let tasksImportFiles = "vexsign.tasks.importfiles"
+    static let settingsSigning = "vexsign.settings.signingmethods"
+    static let settingsInstallation = "vexsign.settings.installationengine"
+    static let freeAppleID = "vexsign.signing.method.freeappleid"
+    static let identityDelivery = "vexsign.signing.identitydelivery"
+}
+
 class VexSignUITestCase: XCTestCase {
     var app: XCUIApplication!
 
@@ -64,7 +77,7 @@ class VexSignUITestCase: XCTestCase {
     /// SwiftUI (icon + text + accessory) and cannot be matched reliably.
     func tapIdentifier(_ identifier: String, timeout: TimeInterval = 12,
                        file: StaticString = #filePath, line: UInt = #line) {
-        let element = app.descendants[matching: .any, identifier: identifier].firstMatch
+        let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if element.exists && element.isHittable {

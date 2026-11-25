@@ -58,6 +58,7 @@ struct SettingsView: View {
                     }
                     NavigationLink(destination: SigningMethodsView()) {
                         Label(.localized("Signing Methods"), systemImage: "person.badge.key")
+                            .accessibilityIdentifier(A11y.Settings.signingMethods)
                     }
                     NavigationLink(destination: FixtureRecoveryList()) {
                         Label("Recover fixture backup", systemImage: "archivebox")
@@ -90,7 +91,7 @@ struct SettingsView: View {
                     }
                     NavigationLink(destination: InstallationView()) {
                         Label(.localized("Installation Engine"), systemImage: "arrow.down.app.fill")
-                            .accessibilityIdentifier("settings.installationEngine")
+                            .accessibilityIdentifier(A11y.Settings.installationEngine)
                     }
                 } footer: {
                     Text(.localized("Choose your signing identity, manage profiles and tweaks, and configure installation. Signing and installation have separate prerequisites."))

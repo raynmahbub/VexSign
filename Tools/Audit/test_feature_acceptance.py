@@ -39,6 +39,13 @@ class FeatureAcceptanceTests(unittest.TestCase):
                 case["os_version"] = "iOS 26.0"
                 case["observed_at_utc"] = "2026-11-24T10:00:00Z"
                 case["evidence"] = ""
+            for scenario in case["scenarios"].values():
+                scenario.update({
+                    "result": "pass", "notes": case["notes"], "evidence": case["evidence"],
+                    "tester": case.get("tester", ""), "device_model": case.get("device_model", ""),
+                    "os_version": case.get("os_version", ""),
+                    "observed_at_utc": case.get("observed_at_utc", ""),
+                })
         return self.report
 
     def test_init_covers_every_registered_feature_as_pending(self):
@@ -46,6 +53,11 @@ class FeatureAcceptanceTests(unittest.TestCase):
         self.assertEqual(set(self.report["cases"]), set(entries))
         self.assertGreater(len(entries), 40)
         self.assertTrue(all(case["result"] == "pending" for case in self.report["cases"].values()))
+        self.assertTrue(all(
+            scenario["result"] == "pending"
+            for case in self.report["cases"].values()
+            for scenario in case["scenarios"].values()
+        ))
         self.assertEqual(self.report["ipa_sha256"], feature.sha256(self.ipa))
 
     def test_pending_report_is_not_acceptance(self):
