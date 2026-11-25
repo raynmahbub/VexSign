@@ -71,6 +71,8 @@ class UITestTargetTests(unittest.TestCase):
         # A simulator tap can prove an entry point exists; it cannot prove iOS
         # accepted an install. Keep that claim in the device report only.
         self.assertIn("a UI test cannot assert iOS accepted an install", combined)
+        self.assertIn('tapLabel("Free Apple ID")', combined)
+        self.assertIn("scroll.swipeUp()", combined)
 
     def test_launch_flag_only_dismisses_onboarding(self):
         app = (ROOT / "VexSign/App/VexSignApp.swift").read_text()

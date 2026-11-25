@@ -37,17 +37,25 @@ class VexSignUITestCase: XCTestCase {
         add(attachment)
     }
 
-    /// SwiftUI NavigationLinks are not always exposed as buttons, so try both.
-    func tapLabel(_ label: String, file: StaticString = #filePath, line: UInt = #line) {
-        let button = app.buttons[label].firstMatch
-        if button.exists && button.isHittable {
-            button.tap()
-            return
-        }
-        let cell = app.cells.containing(.staticText, identifier: label).firstMatch
-        if cell.exists && cell.isHittable {
-            cell.tap()
-            return
+    /// SwiftUI NavigationLinks are not always exposed as buttons, and Settings
+    /// rows may be below the fold. Try both element types while scrolling.
+    func tapLabel(_ label: String, timeout: TimeInterval = 12,
+                  file: StaticString = #filePath, line: UInt = #line) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let button = app.buttons[label].firstMatch
+            if button.exists && button.isHittable {
+                button.tap()
+                return
+            }
+            let cell = app.cells.containing(.staticText, identifier: label).firstMatch
+            if cell.exists && cell.isHittable {
+                cell.tap()
+                return
+            }
+            let scroll = app.scrollViews.firstMatch
+            guard scroll.exists, scroll.isHittable else { break }
+            scroll.swipeUp()
         }
         XCTFail("No tappable element labelled \(label)", file: file, line: line)
     }

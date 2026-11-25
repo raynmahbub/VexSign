@@ -32,6 +32,12 @@ class Swift6NativeRegressions(unittest.TestCase):
         self.assertIn("importIdentity: {", text)
         self.assertNotIn("importIdentity: { expected in", text)
 
+    def test_account_refresh_test_uses_the_no_argument_import_step(self):
+        text = source("Tests/UnitTests/Accounts/ManualAccountRefreshTests.swift")
+        self.assertIn("importIdentity: { [self] in", text)
+        self.assertNotIn("steps.importIdentity = { _ in", text)
+        self.assertNotIn("changed.certificateUUID =", text)
+
     def test_routing_test_initializers_follow_memberwise_order(self):
         text = source("Tests/UnitTests/Signing/SigningModeRoutingTests.swift")
         self.assertNotIn("identitySource: .appleAccount, certificate:", text)

@@ -33,6 +33,8 @@ final class SigningWorkflowUITests: VexSignUITestCase {
         tapLabel("Signing Methods")
         waitForNavigationTitle("Signing Methods")
         waitForText("Signing identity · Apple Account")
+        // The caption is conditional: it appears only after the identity is chosen.
+        tapLabel("Free Apple ID")
 
         // The identity explanation is present, but the delivery picker belongs to
         // the separate Installation screen only.

@@ -46,7 +46,7 @@ final class ManualAccountRefreshTests: XCTestCase {
                     expiresAt: request.baselineExpiry.addingTimeInterval(86_400)
                 )
             },
-            importIdentity: { handoffOverride ?? handoff(for: request) },
+            importIdentity: { [self] in handoffOverride ?? self.handoff(for: request) },
             sign: { handoff in
                 AccountRefreshSignedArtifact(
                     artifactID: "signed-copy",
@@ -87,8 +87,13 @@ final class ManualAccountRefreshTests: XCTestCase {
     func testChangedIdentityStopsBeforeSigningAndRecordsTheStage() async {
         let request = request()
         let outcomes = OutcomeBox()
-        var changed = handoff(for: request)
-        changed.certificateUUID = "certificate-two"
+        let original = handoff(for: request)
+        let changed = AccountRefreshHandoff(
+            certificateUUID: "certificate-two",
+            profileUUID: original.profileUUID,
+            bundleIdentifier: original.bundleIdentifier,
+            expiresAt: original.expiresAt
+        )
         let signed = Flag()
         let installed = Flag()
         var steps = steps(for: request, outcomes: outcomes, handoffOverride: changed)
@@ -122,7 +127,7 @@ final class ManualAccountRefreshTests: XCTestCase {
             )
         }
         let imported = Flag()
-        steps.importIdentity = { _ in
+        steps.importIdentity = {
             imported.value = true
             throw AccountRefreshError.appChanged
         }
