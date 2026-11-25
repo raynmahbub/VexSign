@@ -91,8 +91,11 @@ struct SettingsView: View {
                     }
                     NavigationLink(destination: InstallationView()) {
                         Label(.localized("Installation Engine"), systemImage: "arrow.down.app.fill")
-                            .accessibilityIdentifier(A11y.Settings.installationEngine)
                     }
+                    // Put the identifier on the row SwiftUI actually exposes to
+                    // XCUITest; on the nested Label it can exist without being a
+                    // tappable accessibility element.
+                    .accessibilityIdentifier(A11y.Settings.installationEngine)
                 } footer: {
                     Text(.localized("Choose your signing identity, manage profiles and tweaks, and configure installation. Signing and installation have separate prerequisites."))
                 }

@@ -79,6 +79,15 @@ class UITestTargetTests(unittest.TestCase):
                            "vexsign.settings.installationengine", "vexsign.signing.method.freeappleid",
                            "vexsign.signing.identitydelivery"):
             self.assertIn(identifier, a11y)
+        # XCUITest taps the row, not the nested SwiftUI Label. An identifier on
+        # the Label can be present but not hittable, which is what failed on
+        # the simulator.
+        settings = (ROOT / "VexSign/Features/Settings/Views/SettingsView.swift").read_text()
+        self.assertRegex(
+            settings,
+            r"NavigationLink\(destination: InstallationView\(\)\)\s*\{[^}]*\}\s*"
+            r"(?://[^\n]*\n\s*)*\.accessibilityIdentifier\(A11y\.Settings\.installationEngine\)",
+        )
         self.assertIn("scroll.swipeUp()", combined)
 
     def test_launch_flag_only_dismisses_onboarding(self):
