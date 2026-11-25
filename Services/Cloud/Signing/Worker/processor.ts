@@ -9,7 +9,7 @@ import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import type { Job } from 'bullmq';
 import type { Config } from '../../Configuration/config.js';
-import type { Infrastructure } from '../../VexSign/Storage/infrastructure.js';
+import type { Infrastructure } from '../../Storage/infrastructure.js';
 import { unseal, permittedWebhook } from '../../Security/security.js';
 import { invokeSigner as defaultInvokeSigner, type SignerInput } from '../CloudSigningCoordinator/signer.js';
 
