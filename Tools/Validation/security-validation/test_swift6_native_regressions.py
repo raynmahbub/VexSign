@@ -32,6 +32,11 @@ class Swift6NativeRegressions(unittest.TestCase):
         self.assertIn("importIdentity: {", text)
         self.assertNotIn("importIdentity: { expected in", text)
 
+    def test_routing_test_initializers_follow_memberwise_order(self):
+        text = source("Tests/UnitTests/Signing/SigningModeRoutingTests.swift")
+        self.assertNotIn("identitySource: .appleAccount, certificate:", text)
+        self.assertNotIn("identitySource: identity, certificate:", text)
+
     def test_diagnostic_export_is_async_through_every_boundary(self):
         exporter = source("VexSign/Services/Diagnostics/DiagnosticBundleExporter.swift")
         protocol = source("VexSign/Shared/Protocols/SubsystemBoundaries.swift")

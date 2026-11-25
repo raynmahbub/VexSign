@@ -44,7 +44,7 @@ final class SigningModeRoutingTests: XCTestCase {
     func testChangingIdentityNeverChangesDelivery() throws {
         for identity in SigningIdentitySource.allCases {
             let pipeline = try InstallationRouter.resolve(InstallationRoutingInput(
-                identitySource: identity, certificate: nil,
+                certificate: nil, identitySource: identity,
                 hasEmbeddedRuntime: true, storedInstallationMethod: 1
             ), at: now)
             XCTAssertEqual(pipeline, .directPaid(.idevice))
@@ -54,18 +54,18 @@ final class SigningModeRoutingTests: XCTestCase {
 
     func testGuestRouteRequiresAnExplicitSelectionEvenWithAnAccount() throws {
         let stored = InstallationRoutingInput(
-            identitySource: .appleAccount, certificate: nil,
+            certificate: nil, identitySource: .appleAccount,
             hasEmbeddedRuntime: true, storedInstallationMethod: 2
         )
         XCTAssertEqual(try InstallationRouter.resolve(stored, at: now), .containerized)
         let notStored = InstallationRoutingInput(
-            identitySource: .appleAccount, certificate: nil,
+            certificate: nil, identitySource: .appleAccount,
             hasEmbeddedRuntime: true, storedInstallationMethod: 0
         )
         XCTAssertEqual(try InstallationRouter.resolve(notStored, at: now), .directPaid(.server))
         let explicit = InstallationRoutingInput(
-            preference: .containerized, identitySource: .appleAccount,
-            certificate: nil, hasEmbeddedRuntime: true
+            preference: .containerized, certificate: nil,
+            identitySource: .appleAccount, hasEmbeddedRuntime: true
         )
         XCTAssertEqual(try InstallationRouter.resolve(explicit, at: now), .containerized)
     }

@@ -945,7 +945,10 @@ jobs:
     name: ui-tests · VexSignUITests (simulator)
     needs: quick
     runs-on: macos-15
-    timeout-minutes: 45
+    # This job compiles the app from scratch in its own DerivedData. macOS
+    # arm64 runners have been queueing for long stretches; 45m killed a run
+    # before any UI test could execute, which is a blocked result, not a pass.
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
