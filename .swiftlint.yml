@@ -29,6 +29,7 @@ included:
   - Platform/Vision
   - Platform/Watch
   - Tests
+  - UITests
   - Packages/AltSourceKit/Sources
   - Packages/NimbleKit/Sources
   # The Apple-account, PKCS#12/CMS and provisioning-profile code is the most security-sensitive

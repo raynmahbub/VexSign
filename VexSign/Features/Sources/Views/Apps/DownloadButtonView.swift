@@ -17,6 +17,13 @@ struct FixtureSlotRoute: Identifiable, Equatable {
     let uuid: String
 }
 
+/// A request to open provisioning for a specific imported app. Navigation only:
+/// the review screen still collects every account approval.
+struct ProvisioningReviewRequest: Identifiable, Equatable {
+    let id = UUID()
+    let appUUID: String
+}
+
 class TabSelectionObserver: ObservableObject {
 	static let shared = TabSelectionObserver()
 	@Published var selectedTab: TabEnum = TabBarPreferences.shared.resolvedLaunchTab
@@ -24,6 +31,10 @@ class TabSelectionObserver: ObservableObject {
     @Published var activitySection: ActivityWorkspaceSection = .downloads
     @Published var fixtureSlotRequest: FixtureSlotRoute?
     @Published var cellularRenewalRequested = false
+    /// Foreground account-refresh review requested by a Shortcut. Navigation only:
+    /// approving provisioning or key export still happens inside that screen.
+    @Published var accountRefreshRequested = false
+    @Published var provisioningReviewRequest: ProvisioningReviewRequest?
     @Published var ipaExplorerRequested = false
 	@Published var highlightedAppUUID: String?
 	@Published var sourcesRetapped: Bool = false
@@ -48,6 +59,11 @@ class TabSelectionObserver: ObservableObject {
         if let section = route.librarySection { librarySection = section }
         if let section = route.activitySection { activitySection = section }
         selectedTab = route.tab
+    }
+
+    func requestProvisioningReview(for app: AppInfoPresentable) {
+        guard let uuid = app.uuid, !uuid.isEmpty else { return }
+        provisioningReviewRequest = ProvisioningReviewRequest(appUUID: uuid)
     }
 
     func requestIPAExplorer() {
@@ -258,14 +274,15 @@ struct DownloadButtonView: View {
 					} label: {
 						Label(.localized("Download, Sign & Install"), systemImage: "wand.and.stars")
 					}
-				} label: {
-					HStack(spacing: 4) {
-						Image(systemName: "arrow.down.circle")
-							.font(.headline.bold())
-						Text(.localized("Get"))
-							.lineLimit(1)
-							.font(.headline.bold())
-					}
+			} label: {
+				let action = AutoSignManager.Action.current
+				HStack(spacing: 4) {
+					Image(systemName: action.systemImage)
+						.font(.headline.bold())
+					Text(action.title)
+						.lineLimit(1)
+						.font(.headline.bold())
+				}
 					.foregroundStyle(Color.accentColor)
 					.padding(.horizontal, 20)
 					.padding(.vertical, 6)

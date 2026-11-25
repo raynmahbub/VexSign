@@ -143,6 +143,12 @@ final class FileSystemDownloadedFilesAdapter: DownloadedFilesManaging {
 
 @MainActor
 final class DiagnosticsRepositoryAdapter: DiagnosticsProviding {
+    private let operationOutcomes: OperationOutcomeJournal
+
+    init(operationOutcomes: OperationOutcomeJournal) {
+        self.operationOutcomes = operationOutcomes
+    }
+
     func currentSnapshot() -> DiagnosticOverviewSnapshot {
         let certificates = Storage.shared.getAllCertificates()
         let sources = Storage.shared.getSources()
@@ -190,7 +196,7 @@ final class DiagnosticsRepositoryAdapter: DiagnosticsProviding {
     }
 
     func exportDiagnosticArchiveURL() -> URL? {
-        DiagnosticBundleExporter.createDiagnosticBundle()
+        DiagnosticBundleExporter.createDiagnosticBundle(outcomes: operationOutcomes)
     }
 }
 

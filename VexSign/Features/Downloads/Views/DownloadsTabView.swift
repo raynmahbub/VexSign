@@ -138,7 +138,10 @@ private struct DownloadsTabContent: View {
                         viewModel.clearCompleted(in: downloadManager)
                     }
                 }
-            } label: { Image(systemName: "ellipsis.circle") }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .accessibilityLabel(Text(.localized("Download options")))
+            }
         }
         ToolbarItem(placement: .topBarLeading) {
             if activeCount > 0 {

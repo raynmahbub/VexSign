@@ -30,6 +30,13 @@ struct SignAppIntent: AppIntent {
 			return .result(dialog: IntentDialog(stringLiteral: .localized("That app is no longer in your library.")))
 		}
 
+		guard AutoSignIdentityPolicy.decide(
+			identity: SigningModeManager.shared.identityChoice
+		) == .allow else {
+			TabSelectionObserver.shared.requestProvisioningReview(for: target)
+			return .result(dialog: IntentDialog(stringLiteral: .localized("Apple Account identity selected. Opening the attended provisioning review in VexSign; no stored certificate was substituted.")))
+		}
+
 		switch await AutoSignManager.shared.sign(target) {
 		case .success(let signed):
 			return .result(dialog: IntentDialog(stringLiteral: String.localized(
@@ -62,6 +69,12 @@ struct RepeatInstallIntent: AppIntent {
 		}
 		if AppLockManager.shared.isAppLocked(app.uuid), !AppLockManager.shared.isSessionUnlocked(app.uuid) {
 			return .result(dialog: IntentDialog(stringLiteral: .localized("Unlock this library app in VexSign first.")))
+		}
+		guard AutoSignIdentityPolicy.decide(
+			identity: SigningModeManager.shared.identityChoice
+		) == .allow else {
+			TabSelectionObserver.shared.requestProvisioningReview(for: target)
+			return .result(dialog: IntentDialog(stringLiteral: .localized("Apple Account identity selected. Opening the attended provisioning review in VexSign; no stored certificate was substituted.")))
 		}
 		_ = try await AutoSignManager.shared.sign(target, repeatInstall: true).get()
 		return .result(dialog: IntentDialog(stringLiteral: .localized("Re-signed and queued for installation. Check the install result in VexSign.")))
@@ -106,6 +119,41 @@ struct CellularRenewalReviewIntent: AppIntent {
         TabSelectionObserver.shared.selectedTab = .settings
         TabSelectionObserver.shared.cellularRenewalRequested = true
         return .result()
+    }
+}
+
+/// Navigation only: a Shortcut opens the manual account review, where provisioning,
+/// key export, signing and installation are each approved separately.
+@available(iOS 17.0, *)
+struct ReviewAccountRefreshIntent: AppIntent {
+    static var title: LocalizedStringResource = "Review Account Refresh"
+    static var description = IntentDescription("Opens the manual Apple Account refresh review. Nothing is renewed by the Shortcut itself.")
+    static var openAppWhenRun = true
+
+    @Parameter(title: "Only when a refresh is due", default: true)
+    var onlyWhenDue: Bool
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let hasDueRefresh = RenewalScheduleCoordinator.shared.plans.contains {
+            $0.isAppleAccountCredential && $0.status.isActionable
+        }
+        if onlyWhenDue && !hasDueRefresh {
+            return .result(dialog: IntentDialog(stringLiteral: .localized("No Apple Account refresh is due. Open VexSign to review provisioning at any time.")))
+        }
+        // An explicit Shortcut is a foreground decision, not a background grant.
+        let decision = AccountRefreshAutomationPolicy.decide(
+            isEnabled: true,
+            hasDueRefresh: true,
+            sessionReady: RenewalRenewabilityState.shared.isAccountSessionReady,
+            fromBackground: false
+        )
+        guard decision == .openReview else {
+            return .result(dialog: IntentDialog(stringLiteral: .localized("This Shortcut cannot start an account refresh. Open VexSign to review it.")))
+        }
+        TabSelectionObserver.shared.selectedTab = .settings
+        TabSelectionObserver.shared.accountRefreshRequested = true
+        return .result(dialog: IntentDialog(stringLiteral: .localized("Opening account refresh review. Approve each step in VexSign.")))
     }
 }
 

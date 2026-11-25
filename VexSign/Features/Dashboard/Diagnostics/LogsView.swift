@@ -180,7 +180,7 @@ extension LogsView {
 	}
 
 	private func _exportDiagnostics() {
-		guard let zipURL = DiagnosticBundleExporter.createDiagnosticBundle() else {
+		guard let zipURL = DiagnosticBundleExporter.createDiagnosticBundle(outcomes: services.operationOutcomes) else {
 			Toast.error(.localized("Failed to create diagnostic bundle"), duration: .long)
 			return
 		}

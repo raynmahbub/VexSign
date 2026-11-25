@@ -44,7 +44,7 @@ struct SigningMethodsView: View {
                 ) {
                     guard SigningMethodAvailability.current(for: .paidCertificate).isAvailable else { return }
                     selectedMethod = .paidCertificate
-                    signingMode.selectPreference(.directPaid)
+                    signingMode.selectIdentity(.importedCertificate)
                 }
 
                 if selectedMethod == .paidCertificate {
@@ -53,11 +53,11 @@ struct SigningMethodsView: View {
                     }
                     .disabled(!SigningMethodAvailability.current(for: .paidCertificate).isAvailable)
 
-                    Text(.localized("Import a .p12 certificate and .mobileprovision profile. Selecting this method routes installs through the direct OTA/IDevice pipeline. Profile scope, entitlements and certificate validity still require signing preflight."))
+                    Text(.localized("Import a .p12 certificate and .mobileprovision profile. This chooses who signs only. Choose the installation method separately; profile scope, entitlements and certificate validity still require signing preflight."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             } header: {
-                Text(.localized("Certificate-based Signing"))
+                Text(.localized("Signing identity · imported certificate"))
             }
 
             // MARK: - Free Apple ID Section
@@ -68,14 +68,16 @@ struct SigningMethodsView: View {
                     availability: SigningMethodAvailability.current(for: .freeAppleID)
                 ) {
                     selectedMethod = .freeAppleID
-                    signingMode.selectPreference(.containerized)
+                    signingMode.selectIdentity(.appleAccount)
                 }
 
                 if selectedMethod == .freeAppleID {
+                    Text(.localized("Choosing this identity does not select a container. Review the installation method under Settings → Installation."))
+                        .font(.caption).foregroundStyle(.secondary)
                     freeAppleIDContent
                 }
             } header: {
-                Text(.localized("Free Apple ID Signing"))
+                Text(.localized("Signing identity · Apple Account"))
             }
 
             // MARK: - TrollStore Section
@@ -92,7 +94,7 @@ struct SigningMethodsView: View {
                     trollStoreContent
                 }
             } header: {
-                Text(.localized("TrollStore Installation"))
+                Text(.localized("Installation option · TrollStore"))
             }
 
             // MARK: - Status & Diagnostics
@@ -134,10 +136,9 @@ struct SigningMethodsView: View {
             }
         }
         .onAppear {
-            switch signingMode.preference {
-            case .directPaid: selectedMethod = .paidCertificate
-            case .containerized: selectedMethod = .freeAppleID
-            case .automatic: break
+            switch signingMode.identityChoice {
+            case .importedCertificate: selectedMethod = .paidCertificate
+            case .appleAccount: selectedMethod = .freeAppleID
             }
         }
         .task {

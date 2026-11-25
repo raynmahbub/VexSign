@@ -23,6 +23,9 @@ final class AppContainer: ObservableObject {
     let tasks: TaskWorkspaceModel
     let appleAccount: AppleAccountWorkspaceModel
     let analytics: LocalAnalyticsUseCase
+    /// Local, sanitized outcomes of staged operations. Injected so screens can
+    /// record a refresh without owning another global store.
+    let operationOutcomes: OperationOutcomeJournal
     let companion: CompanionArchiveModel
     let repositoryBuilder: RepositoryBuilderViewModel
     let entitlements: EntitlementsWorkspaceModel
@@ -110,6 +113,7 @@ final class AppContainer: ObservableObject {
         certificateCatalog: CertificateCatalogProviding,
         workspaceSupportEnvironment: WorkspaceSupportEnvironmentProviding,
         anisetteProvider: AnisetteConfigurationProviding,
+        operationOutcomes: OperationOutcomeJournal,
         directInstallFactory: @escaping () -> DirectPackageInstallUseCase,
         firmwareDownloadFactory: @escaping () -> FirmwareDownloadUseCase,
         deepLinkRouterFactory: @escaping (SharedBackupInbox) -> DeepLinkRouterUseCase,
@@ -122,6 +126,7 @@ final class AppContainer: ObservableObject {
         self.tasks = TaskWorkspaceModel(useCase: TaskWorkspaceUseCase(provider: taskWorkspace))
         self.appleAccount = AppleAccountWorkspaceModel(useCase: AppleAccountWorkspaceUseCase(provider: appleAccount))
         self.analytics = LocalAnalyticsUseCase(provider: analytics)
+        self.operationOutcomes = operationOutcomes
         self.companion = CompanionArchiveModel(useCase: CompanionArchiveUseCase(provider: companion))
         self.repositoryBuilder = RepositoryBuilderViewModel(useCase: RepositoryBuilderUseCase(provider: repositoryDocuments))
         self.entitlements = EntitlementsWorkspaceModel(useCase: EntitlementsWorkspaceUseCase(provider: entitlementsWorkspace))
@@ -170,7 +175,8 @@ final class AppContainer: ObservableObject {
         let platform = UIKitPlatformAdapter()
         let resetStore = CoreDataWorkspaceResetAdapter()
         let downloadedFiles = FileSystemDownloadedFilesAdapter()
-        let diagnostics = DiagnosticsRepositoryAdapter()
+        let operationOutcomes = OperationOutcomeJournal()
+        let diagnostics = DiagnosticsRepositoryAdapter(operationOutcomes: operationOutcomes)
         let privacy = AppPrivacyAdapter()
         let certCatalog = CertificateCatalogAdapter()
         let workspaceSupport = UIKitWorkspaceSupportEnvironmentAdapter()
@@ -214,6 +220,7 @@ final class AppContainer: ObservableObject {
             certificateCatalog: certCatalog,
             workspaceSupportEnvironment: workspaceSupport,
             anisetteProvider: NativeAnisetteConfigurationAdapter(),
+            operationOutcomes: operationOutcomes,
             directInstallFactory: {
                 DirectPackageInstallUseCase(
                     securityPolicy: security,
@@ -348,6 +355,15 @@ final class AppContainer: ObservableObject {
                 // injection the scene applies — from the same definition.
                 .modifier(AppEnvironment(container: container)))
         }, mayTeardown: { InstallQueue.shared.current == nil })
+        // Sign and import are reached from singletons, Shortcuts and the Web Manager, none
+        // of which own a view tree. Give them the composition root's recorder so every path
+        // writes to the same journal the diagnostic bundle exports.
+        let recordOutcome: OperationOutcomeRecording = { outcome in
+            await container.operationOutcomes.record(outcome)
+        }
+        AutoSignManager.shared.outcomeRecorder = recordOutcome
+        DownloadManager.shared.outcomeRecorder = recordOutcome
+        InstallQueue.shared.outcomeRecorder = recordOutcome
         return container
     }
 

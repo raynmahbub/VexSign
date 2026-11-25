@@ -14,6 +14,7 @@ struct SettingsView: View {
     @AppStorage(GameMode.enabledKey) private var _gameMode: Bool = false
     @ObservedObject private var _tabSelection = TabSelectionObserver.shared
     @State private var _showCellularRenewal = false
+    @State private var _showAccountRefresh = false
     @State private var _settingsQuery = ""
     @State private var _currentIcon: String? = UIApplication.shared.alternateIconName
     @ObservedObject private var _selfUpdate = SelfUpdateManager.shared
@@ -63,6 +64,9 @@ struct SettingsView: View {
                     }
                     Button { _showCellularRenewal = true } label: {
                         Label(.localized("Review Renewal over Cellular"), systemImage: "antenna.radiowaves.left.and.right")
+                    }
+                    Button { _showAccountRefresh = true } label: {
+                        Label(.localized("Review Account Refresh"), systemImage: "arrow.triangle.2.circlepath")
                     }
                     NavigationLink(destination: CertificatesView()) {
                         Label(.localized("Certificates Manager"), systemImage: "checkmark.seal.fill")
@@ -317,6 +321,12 @@ struct SettingsView: View {
                 _showCellularRenewal = true
             }
             .sheet(isPresented: $_showCellularRenewal) { ProvisioningFlowView(cellularReview: true) }
+            .onChange(of: _tabSelection.accountRefreshRequested, initial: true) { _, requested in
+                guard requested else { return }
+                _tabSelection.accountRefreshRequested = false
+                _showAccountRefresh = true
+            }
+            .sheet(isPresented: $_showAccountRefresh) { ProvisioningFlowView(refreshReview: true) }
             .onReceive(TabSelectionObserver.shared.$searchRequest) { request in
                 guard let request, request.tab == .settings else { return }
                 _settingsQuery = request.query

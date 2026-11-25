@@ -330,6 +330,46 @@ enum FeatureStatusRegistry {
 			status: .implemented
 		),
 		FeatureStatusEntry(
+			id: "identity-aware-auto-sign",
+			name: "Identity-aware unattended signing",
+			setting: "Settings → Installation → Signing identity",
+			persistedAs: "VexSign.signingIdentityChoice",
+			consumer: "AutoSignIdentityPolicy → DownloadManager / WebManager API / App Intents",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "combined-source-news",
+			name: "Combined repository news",
+			setting: "App Store → source apps",
+			persistedAs: "Nothing — merged from the current source snapshots on each render",
+			consumer: "CombinedSourceNews → SourceNewsView",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "local-analytics-opt-in",
+			name: "Local activity analytics (opt-in)",
+			setting: "Settings → About → Analytics → Record local activity counts",
+			persistedAs: "VexSign.localAnalyticsEnabled + EcosystemDatabase analytics.daily",
+			consumer: "AnalyticsStore.record (off by default) → AnalyticsView",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "paired-installation",
+			name: "Paired AFC / installd installation",
+			setting: "Settings → Installation → Direct transport → idevice",
+			persistedAs: "VexSign.installationMethod = 1 · pairing record · inventory-bridge acceptance",
+			consumer: "DeviceTransportPolicy → InstallationAppProxy → InstalledAppProbe → InstallQueue",
+			status: .needsDevice
+		),
+		FeatureStatusEntry(
+			id: "computer-free-bootstrap",
+			name: "Computer-free bootstrap of VexSign itself",
+			setting: "Documentation → Deployment → computer-free installation",
+			persistedAs: "device-acceptance.local.json (local, never committed) bound to one IPA SHA-256",
+			consumer: "device-acceptance.py init/check with --include-computer-free-bootstrap",
+			status: .needsDevice
+		),
+		FeatureStatusEntry(
 			id: "scheduled-auto-updates",
 			name: "Scheduled automatic update signing",
 			setting: "Updates → Favorites & Auto Updates · Sources → Pause Automatic Updates · Automation → Check Frequency",

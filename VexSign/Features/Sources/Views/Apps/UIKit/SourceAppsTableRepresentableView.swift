@@ -57,7 +57,8 @@ struct SourceAppsTableRepresentableView: UIViewRepresentable {
     }
     
     func setupTableHeader(_ tableView: UITableView, context: Context) {
-        let hasNews = sources.count == 1 && !(sources.first?.news?.isEmpty ?? true)
+        let combinedNews = CombinedSourceNews.items(from: sources)
+        let hasNews = !combinedNews.isEmpty
 
         guard showTabBar || hasNews else {
             tableView.tableHeaderView = nil
@@ -100,8 +101,8 @@ struct SourceAppsTableRepresentableView: UIViewRepresentable {
             context.coordinator.tabBarHostController = nil
         }
 
-        if hasNews, let news = sources.first?.news {
-            let newsView = SourceNewsView(news: news)
+        if hasNews {
+            let newsView = SourceNewsView(news: combinedNews)
             let newsHost = UIHostingController(rootView: newsView)
             newsHost.view.translatesAutoresizingMaskIntoConstraints = false
             newsHost.view.backgroundColor = .clear

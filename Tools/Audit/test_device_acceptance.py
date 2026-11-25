@@ -111,6 +111,48 @@ class AcceptanceTests(unittest.TestCase):
             self.assertNotEqual(again.returncode, 0)
             self.assertEqual(report_path.read_bytes(), original)
 
+    def test_bootstrap_cases_require_an_explicit_route_and_full_observations(self):
+        report = self.report()
+        self.assertEqual(module.validate(report, report['commit'], report['ipa_sha256']), [])
+        report['checks'][module.BOOTSTRAP_CASES[0]] = dict(result='pass', notes='Installed from this IPA')
+        self.assertTrue(module.validate(report, report['commit'], report['ipa_sha256']))
+        report['computer_free_bootstrap'] = True
+        self.assertTrue(module.validate(report, report['commit'], report['ipa_sha256']))
+        for case in module.BOOTSTRAP_CASES:
+            report['checks'][case] = dict(result='pass', notes='Observed on device')
+        self.assertEqual(module.validate(report, report['commit'], report['ipa_sha256']), [])
+        report['computer_free_bootstrap'] = 'yes'
+        self.assertTrue(module.validate(report, report['commit'], report['ipa_sha256']))
+
+    def test_bootstrap_report_is_bound_to_the_exact_unmodified_artifact(self):
+        report = self.report()
+        report['computer_free_bootstrap'] = True
+        for case in module.BOOTSTRAP_CASES:
+            report['checks'][case] = dict(result='pass', notes='Observed on device')
+        self.assertEqual(module.validate(report, 'a' * 40, 'b' * 64), [])
+        self.assertIn('Report IPA checksum differs from supplied artifact',
+                      module.validate(report, 'a' * 40, 'c' * 64))
+
+    def test_cli_bootstrap_report_starts_pending(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            ipa = Path(temporary) / 'fixture.ipa'
+            report_path = Path(temporary) / 'report.json'
+            with zipfile.ZipFile(ipa, 'w') as archive:
+                archive.writestr('Payload/Fixture.app/Info.plist', plistlib.dumps({}))
+            command = [sys.executable, str(Path(module.__file__)), 'init', '--ipa', str(ipa),
+                       '--report', str(report_path), '--commit', 'f' * 40,
+                       '--include-computer-free-bootstrap']
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(report_path.read_text())
+            self.assertTrue(report['computer_free_bootstrap'])
+            self.assertTrue(all(case in report['checks'] for case in module.BOOTSTRAP_CASES))
+            self.assertTrue(all(value == {'result': 'pending', 'notes': ''} for value in report['checks'].values()))
+            check = subprocess.run([sys.executable, str(Path(module.__file__)), 'check', '--ipa', str(ipa),
+                                    '--report', str(report_path), '--commit', 'f' * 40],
+                                   capture_output=True, text=True)
+            self.assertNotEqual(check.returncode, 0)
+
     # MARK: - Source archive vs git checkout
 
     def test_a_source_archive_without_git_metadata_still_initialises_a_report(self):

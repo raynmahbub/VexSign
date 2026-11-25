@@ -158,6 +158,30 @@ final class SourceFeedLoaderTests: XCTestCase {
 		XCTAssertFalse(SourceFeedLoader.isRateLimited(NBFetchService.NBFetchServiceError.noData))
 		XCTAssertFalse(SourceFeedLoader.isRateLimited(URLError(.timedOut)))
 	}
+
+	func testAddSourcePathAppliesTheSameSizeLimitAsTheSyncEngine() async {
+		let payload = Data(repeating: 0x20, count: RepositoryNetworkPolicy.maxFeedBytes + 1)
+		let result = await Self.loader(returning: .success(payload))
+			.load(url: url, headers: [:], identifier: "oversize")
+
+		guard case let .failed(message, rateLimited) = result.outcome else {
+			return XCTFail("expected an oversize source to be refused, got \(result.outcome)")
+		}
+		XCTAssertFalse(rateLimited)
+		XCTAssertTrue(message.contains("size limit"))
+	}
+
+	func testAddSourcePathRefusesASchemaThatIsNotARepository() async {
+		let payload = Data("{\"unexpected\":\"shape\"}".utf8)
+		let result = await Self.loader(returning: .success(payload))
+			.load(url: url, headers: [:], identifier: "malformed")
+
+		guard case let .failed(message, rateLimited) = result.outcome else {
+			return XCTFail("expected a malformed source to be refused, got \(result.outcome)")
+		}
+		XCTAssertFalse(rateLimited)
+		XCTAssertFalse(message.isEmpty)
+	}
 }
 
 // MARK: - Recorder

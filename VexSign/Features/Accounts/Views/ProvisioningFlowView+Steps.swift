@@ -156,7 +156,16 @@ extension ProvisioningFlowView {
                 deviceUDID: deviceIdentifier
             )
 
-            if selectedApp?.isSigned == true {
+            if refreshReview {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(.localized("This runs six attended stages: provision, import the exact identity, re-sign the retained copy, hand it to your chosen delivery route, then verify. Each approval below still applies; nothing starts without it."))
+                        .font(.caption).foregroundStyle(.secondary)
+                    Toggle(.localized("Request one regeneration of the app’s existing Apple profile"), isOn: $consent.regeneration)
+                    Toggle(.localized("I consent to exporting the renewed private key once for this refresh"), isOn: $consent.keyExport)
+                }
+            }
+
+            if selectedApp?.isSigned == true && !refreshReview {
                 Toggle(.localized("Require a later expiry than this signed library copy"), isOn: $consent.laterProfile)
                     .disabled(cellularReview)
                     .onChange(of: consent.laterProfile) { _, _ in consent.regeneration = false }
@@ -185,24 +194,46 @@ extension ProvisioningFlowView {
             }
 
             VStack(spacing: 12) {
-                Button {
-                    guard provisioningTask == nil else { return }
-                    provisioningTask = Task {
-                        await runProvisioning()
-                        provisioningTask = nil
-                    }
-                } label: {
-                    if isProvisioning {
-                        HStack {
-                            ProgressView().scaleEffect(0.8)
-                            Text(.localized("Provisioning…"))
+                if refreshReview {
+                    Button {
+                        guard provisioningTask == nil else { return }
+                        provisioningTask = Task {
+                            await runAccountRefresh()
+                            provisioningTask = nil
                         }
-                    } else {
-                        Label(.localized("Start Provisioning"), systemImage: "arrow.triangle.2.circlepath")
+                    } label: {
+                        if isProvisioning {
+                            HStack {
+                                ProgressView().scaleEffect(0.8)
+                                Text(.localized("Refreshing…"))
+                            }
+                        } else {
+                            Label(.localized("Run Attended Refresh"), systemImage: "arrow.triangle.2.circlepath")
+                        }
                     }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isProvisioning || contextID == nil || !consent.approval.isComplete
+                              || !consent.regeneration || !consent.keyExport || selectedApp?.isSigned != true)
+                } else {
+                    Button {
+                        guard provisioningTask == nil else { return }
+                        provisioningTask = Task {
+                            await runProvisioning()
+                            provisioningTask = nil
+                        }
+                    } label: {
+                        if isProvisioning {
+                            HStack {
+                                ProgressView().scaleEffect(0.8)
+                                Text(.localized("Provisioning…"))
+                            }
+                        } else {
+                            Label(.localized("Start Provisioning"), systemImage: "arrow.triangle.2.circlepath")
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isProvisioning || (cellularReview && (!cellularAvailable || !consent.regeneration)) || contextID == nil || !consent.certificate || !consent.registration || !consent.profile)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(isProvisioning || (cellularReview && (!cellularAvailable || !consent.regeneration)) || contextID == nil || !consent.certificate || !consent.registration || !consent.profile)
 
                 Button(.localized("Back")) {
                     consent.certificate = false; consent.registration = false; consent.profile = false; consent.regeneration = false
@@ -265,15 +296,33 @@ extension ProvisioningFlowView {
                 .font(.system(size: 64))
                 .foregroundStyle(.green)
 
-            Text(certificateImported ? .localized("Certificate Imported") : .localized("Profile Recorded"))
+            Text(refreshReview
+                 ? .localized("Refresh Processed")
+                 : (certificateImported ? .localized("Certificate Imported") : .localized("Profile Recorded")))
                 .font(.title.bold())
 
-            Text(certificateImported
-                ? .localized("The Apple ID identity and profile are now available in Certificates. Select them in the existing signing flow; this step did not sign or install an app.")
-                : .localized("Only the provisioning profile was recorded. No app has been signed or installed. Native Apple-account signing is experimental and not device-accepted. Import requires a separate key-export approval."))
+            Text(refreshReview
+                 ? .localized("The attended refresh finished. A signed copy was handed to the delivery route you chose; verification below says what the device actually reported.")
+                 : (certificateImported
+                    ? .localized("The Apple ID identity and profile are now available in Certificates. Select them in the existing signing flow; this step did not sign or install an app.")
+                    : .localized("Only the provisioning profile was recorded. No app has been signed or installed. Native Apple-account signing is experimental and not device-accepted. Import requires a separate key-export approval.")))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+
+            if refreshReview, let result = refreshResult {
+                VStack(spacing: 8) {
+                    Label(result.isVerified
+                          ? .localized("The refresh has exact device evidence.")
+                          : .localized("The refresh has no exact device evidence. Check the Home Screen; the outcome is recorded as unconfirmed."),
+                          systemImage: result.isVerified ? "checkmark.seal.fill" : "questionmark.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(result.isVerified ? .green : .orange)
+                    Text(.localized("Every stage was recorded in diagnostics with one correlation ID. No later stage was inferred from an earlier success."))
+                        .font(.caption).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+            }
 
             if let handoff = signingHandoff {
                 if let app = services.workspace.snapshot.apps.first(where: { handoff.matches($0) }) {
@@ -297,7 +346,7 @@ extension ProvisioningFlowView {
                 }
             }
 
-            if !certificateImported {
+            if !refreshReview && !certificateImported {
                 Toggle(.localized("I consent to exporting this device-only private key once into VexSign's certificate store."), isOn: $consent.keyExport)
                     .disabled(isProvisioning)
                 Button {

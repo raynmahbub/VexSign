@@ -17,6 +17,7 @@ struct AutomationView: View {
 	@AppStorage(BackgroundAutomationPreferences.enabledKey) private var _isEnabled: Bool = false
 	@AppStorage(BackgroundAutomationPreferences.policyKey) private var _policyRaw: String = BackgroundAutomationPolicy.notifyOnly.rawValue
 	@AppStorage(BackgroundAutomationPreferences.intervalKey) private var _intervalRaw: Int = BackgroundAutomationInterval.everySixHours.rawValue
+    @AppStorage(AccountRefreshAutomationPreferences.enabledKey) private var _accountRefreshReminders: Bool = false
 
 	@ObservedObject private var _history = AutomationHistoryStore.shared
     @State private var _confirmClear = false
@@ -40,6 +41,7 @@ struct AutomationView: View {
             }
 			_enabledSection
 			_policySection
+            _accountRefreshSection
 			if _policyRaw == BackgroundAutomationPolicy.signAndQueue.rawValue {
 				UnattendedSigningGrantSection()
 			}
@@ -151,6 +153,15 @@ struct AutomationView: View {
 			Text(policy.localizedDetail)
 		}
 	}
+
+    @ViewBuilder
+    private var _accountRefreshSection: some View {
+        NBSection(.localized("Account Refresh Reminders")) {
+            Toggle(.localized("Remind me when an account refresh is due"), isOn: $_accountRefreshReminders)
+        } footer: {
+            Text(.localized("A scheduled pass checks the Apple Account renewal schedule and posts a reminder. It cannot sign in, approve provisioning or export a key; do that in the manual review. Off by default."))
+        }
+    }
 
 	@ViewBuilder
 	private var _runSection: some View {

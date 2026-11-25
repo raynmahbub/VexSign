@@ -113726,6 +113726,733 @@
           }
         }
       }
+    },
+    "Automatic keeps the direct OTA/IDevice route unless you explicitly selected the container. A certificate or an Apple Account only decides who signs; it never changes where the app is delivered. Choose Containerized to import a guest in the combined host; explicit modes never silently fall back." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic keeps the direct OTA/IDevice route unless you explicitly selected the container. A certificate or an Apple Account only decides who signs; it never changes where the app is delivered. Choose Containerized to import a guest in the combined host; explicit modes never silently fall back."
+          }
+        }
+      }
+    },
+    "%lld account refreshes need review" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld account refreshes need review"
+          }
+        }
+      }
+    },
+    "%lld certificates need attention (no automatic refresh)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld certificate needs attention (no automatic refresh)"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld certificates need attention (no automatic refresh)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "A scheduled pass checks the Apple Account renewal schedule and posts a reminder. It cannot sign in, approve provisioning or export a key; do that in the manual review. Off by default." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A scheduled pass checks the Apple Account renewal schedule and posts a reminder. It cannot sign in, approve provisioning or export a key; do that in the manual review. Off by default."
+          }
+        }
+      }
+    },
+    "Account Refresh Reminders" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account Refresh Reminders"
+          }
+        }
+      }
+    },
+    "Certificate Revoked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate Revoked"
+          }
+        }
+      }
+    },
+    "No Apple Account refresh is due. Open VexSign to review provisioning at any time." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Apple Account refresh is due. Open VexSign to review provisioning at any time."
+          }
+        }
+      }
+    },
+    "Opening account refresh review. Approve each step in VexSign." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening account refresh review. Approve each step in VexSign."
+          }
+        }
+      }
+    },
+    "Opens the manual Apple Account refresh review. Approvals, signing and install stay in the app; the Shortcut changes nothing by itself." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the manual Apple Account refresh review. Approvals, signing and install stay in the app; the Shortcut changes nothing by itself."
+          }
+        }
+      }
+    },
+    "Remind me when an account refresh is due" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remind me when an account refresh is due"
+          }
+        }
+      }
+    },
+    "Review Account Refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review Account Refresh"
+          }
+        }
+      }
+    },
+    "This Shortcut cannot start an account refresh. Open VexSign to review it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Shortcut cannot start an account refresh. Open VexSign to review it."
+          }
+        }
+      }
+    },
+    "“%@” was revoked. Replace it; re-signing cannot repair a revocation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” was revoked. Replace it; re-signing cannot repair a revocation."
+          }
+        }
+      }
+    },
+    "Apple Account refresh needs you" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Account refresh needs you"
+          }
+        }
+      }
+    },
+    "Review the due account refresh in VexSign. Provisioning, key export and installation need your approval." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review the due account refresh in VexSign. Provisioning, key export and installation need your approval."
+          }
+        }
+      }
+    },
+    "Sign in to your Apple Account in VexSign to review a due refresh. Nothing was changed automatically." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to your Apple Account in VexSign to review a due refresh. Nothing was changed automatically."
+          }
+        }
+      }
+    },
+    "Account refresh needs a signed library copy with an app identifier." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account refresh needs a signed library copy with an app identifier."
+          }
+        }
+      }
+    },
+    "Approve provisioning, one regeneration and the one-time key export before starting." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve provisioning, one regeneration and the one-time key export before starting."
+          }
+        }
+      }
+    },
+    "Choose the target device before starting the refresh." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the target device before starting the refresh."
+          }
+        }
+      }
+    },
+    "Every stage was recorded in diagnostics with one correlation ID. No later stage was inferred from an earlier success." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every stage was recorded in diagnostics with one correlation ID. No later stage was inferred from an earlier success."
+          }
+        }
+      }
+    },
+    "I consent to exporting the renewed private key once for this refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I consent to exporting the renewed private key once for this refresh"
+          }
+        }
+      }
+    },
+    "Refresh Account Signature" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh Account Signature"
+          }
+        }
+      }
+    },
+    "Refresh Processed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh Processed"
+          }
+        }
+      }
+    },
+    "Request one regeneration of the app’s existing Apple profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request one regeneration of the app’s existing Apple profile"
+          }
+        }
+      }
+    },
+    "Run Attended Refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run Attended Refresh"
+          }
+        }
+      }
+    },
+    "Select the signed app and review this refresh again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select the signed app and review this refresh again."
+          }
+        }
+      }
+    },
+    "The account refresh stopped. No later stage started." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The account refresh stopped. No later stage started."
+          }
+        }
+      }
+    },
+    "The attended refresh finished. A signed copy was handed to the delivery route you chose; verification below says what the device actually reported." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The attended refresh finished. A signed copy was handed to the delivery route you chose; verification below says what the device actually reported."
+          }
+        }
+      }
+    },
+    "The refresh has exact device evidence." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The refresh has exact device evidence."
+          }
+        }
+      }
+    },
+    "The refresh has no exact device evidence. Check the Home Screen; the outcome is recorded as unconfirmed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The refresh has no exact device evidence. Check the Home Screen; the outcome is recorded as unconfirmed."
+          }
+        }
+      }
+    },
+    "The signed copy has no readable certificate and profile to replace. Refresh cannot establish a baseline." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signed copy has no readable certificate and profile to replace. Refresh cannot establish a baseline."
+          }
+        }
+      }
+    },
+    "The signed library copy changed. Select it again and review the refresh." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signed library copy changed. Select it again and review the refresh."
+          }
+        }
+      }
+    },
+    "This runs six attended stages: provision, import the exact identity, re-sign the retained copy, hand it to your chosen delivery route, then verify. Each approval below still applies; nothing starts without it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This runs six attended stages: provision, import the exact identity, re-sign the retained copy, hand it to your chosen delivery route, then verify. Each approval below still applies; nothing starts without it."
+          }
+        }
+      }
+    },
+    "1. Signing identity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Signing identity"
+          }
+        }
+      }
+    },
+    "2. Installation method" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2. Installation method"
+          }
+        }
+      }
+    },
+    "Apple Account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Account"
+          }
+        }
+      }
+    },
+    "Choosing this identity does not select a container. Review the installation method under Settings → Installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choosing this identity does not select a container. Review the installation method under Settings → Installation."
+          }
+        }
+      }
+    },
+    "Device readiness" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device readiness"
+          }
+        }
+      }
+    },
+    "Direct installation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Direct installation"
+          }
+        }
+      }
+    },
+    "Direct transport" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Direct transport"
+          }
+        }
+      }
+    },
+    "Direct uses the transport chosen below. Embedded container needs the combined host runtime; if it is not ready the route fails closed instead of falling back. An Apple Account never selects it for you." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Direct uses the transport chosen below. Embedded container needs the combined host runtime; if it is not ready the route fails closed instead of falling back. An Apple Account never selects it for you."
+          }
+        }
+      }
+    },
+    "Import a .p12 certificate and .mobileprovision profile. This chooses who signs only. Choose the installation method separately; profile scope, entitlements and certificate validity still require signing preflight." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a .p12 certificate and .mobileprovision profile. This chooses who signs only. Choose the installation method separately; profile scope, entitlements and certificate validity still require signing preflight."
+          }
+        }
+      }
+    },
+    "Imported .p12 + profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported .p12 + profile"
+          }
+        }
+      }
+    },
+    "Installation method" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation method"
+          }
+        }
+      }
+    },
+    "Installation option · TrollStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation option · TrollStore"
+          }
+        }
+      }
+    },
+    "Signing identity · Apple Account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing identity · Apple Account"
+          }
+        }
+      }
+    },
+    "Signing identity · imported certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing identity · imported certificate"
+          }
+        }
+      }
+    },
+    "This chooses who signs. It never changes the installation method below." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This chooses who signs. It never changes the installation method below."
+          }
+        }
+      }
+    },
+    "This refines Direct installation only. Choosing a transport switches the installation method back to Direct; it does not change the signing identity." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This refines Direct installation only. Choosing a transport switches the installation method back to Direct; it does not change the signing identity."
+          }
+        }
+      }
+    },
+    "Off by default. While off, no new counts are stored. Counts already stored stay on this device and are never uploaded." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off by default. While off, no new counts are stored. Counts already stored stay on this device and are never uploaded."
+          }
+        }
+      }
+    },
+    "Private, on-device counts from this version onward, recorded only while the toggle is on. OTA handoff is not proof of installation. No historical counts are invented." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private, on-device counts from this version onward, recorded only while the toggle is on. OTA handoff is not proof of installation. No historical counts are invented."
+          }
+        }
+      }
+    },
+    "Record local activity counts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record local activity counts"
+          }
+        }
+      }
+    },
+    "Apple Account identity selected. Open the attended provisioning review in VexSign; no stored certificate was substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Account identity selected. Open the attended provisioning review in VexSign; no stored certificate was substituted."
+          }
+        }
+      }
+    },
+    "Apple Account is selected as the signing identity. Auto Sign will keep the import without signing it; use Settings → Signing Methods → Review Account Refresh for an attended refresh. No stored certificate is substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Account is selected as the signing identity. Auto Sign will keep the import without signing it; use Settings → Signing Methods → Review Account Refresh for an attended refresh. No stored certificate is substituted."
+          }
+        }
+      }
+    },
+    "Apple Account review required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Account review required"
+          }
+        }
+      }
+    },
+    "The IPA was kept in your Library. Apple Account signing needs the attended provisioning review; no stored certificate was substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The IPA was kept in your Library. Apple Account signing needs the attended provisioning review; no stored certificate was substituted."
+          }
+        }
+      }
+    },
+    "Apple Account identity selected. Opening the attended provisioning review in VexSign; no stored certificate was substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Account identity selected. Opening the attended provisioning review in VexSign; no stored certificate was substituted."
+          }
+        }
+      }
+    },
+    "The IPA was kept in your Library. Opening the attended provisioning review; no stored certificate was substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The IPA was kept in your Library. Opening the attended provisioning review; no stored certificate was substituted."
+          }
+        }
+      }
+    },
+    "Add to Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to Library"
+          }
+        }
+      }
+    },
+    "Apple Account review required before signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Account review required before signing"
+          }
+        }
+      }
+    },
+    "Repository exceeds the source size limit." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repository exceeds the source size limit."
+          }
+        }
+      }
+    },
+    "Signing was cancelled. The IPA is still in your Library." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing was cancelled. The IPA is still in your Library."
+          }
+        }
+      }
+    },
+    "Installation skipped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation skipped"
+          }
+        }
+      }
+    },
+    "Renews a normal background task assertion so the server stays reachable while VexSign is in the background. iOS may still suspend it; turn this off when you're done transferring." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renews a normal background task assertion so the server stays reachable while VexSign is in the background. iOS may still suspend it; turn this off when you're done transferring."
+          }
+        }
+      }
+    },
+    "Download options" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download options"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -128,7 +128,7 @@ jobs:
 
   build:
     if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.link_smoke != true)
+      (github.event.repository.private == false && github.event.repository.visibility == 'public' || vars.VEXSIGN_PRIVATE_MACOS_VALIDATION == 'true') && (github.event_name != 'workflow_dispatch' || inputs.link_smoke != true)
     needs: checks
     runs-on: macos-15
     timeout-minutes: 90
@@ -281,7 +281,7 @@ jobs:
   # publication. Replaces the standalone native-signing-smoke workflow.
   link-smoke:
     if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public' && github.event_name == 'workflow_dispatch' && inputs.link_smoke == true
+      (github.event.repository.private == false && github.event.repository.visibility == 'public' || vars.VEXSIGN_PRIVATE_MACOS_VALIDATION == 'true') && github.event_name == 'workflow_dispatch' && inputs.link_smoke == true
     needs: checks
     runs-on: macos-15
     timeout-minutes: 60

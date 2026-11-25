@@ -90,6 +90,17 @@ struct SourceFeedLoader: Sendable {
 					outcome: .failed(message: .localized("Couldn't load this source"), rateLimited: false)
 				)
 			}
+			// The add-source screen used to trust NBFetchService's body without the cap and
+			// structural check that RepositorySyncEngine and the GitHub release path apply.
+			// Apply the same policy here so a source cannot be accepted on one screen and
+			// rejected on another, and so a huge payload is never decoded on a background
+			// thread for a view that will refuse it anyway.
+			if let rejection = Self.validate(payload) {
+				return SourceFeedResult(
+					identifier: identifier,
+					outcome: .failed(message: rejection, rateLimited: false)
+				)
+			}
 
 			let feedPayload: Data
 			if isGitHubReleaseSource {
@@ -133,6 +144,21 @@ struct SourceFeedLoader: Sendable {
 				)
 				return SourceFeedResult(identifier: identifier, outcome: .invalid(payload: feedPayload))
 			}
+		}
+	}
+
+	/// One validation policy for every feed-decoding path. The limit matches the bounded
+	/// GitHub/add-source fetcher, and the structural decode matches what the sync engine
+	/// accepts. Returns a reason to refuse the payload, or nil when it is safe to decode.
+	static func validate(_ payload: Data) -> String? {
+		guard payload.count <= RepositoryNetworkPolicy.maxFeedBytes else {
+			return .localized("Repository exceeds the source size limit.")
+		}
+		do {
+			_ = try RepositoryImporter.decode(payload)
+			return nil
+		} catch {
+			return error.localizedDescription
 		}
 	}
 

@@ -12,8 +12,10 @@ import UIKit
 
 enum DiagnosticBundleExporter {
 	/// Packages the diagnostic bundle into a .zip and returns the file URL.
+	/// Pass the composition root's journal so the export sees outcomes written in
+	/// this process; the fallback is for callers without an injected container.
 	@MainActor
-	static func createDiagnosticBundle() -> URL? {
+	static func createDiagnosticBundle(outcomes: OperationOutcomeJournal? = nil) -> URL? {
 		let fm = FileManager.default
 		let stamp = _timestamp()
 		let bundleName = "VexSign-Diagnostics-\(stamp)"
@@ -54,7 +56,13 @@ enum DiagnosticBundleExporter {
 			let integrityData = _buildIntegrityJSON()
 			try integrityData.write(to: stagingDir.appendingPathComponent("integrity.json"))
 
-			// 7. Compress into ZIP
+            // 7. Operation outcomes: correlation ID, stage, status and a
+            //    sanitized reason only. Written through the journal's own export
+            //    so a diagnostic never carries a raw error or a private path.
+            let outcomesData = await (outcomes ?? OperationOutcomeJournal()).exportJSON()
+            try outcomesData.write(to: stagingDir.appendingPathComponent("operations.json"))
+
+            // 8. Compress into ZIP
 			let filesToZip = try fm.contentsOfDirectory(at: stagingDir, includingPropertiesForKeys: nil)
 			try ArchiveEngine.zipItems(filesToZip, to: zipURL)
 

@@ -66,6 +66,13 @@ CASES = ('launch', 'import_sign_verify', 'trust_profile', 'offline_local_install
          'cancel_and_timeout', 'invalid_profile_rejected')
 
 
+# On-device bootstrap acceptance. These cases describe what a human must observe
+# when an external on-device installer places the *unmodified* build on a phone.
+# They are opt-in: a report that did not exercise this route must not be able to
+# acquire these passes by accident, and a partial set reads as no result at all.
+BOOTSTRAP_CASES = ('bootstrap_accepts_unmodified_ipa', 'bootstrap_installed_app_launches')
+
+
 NATIVE_PRIMARY_CASES = ('native_primary_bootstrap', 'host_session_switches',
                         'single_guest_boundary', 'primary_keychain_guard',
                         'installed_inventory_evidence', 'v3_provider_explicit_consent',
@@ -163,6 +170,8 @@ def validate(report, commit, digest, architecture='standalone', require_renewal=
         return errors + ['checks must be an object']
     if report.get('native_handoff') not in (None, True):
         errors.append('native_handoff must be true or absent')
+    if report.get('computer_free_bootstrap') not in (None, True):
+        errors.append('computer_free_bootstrap must be true or absent')
     required = required_cases(architecture)
     if report.get('native_handoff') is True:
         required += NATIVE_HANDOFF_CASES
@@ -170,6 +179,10 @@ def validate(report, commit, digest, architecture='standalone', require_renewal=
         # A partially recorded ladder reads like a partial pass. Either the run
         # exercised the native handoff or it did not.
         errors.append('native handoff checks recorded without native_handoff: true')
+    if report.get('computer_free_bootstrap') is True:
+        required += BOOTSTRAP_CASES
+    elif any(case in cases for case in BOOTSTRAP_CASES):
+        errors.append('bootstrap checks recorded without computer_free_bootstrap: true')
     for case in required:
         item = cases.get(case, {})
         if not isinstance(item, dict) or item.get('result') != 'pass' or not isinstance(item.get('notes'), str) or not item['notes'].strip():
@@ -186,11 +199,14 @@ def main():
                                         'VEXSIGN_SOURCE_COMMIT/GITHUB_SHA, then git HEAD.')
     parser.add_argument('--include-native-handoff', action='store_true',
                         help='init: also record the Free Apple ID handoff ladder cases')
+    parser.add_argument('--include-computer-free-bootstrap', action='store_true',
+                        help='init: also record on-device bootstrap acceptance for this exact IPA')
     parser.add_argument('--renewal', action='store_true',
                         help='Include (init) or require (check) in-place renewal observations')
     args = parser.parse_args()
-    if args.mode == 'check' and args.include_native_handoff:
-        parser.exit(1, '--include-native-handoff applies to init only; a report declares itself\n')
+    if args.mode == 'check' and (args.include_native_handoff or args.include_computer_free_bootstrap):
+        option = '--include-native-handoff' if args.include_native_handoff else '--include-computer-free-bootstrap'
+        parser.exit(1, f'{option} applies to init only; a report declares itself\n')
 
     try:
         commit = resolve_commit(args.commit)
@@ -208,18 +224,23 @@ def main():
         cases = required_cases(architecture)
         if args.include_native_handoff:
             cases += NATIVE_HANDOFF_CASES
+        if args.include_computer_free_bootstrap:
+            cases += BOOTSTRAP_CASES
         report = dict(architecture=architecture, commit=commit, ipa_sha256=digest, tester='', device_model='',
                       os_version='', tested_at_utc='', checks={
                           case: dict(result='pending', notes='') for case in cases})
         if args.include_native_handoff:
             report['native_handoff'] = True
+        if args.include_computer_free_bootstrap:
+            report['computer_free_bootstrap'] = True
         if args.renewal:
             report['renewal'] = renewal_template()
         with args.report.open('x') as handle:
             json.dump(report, handle, indent=2)
             handle.write('\n')
         print('Pending report created. No device checks have passed.'
-              + (' Native handoff ladder included.' if args.include_native_handoff else ''))
+              + (' Native handoff ladder included.' if args.include_native_handoff else '')
+              + (' On-device bootstrap cases included.' if args.include_computer_free_bootstrap else ''))
         return
     errors = validate(json.loads(args.report.read_text()), commit, digest, architecture, args.renewal)
     if errors:

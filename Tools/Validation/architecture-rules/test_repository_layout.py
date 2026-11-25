@@ -22,7 +22,7 @@ PLATFORM = ROOT / "Platform"
 PBX = ROOT / "VexSign.xcodeproj/project.pbxproj"
 WORKSPACE = ROOT / "VexSign.xcworkspace/contents.xcworkspacedata"
 ROOT_LAYERS = {
-    "VexSign", "Packages", "Tests", "Tools", "Configuration", "Platform",
+    "VexSign", "Packages", "Tests", "UITests", "Tools", "Configuration", "Platform",
     "Services", "Documentation",
 }
 APP_LAYERS = {"Navigation", "Composition", "Bootstrap"}

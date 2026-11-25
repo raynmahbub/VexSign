@@ -7,14 +7,20 @@ name: CI
 #           decides whether the macOS jobs are needed (portable-only diffs,
 #           e.g. docs or Tools/*.py, skip them). Docs-only changes never
 #           start this workflow at all — see docs.yml.
-#   build   macOS · unsigned Debug build, warnings gate (baseline in
-#           .github/build-warnings-baseline.json), 14-day test IPA.
-#   tests   macOS · simulator tests, in parallel with build.
+#   build   macOS · unsigned Debug and Release builds, static analyzer, warnings
+#           gate (baseline in .github/build-warnings-baseline.json), 14-day test IPA.
+#   tests   macOS · simulator unit/integration tests plus a quality report built
+#           from xcresult leaf results. A skipped suite is never a pass.
+#   ui-tests macOS · simulator XCUITest target for taps, navigation and swipes.
+#           Separate result bundle, screenshots and quality report; never hardware.
 #   concurrency  macOS · `make strict-concurrency`, the only check that
 #           compiles the first-party packages with complete concurrency
 #           diagnostics. Report-only for now; see the job comment.
+#   device  self-hosted iPhone runner · install, launch and optional native tests
+#           on real hardware. Never runs for a pull request and never on a
+#           GitHub-hosted runner. Requires explicit variables/secrets below.
 #
-# Not here: release builds (release.yml), companion SDKs (platform-check.yml),
+# Not here: publishing (release.yml), companion SDKs (platform-check.yml),
 # Python/TypeScript services (services.yml), SwiftLint (`make lint` locally).
 #
 # Knobs (Settings → Secrets and variables → Actions → Variables):
@@ -22,6 +28,12 @@ name: CI
 #                             the runner; the code needs the iOS 26 SDK.
 #   BUILD_WARNINGS_AS_ERRORS  "true" (default, baseline tolerated) · "strict"
 #                             (every warning fails) · "false" (report only).
+#   VEXSIGN_PRIVATE_MACOS_VALIDATION=true  allow paid macOS jobs on a private repo.
+#   VEXSIGN_DEVICE_RUNNER=true             enable the self-hosted device job.
+#   VEXSIGN_DEVICE_UDID                    UDID of the connected iPhone.
+#   VEXSIGN_DEVICE_IPA                     path to a development-signed IPA on the runner.
+#   VEXSIGN_DEVICE_RUN_TESTS=true          also run VexSignTests on the device.
+#   Secret VEXSIGN_DEVICE_SIGNING_IDENTITY development certificate for that IPA.
 
 on:
   push:
@@ -30,6 +42,7 @@ on:
       - 'VexSign/App/**'
       - 'VexSign/Features/**'
       - 'Tests/**'
+      - 'UITests/**'
       - 'VexSign/Shared/**'
       - 'VexSign/Storage/**'
       - 'VexSign/Networking/**'
@@ -80,6 +93,7 @@ on:
       - 'VexSign/App/**'
       - 'VexSign/Features/**'
       - 'Tests/**'
+      - 'UITests/**'
       - 'VexSign/Shared/**'
       - 'VexSign/Storage/**'
       - 'VexSign/Networking/**'
@@ -142,6 +156,11 @@ on:
         options: ['true', 'strict', 'false']
         required: false
         default: 'true'
+      device:
+        description: 'Run the physical-device job on a configured self-hosted iPhone runner'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -303,6 +322,10 @@ jobs:
           python3 Tools/Validation/architecture-rules/test_architecture_excellence.py
           python3 Tools/Validation/repository-validation/test_ci_repair_agent.py
           python3 Tools/Audit/test_device_acceptance.py
+          python3 Tools/Audit/test_feature_acceptance.py
+          python3 Tools/Audit/test_quality_report.py
+          python3 Tools/Audit/test_ui_test_target.py
+          python3 Tools/Release/test_verify_ci_gate.py
           python3 Tools/Validation/security-validation/test_native_promotion_evidence.py
           python3 Tools/Validation/security-validation/test_private_defaults_policy.py
           python3 Tools/Validation/security-validation/test_archive_extraction_policy.py
@@ -346,21 +369,25 @@ jobs:
 
       # The macOS jobs below are gated on public visibility so a private mirror cannot spend the
       # project's macOS runner budget (see `test_workflow_policy.py::test_free_only_workflow_policy`).
-      # A job that never starts leaves nothing in the check list but its absence, so say it here:
-      # a green pull request from a private fork must not read as a validated one.
+      # A trusted private repository can opt in with the repository variable
+      # VEXSIGN_PRIVATE_MACOS_VALIDATION=true and accept the billed minutes. A job that never
+      # starts leaves nothing in the check list but its absence, so say it here: a green pull
+      # request from a private fork must not read as a validated one.
       - name: Say that the macOS jobs are skipped
-        if: github.event.repository.private == true || github.event.repository.visibility != 'public'
+        if: (github.event.repository.private == true || github.event.repository.visibility != 'public') && vars.VEXSIGN_PRIVATE_MACOS_VALIDATION != 'true'
         run: |
           {
             echo "### macOS build and tests were skipped"
             echo
-            echo "This repository is private, so \`build\`, \`tests\`, \`concurrency\` and the"
-            echo "platform builds did not start — they are paid-runner jobs. The portable gates"
-            echo "in this job ran. Nothing here compiled the Swift in this change."
+            echo "This repository is private and has not opted in, so \`build\`, \`tests\`,"
+            echo "\`concurrency\` and the platform builds did not start — they are paid-runner jobs."
+            echo "The portable gates in this job ran. Nothing here compiled the Swift in this change."
+            echo
+            echo "To validate here, set the repository variable VEXSIGN_PRIVATE_MACOS_VALIDATION=true"
+            echo "and re-run the workflow, or validate in a public fork."
             echo
             echo "Policy: \`Tools/Validation/repository-validation/test_workflow_policy.py\`,"
-            echo "\`test_free_only_workflow_policy\`. Validate a change that must be compiled in a"
-            echo "public fork."
+            echo "\`test_free_only_workflow_policy\`."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=macOS validation skipped::private repository; the app was not built and its tests did not run"
 
@@ -369,7 +396,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build:
     if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
+      (github.event.repository.private == false && github.event.repository.visibility == 'public' || vars.VEXSIGN_PRIVATE_MACOS_VALIDATION == 'true') && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
     name: build · VexSign Debug (unsigned)
     needs: quick
     runs-on: macos-15
@@ -383,8 +410,12 @@ jobs:
         run: |
           {
             echo "DERIVED_DATA=${RUNNER_TEMP}/DerivedData"
+            echo "RELEASE_DERIVED_DATA=${RUNNER_TEMP}/DerivedDataRelease"
             echo "RESULT_BUNDLE=${RUNNER_TEMP}/VexSign.xcresult"
+            echo "RELEASE_RESULT_BUNDLE=${RUNNER_TEMP}/VexSignRelease.xcresult"
             echo "BUILD_LOG=${RUNNER_TEMP}/xcodebuild.log"
+            echo "RELEASE_BUILD_LOG=${RUNNER_TEMP}/xcodebuild-release.log"
+            echo "ANALYZE_LOG=${RUNNER_TEMP}/xcodebuild-analyze.log"
           } >> "$GITHUB_ENV"
 
       - name: Select Xcode
@@ -452,6 +483,66 @@ jobs:
         with:
           path: ${{ runner.temp }}/DerivedData/SourcePackages
           key: spm-v2-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
+
+      # Debug compilation is necessary but not sufficient: optimised Release builds
+      # routinely surface different type-checker, linker and resource problems. Build
+      # it on every native change, unsigned, with its own DerivedData and result bundle.
+      - name: Build (Release)
+        id: release_build
+        run: |
+          set +e
+          set -uo pipefail
+          xcodebuild \
+            -skipPackagePluginValidation \
+            -workspace VexSign.xcworkspace \
+            -scheme VexSign \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RELEASE_DERIVED_DATA" \
+            -resultBundlePath "$RELEASE_RESULT_BUNDLE" \
+            VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build 2>&1 | tee "$RELEASE_BUILD_LOG" \
+              | { if command -v xcbeautify >/dev/null; then xcbeautify --quiet --renderer terminal --disable-logging; else cat; fi; } \
+              | { grep -v -F 'libunicorn.a' || true; }
+          status=${PIPESTATUS[0]}
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          if [ "${status}" -ne 0 ]; then
+            echo "::error::Release xcodebuild exited with status ${status}; see the Release build log."
+          fi
+          exit "${status}"
+
+      # Static analyser findings are compile-time bugs, not style preferences. This is a
+      # blocking step: a new analyzer defect should fail the pull request that introduced it.
+      - name: Static analyzer
+        id: analyze
+        run: |
+          set +e
+          set -uo pipefail
+          xcodebuild \
+            -skipPackagePluginValidation \
+            -workspace VexSign.xcworkspace \
+            -scheme VexSign \
+            -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            analyze 2>&1 | tee "$ANALYZE_LOG" \
+              | { if command -v xcbeautify >/dev/null; then xcbeautify --quiet --renderer terminal --disable-logging; else cat; fi; } \
+              | { grep -v -F 'libunicorn.a' || true; }
+          status=${PIPESTATUS[0]}
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          if [ "${status}" -ne 0 ]; then
+            echo "::error::Static analyzer exited with status ${status}; see the analyzer log."
+          fi
+          exit "${status}"
 
       # Annotates errors/warnings inline, writes the summary and enforces the
       # warnings gate. Runs even when the build step failed so the diagnostics
@@ -560,7 +651,10 @@ jobs:
           name: build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/VexSign.xcresult
+            ${{ runner.temp }}/VexSignRelease.xcresult
             ${{ runner.temp }}/xcodebuild.log
+            ${{ runner.temp }}/xcodebuild-release.log
+            ${{ runner.temp }}/xcodebuild-analyze.log
           if-no-files-found: warn
           retention-days: 3
 
@@ -571,7 +665,7 @@ jobs:
   # ---------------------------------------------------------------------------
   tests:
     if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
+      (github.event.repository.private == false && github.event.repository.visibility == 'public' || vars.VEXSIGN_PRIVATE_MACOS_VALIDATION == 'true') && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
     name: tests · VexSignTests (simulator)
     needs: quick
     runs-on: macos-15
@@ -585,6 +679,9 @@ jobs:
             echo "DERIVED_DATA=${RUNNER_TEMP}/DerivedData"
             echo "RESULT_BUNDLE=${RUNNER_TEMP}/VexSignTests.xcresult"
             echo "TEST_LOG=${RUNNER_TEMP}/xcodebuild-test.log"
+            echo "TEST_RESULTS_JSON=${RUNNER_TEMP}/test-results.json"
+            echo "QUALITY_JSON=${RUNNER_TEMP}/quality-report.json"
+            echo "QUALITY_MD=${RUNNER_TEMP}/quality-report.md"
           } >> "$GITHUB_ENV"
 
       - name: Select Xcode
@@ -724,6 +821,50 @@ jobs:
             --title "Tests" \
             --workspace "$GITHUB_WORKSPACE"
 
+      # The authoritative "did tests actually run?" gate. xcodebuild can exit 0 with
+      # an empty or all-skipped suite; this reads leaf results from the xcresult and
+      # fails when nothing executed or any test failed. It runs even when the test
+      # step failed, so the summary always records what really happened.
+      - name: Quality report
+        id: quality
+        if: always() && steps.test.outcome != 'skipped'
+        run: |
+          set +e
+          set -uo pipefail
+          if [ -d "$RESULT_BUNDLE" ]; then
+            xcrun xcresulttool get test-results tests --path "$RESULT_BUNDLE" --format json > "$TEST_RESULTS_JSON"
+          fi
+          python3 Tools/Audit/quality-report.py \
+            --test-results "$TEST_RESULTS_JSON" \
+            --test-log "$TEST_LOG" \
+            --json "$QUALITY_JSON" \
+            --markdown "$QUALITY_MD" \
+            --github-output "$GITHUB_OUTPUT"
+          status=$?
+          if [ "${status}" -ne 0 ]; then
+            echo "::error::Quality report failed; no passing simulator suite is claimed."
+          fi
+          exit "${status}"
+
+      - name: Publish quality summary
+        if: always() && steps.quality.outcome != 'skipped'
+        run: |
+          if [ -f "$QUALITY_MD" ]; then
+            cat "$QUALITY_MD" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload quality report
+        if: always() && steps.quality.outcome != 'skipped'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: quality-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/quality-report.json
+            ${{ runner.temp }}/quality-report.md
+            ${{ runner.temp }}/test-results.json
+          if-no-files-found: warn
+          retention-days: 3
+
       # The shared VexSignTests scheme enables code coverage, and `-enableCodeCoverage
       # YES` above repeats it on the command line because the scheme setting alone has
       # been lost before: this step used to log "Could not read coverage … skipping" on
@@ -790,6 +931,151 @@ jobs:
           retention-days: 3
 
   # ---------------------------------------------------------------------------
+  # Real UI interactions on the simulator. This is a separate target and a
+  # separate check: its screenshots are evidence of what the simulator showed,
+  # not proof of an iOS install or a physical-device acceptance flow.
+  # ---------------------------------------------------------------------------
+  ui-tests:
+    if: >-
+      (github.event.repository.private == false && github.event.repository.visibility == 'public' || vars.VEXSIGN_PRIVATE_MACOS_VALIDATION == 'true') && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
+    name: ui-tests · VexSignUITests (simulator)
+    needs: quick
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Paths
+        run: |
+          {
+            echo "DERIVED_DATA=${RUNNER_TEMP}/UIDerivedData"
+            echo "RESULT_BUNDLE=${RUNNER_TEMP}/VexSignUITests.xcresult"
+            echo "TEST_LOG=${RUNNER_TEMP}/xcodebuild-ui-test.log"
+            echo "TEST_RESULTS_JSON=${RUNNER_TEMP}/ui-test-results.json"
+            echo "QUALITY_JSON=${RUNNER_TEMP}/ui-quality-report.json"
+            echo "QUALITY_MD=${RUNNER_TEMP}/ui-quality-report.md"
+          } >> "$GITHUB_ENV"
+
+      - name: Select Xcode
+        id: xcode
+        env:
+          REQUESTED_XCODE: ${{ inputs.xcode || vars.BUILD_XCODE || '' }}
+        run: bash .github/scripts/select_xcode.sh
+
+      - name: Restore Swift packages
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/UIDerivedData/SourcePackages
+          key: spm-v2-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            spm-v2-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-
+            spm-v2-${{ runner.os }}-
+
+      - name: Select simulator
+        id: simulator
+        run: |
+          set -euo pipefail
+          line="$(python3 .github/scripts/select_simulator.py)"
+          udid="${line##* }"
+          echo "udid=${udid}" >> "$GITHUB_OUTPUT"
+          echo "Using simulator: ${line}"
+
+      # UI tests must not run in parallel workers: each worker would launch its
+      # own copy of the app and steal taps from the other suite.
+      - name: Run UI tests
+        id: test
+        env:
+          SIM_UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          set +e
+          set -uo pipefail
+          xcodebuild \
+            -skipPackagePluginValidation \
+            -workspace VexSign.xcworkspace \
+            -scheme VexSignUITests \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${SIM_UDID}" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -resultBundlePath "$RESULT_BUNDLE" \
+            -only-testing:VexSignUITests \
+            -parallel-testing-enabled NO \
+            -enableCodeCoverage YES \
+            VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_IDENTITY="-" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            ONLY_ACTIVE_ARCH=YES \
+            test 2>&1 | tee "$TEST_LOG" \
+              | { if command -v xcbeautify >/dev/null; then xcbeautify --quiet --renderer terminal --disable-logging; else cat; fi; } \
+              | { grep -v -F 'libunicorn.a' || true; }
+          status=${PIPESTATUS[0]}
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          if [ "${status}" -ne 0 ]; then
+            echo "::error::XCUITest xcodebuild exited with status ${status}; see the uploaded xcresult and screenshots."
+          fi
+          exit "${status}"
+
+      - name: Surface UI failures
+        if: failure() && steps.test.outcome != 'skipped'
+        continue-on-error: true
+        env:
+          RESULT_BUNDLE: ${{ runner.temp }}/VexSignUITests.xcresult
+          TEST_LOG: ${{ runner.temp }}/xcodebuild-ui-test.log
+          TEST_EXIT: ${{ steps.test.outputs.exit_code }}
+          SUMMARY_JSON: ${{ runner.temp }}/ui-summary.json
+        run: python3 .github/scripts/surface_test_failures.py
+
+      # The same leaf-result gate as the unit job. A skipped or never-run UI
+      # target cannot be reported as a pass, and screenshots stay in the bundle.
+      - name: UI quality report
+        id: quality
+        if: always() && steps.test.outcome != 'skipped'
+        run: |
+          set +e
+          set -uo pipefail
+          if [ -d "$RESULT_BUNDLE" ]; then
+            xcrun xcresulttool get test-results tests --path "$RESULT_BUNDLE" --format json > "$TEST_RESULTS_JSON"
+          fi
+          python3 Tools/Audit/quality-report.py \
+            --test-results "$TEST_RESULTS_JSON" \
+            --test-log "$TEST_LOG" \
+            --json "$QUALITY_JSON" \
+            --markdown "$QUALITY_MD" \
+            --github-output "$GITHUB_OUTPUT"
+          status=$?
+          if [ "${status}" -ne 0 ]; then
+            echo "::error::UI quality report failed; no unexecuted UI test is claimed as passed."
+          fi
+          exit "${status}"
+
+      - name: Publish UI quality summary
+        if: always() && steps.quality.outcome != 'skipped'
+        run: |
+          if [ -f "$QUALITY_MD" ]; then
+            cat "$QUALITY_MD" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Upload on every attempt, not only failure: passing runs keep the
+      # screenshots XCUITest attached, so a later UI regression has evidence to
+      # compare against.
+      - name: Upload UI xcresult, screenshots and report
+        if: always() && steps.test.outcome != 'skipped'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-tests-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/VexSignUITests.xcresult
+            ${{ runner.temp }}/xcodebuild-ui-test.log
+            ${{ runner.temp }}/ui-test-results.json
+            ${{ runner.temp }}/ui-quality-report.json
+            ${{ runner.temp }}/ui-quality-report.md
+          if-no-files-found: warn
+          retention-days: 3
+
+  # ---------------------------------------------------------------------------
   # What still breaks under complete concurrency checking?
   # ---------------------------------------------------------------------------
   # `Tools/Validation/security-validation/concurrency-discipline.py` in the quick job is a counting gate: it
@@ -807,7 +1093,7 @@ jobs:
   # that argument used to fail the target before it compiled anything.
   concurrency:
     if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
+      (github.event.repository.private == false && github.event.repository.visibility == 'public' || vars.VEXSIGN_PRIVATE_MACOS_VALIDATION == 'true') && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
     name: concurrency · first-party packages (ratchet)
     needs: quick
     runs-on: macos-15
@@ -875,4 +1161,93 @@ jobs:
           name: strict-concurrency-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/strict-concurrency.log
           if-no-files-found: ignore
+          retention-days: 3
+
+  # ---------------------------------------------------------------------------
+  # Genuine iPhone acceptance. Never runs on a GitHub-hosted runner and never
+  # starts for a pull request. The self-hosted runner must supply a development-
+  # signed IPA and a UDID; the unsigned CI artifact cannot be installed here.
+  # A simulator pass is not accepted as a substitute.
+  # ---------------------------------------------------------------------------
+  device:
+    name: device · iPhone (self-hosted, opt-in)
+    needs: [quick, build, tests, ui-tests]
+    if: >-
+      github.event_name != 'pull_request' &&
+      vars.VEXSIGN_DEVICE_RUNNER == 'true' &&
+      (github.event_name != 'workflow_dispatch' || inputs.device == true) &&
+      needs.quick.outputs.native == 'true'
+    runs-on: [self-hosted, macos, arm64, ios-device]
+    timeout-minutes: 90
+    env:
+      DEVICE_UDID: ${{ vars.VEXSIGN_DEVICE_UDID }}
+      DEVICE_SIGNING_IDENTITY: ${{ secrets.VEXSIGN_DEVICE_SIGNING_IDENTITY }}
+      DEVICE_IPA: ${{ vars.VEXSIGN_DEVICE_IPA }}
+      RUN_DEVICE_TESTS: ${{ vars.VEXSIGN_DEVICE_RUN_TESTS }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Require explicit device configuration
+        run: |
+          set -euo pipefail
+          for key in DEVICE_UDID DEVICE_SIGNING_IDENTITY DEVICE_IPA; do
+            if [ -z "${!key}" ]; then
+              echo "::error::$key is not configured on the device runner"
+              exit 1
+            fi
+          done
+          test -f "$DEVICE_IPA" || { echo "::error::DEVICE_IPA does not exist on the runner"; exit 1; }
+          echo "Device: $DEVICE_UDID"
+          echo "IPA: $DEVICE_IPA"
+
+      - name: Install, launch and test on device
+        run: |
+          set -euo pipefail
+          flags=""
+          if [ "$RUN_DEVICE_TESTS" = "true" ]; then flags="--run-tests"; fi
+          python3 Tools/Audit/run-device-acceptance.py \
+            --ipa "$DEVICE_IPA" \
+            --device "$DEVICE_UDID" \
+            --log "${RUNNER_TEMP}/device-acceptance.log" \
+            --commit "${GITHUB_SHA}" $flags
+
+      - name: Create per-feature device matrix
+        run: |
+          python3 Tools/Audit/feature-acceptance.py init \
+            --ipa "$DEVICE_IPA" \
+            --report "${RUNNER_TEMP}/feature-acceptance.json" \
+            --commit "${GITHUB_SHA}"
+
+      - name: Check per-feature device evidence
+        id: feature_check
+        continue-on-error: true
+        run: |
+          python3 Tools/Audit/feature-acceptance.py check \
+            --ipa "$DEVICE_IPA" \
+            --report "${RUNNER_TEMP}/feature-acceptance.json" \
+            --commit "${GITHUB_SHA}"
+
+      - name: Device summary
+        if: always()
+        run: |
+          {
+            echo "### Physical-device run"
+            echo
+            echo "Device: \`$DEVICE_UDID\`"
+            echo "Feature evidence: ${{ steps.feature_check.outcome }}"
+            echo
+            echo "A simulator job never contributes to this section. Pending device cases remain blocked."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload device evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: device-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/device-acceptance.log
+            ${{ runner.temp }}/feature-acceptance.json
+            .artifacts/VexSignDevice.xcresult
+          if-no-files-found: warn
           retention-days: 3

@@ -316,7 +316,7 @@ extension WebManagerView {
 				Label(.localized("Keep Alive"), systemImage: "bolt.badge.clock")
 			}
 		} footer: {
-			Text(.localized("Keeps the server reachable while VexSign is in the background by playing silent audio. This noticeably increases battery drain — turn it off when you're done transferring."))
+			Text(.localized("Renews a normal background task assertion so the server stays reachable while VexSign is in the background. iOS may still suspend it; turn this off when you're done transferring."))
 		}
 	}
 
