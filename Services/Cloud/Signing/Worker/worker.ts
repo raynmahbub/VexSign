@@ -1,6 +1,6 @@
 import { Worker } from 'bullmq';
 import { loadConfig } from '../../Configuration/config.js';
-import { infrastructure } from '../../VexSign/Storage/infrastructure.js';
+import { infrastructure } from '../../Storage/infrastructure.js';
 import { PendingJobDispatcher } from '../JobQueue/dispatch.js';
 import { deliverWebhooks, failureCode, finish, processJob, pruneWebhooks, type WorkerDeps } from './processor.js';
 

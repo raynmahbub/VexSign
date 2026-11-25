@@ -32,13 +32,42 @@ final class SigningModeRoutingTests: XCTestCase {
         XCTAssertEqual(pipeline.installationMethodValue, 1)
     }
 
-    func testAutomaticUsesContainerWithoutPaidCertificateEvidence() throws {
+    func testAutomaticKeepsDirectDeliveryWithoutPaidCertificateEvidence() throws {
         for certificate in [nil, evidence(timeToLive: 7), evidence(timeToLive: nil)] {
             let pipeline = try InstallationRouter.resolve(InstallationRoutingInput(
                 certificate: certificate, hasEmbeddedRuntime: true
             ), at: now)
-            XCTAssertEqual(pipeline, .containerized)
+            XCTAssertEqual(pipeline, .directPaid(.server))
         }
+    }
+
+    func testChangingIdentityNeverChangesDelivery() throws {
+        for identity in SigningIdentitySource.allCases {
+            let pipeline = try InstallationRouter.resolve(InstallationRoutingInput(
+                certificate: nil, identitySource: identity,
+                hasEmbeddedRuntime: true, storedInstallationMethod: 1
+            ), at: now)
+            XCTAssertEqual(pipeline, .directPaid(.idevice))
+            XCTAssertEqual(IdentityDeliveryPolicy.selectionChangesDelivery(identity: identity), false)
+        }
+    }
+
+    func testGuestRouteRequiresAnExplicitSelectionEvenWithAnAccount() throws {
+        let stored = InstallationRoutingInput(
+            certificate: nil, identitySource: .appleAccount,
+            hasEmbeddedRuntime: true, storedInstallationMethod: 2
+        )
+        XCTAssertEqual(try InstallationRouter.resolve(stored, at: now), .containerized)
+        let notStored = InstallationRoutingInput(
+            certificate: nil, identitySource: .appleAccount,
+            hasEmbeddedRuntime: true, storedInstallationMethod: 0
+        )
+        XCTAssertEqual(try InstallationRouter.resolve(notStored, at: now), .directPaid(.server))
+        let explicit = InstallationRoutingInput(
+            preference: .containerized, certificate: nil,
+            identitySource: .appleAccount, hasEmbeddedRuntime: true
+        )
+        XCTAssertEqual(try InstallationRouter.resolve(explicit, at: now), .containerized)
     }
 
     func testEnterpriseProfileCanBeAutomaticDirectCandidate() throws {

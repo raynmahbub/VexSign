@@ -208,7 +208,7 @@ final class CleanArchitectureLayerTests: XCTestCase {
         var exportURL: URL?
 
         func currentSnapshot() -> DiagnosticOverviewSnapshot { snapshot }
-        func exportDiagnosticArchiveURL() -> URL? { exportURL }
+        func exportDiagnosticArchiveURL() async -> URL? { exportURL }
     }
 
     @MainActor

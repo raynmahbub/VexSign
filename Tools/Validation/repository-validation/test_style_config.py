@@ -269,5 +269,21 @@ class SwiftFormatScopeTests(unittest.TestCase):
             self.assertIn(root, excluded)
 
 
+class GitAttributesTests(unittest.TestCase):
+    """`.gitattributes` must agree with `.editorconfig`, not fight it."""
+
+    def test_line_endings_are_lf(self):
+        path = ROOT / ".gitattributes"
+        self.assertTrue(path.is_file(), "the root architecture lists .gitattributes")
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("* text=auto eol=lf", text)
+        self.assertNotIn("eol=crlf", text)
+
+    def test_signing_and_asset_binaries_are_never_rewritten(self):
+        text = (ROOT / ".gitattributes").read_text(encoding="utf-8")
+        for pattern in ("*.png", "*.p12", "*.mobileprovision", "*.ipa"):
+            self.assertRegex(text, rf"(?m)^{re.escape(pattern)} binary$", pattern)
+
+
 if __name__ == "__main__":
     unittest.main()

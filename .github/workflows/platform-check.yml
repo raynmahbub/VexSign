@@ -89,11 +89,13 @@ concurrency:
 
 jobs:
   # The platform builds spend paid macOS minutes, so they are gated on public visibility (see
-  # `test_workflow_policy.py::test_free_only_workflow_policy`). A gated job leaves no trace in
-  # the check list, so this one states the skip: a private fork must not look validated.
+  # `test_workflow_policy.py::test_free_only_workflow_policy`). A trusted private repository can
+  # opt in with VEXSIGN_PRIVATE_MACOS_VALIDATION=true and accept the billed minutes. A gated job
+  # leaves no trace in the check list, so this one states the skip: a private fork must not look
+  # validated.
   skip-note:
     if: >-
-      github.event.repository.private == true || github.event.repository.visibility != 'public'
+      (github.event.repository.private == true || github.event.repository.visibility != 'public') && vars.VEXSIGN_PRIVATE_MACOS_VALIDATION != 'true'
     name: platform builds · not run on a private repository
     runs-on: ubuntu-24.04
     timeout-minutes: 2
@@ -103,14 +105,15 @@ jobs:
           {
             echo "### tvOS, watchOS and visionOS builds were skipped"
             echo
-            echo "This repository is private, so the paid-runner \`xcodebuild\` jobs did not"
-            echo "start. Policy: \`test_workflow_policy.py\`, \`test_free_only_workflow_policy\`."
+            echo "This repository is private and has not opted in, so the paid-runner"
+            echo "\`xcodebuild\` jobs did not start. Set VEXSIGN_PRIVATE_MACOS_VALIDATION=true to"
+            echo "run them. Policy: \`test_workflow_policy.py\`, \`test_free_only_workflow_policy\`."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=platform builds skipped::private repository; no platform was compiled"
 
   build:
     if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public'
+      (github.event.repository.private == false && github.event.repository.visibility == 'public' || vars.VEXSIGN_PRIVATE_MACOS_VALIDATION == 'true')
     name: ${{ matrix.label }}
     runs-on: macos-15
     timeout-minutes: 45

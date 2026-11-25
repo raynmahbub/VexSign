@@ -218,6 +218,18 @@ extension WebManagerServer {
 	private func _signAndPackage(request: Request, ipaURL: URL, staging: URL,
                                  workLease: AppOperationRegistry.Lease) async -> Response {
         defer { withExtendedLifetime(workLease) {} }
+		// A browser upload is unattended. Check the selected identity before the stored
+		// certificate: with an Apple Account selected, "no certificate" would hide the
+		// real reason the upload was refused and suggest importing one as a workaround.
+		guard AutoSignIdentityPolicy.decide(
+			identity: SigningModeManager.shared.identityChoice
+		) == .allow else {
+			try? FileManager.default.removeItem(at: staging) // try? ok: the response already carries the real error; staging cleanup must not mask it
+			return Response(
+				status: .preconditionFailed,
+				body: .init(string: "Apple Account identity selected. Use the attended review in VexSign; no stored certificate was substituted.")
+			)
+		}
 		guard AutoSignManager.canSign else {
 			try? FileManager.default.removeItem(at: staging) // try? ok: the response already carries the real error; staging cleanup must not mask it
 			return Response(

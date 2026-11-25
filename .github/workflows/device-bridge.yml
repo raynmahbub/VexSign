@@ -65,7 +65,7 @@ jobs:
 
   apple:
     if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public'
+      (github.event.repository.private == false && github.event.repository.visibility == 'public' || vars.VEXSIGN_PRIVATE_MACOS_VALIDATION == 'true')
     name: Apple · source-built XCFramework
     needs: native
     runs-on: macos-15

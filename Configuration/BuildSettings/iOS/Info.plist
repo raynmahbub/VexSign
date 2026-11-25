@@ -224,7 +224,6 @@
 		<string>download</string>
 		<string>fetch</string>
 		<string>processing</string>
-		<string>audio</string>
 	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>

@@ -106,6 +106,9 @@ extension InstallationRoutingError: LocalizedError {
 struct InstallationRoutingInput: Equatable, Sendable {
     var preference: SigningModePreference = .automatic
     var certificate: CertificateRoutingEvidence?
+    /// Who signs, never where the result is delivered. Passed to the policy only so it
+    /// can be tested that changing the identity does not change the route.
+    var identitySource: SigningIdentitySource = .importedCertificate
     var hasEmbeddedRuntime = false
     var storedInstallationMethod = 0
     var preferredDirectInstallationMethod = 0
@@ -124,19 +127,24 @@ enum InstallationRouter {
         case .directPaid:
             return .directPaid(try directMethod(forExplicitDirectRoute: input))
         case .automatic:
-            // Value 2 was the guest route before mode routing existed. Preserve that explicit
-            // choice instead of allowing a later certificate import to change it unexpectedly.
-            if input.storedInstallationMethod == 2 {
+            let decision = IdentityDeliveryPolicy.decide(
+                identity: input.identitySource,
+                // Paid evidence affects signing, not the destination. It is passed so the
+                // policy states explicitly that it may not turn into a route change.
+                hasDirectPaidCandidate: input.certificate?.isDirectPaidCandidate(at: date) == true,
+                storedGuestSelection: input.storedInstallationMethod == 2,
+                hasGuestRuntime: input.hasEmbeddedRuntime
+            )
+            switch decision {
+            case .guest:
+                // Value 2 was an explicit guest selection, not an inference from an
+                // account. A build without that runtime still fails closed.
                 return try container(input.hasEmbeddedRuntime)
+            case .direct:
+                // Keep the established direct transport for already signed/ad-hoc
+                // packages. Signing preflight still requires a valid identity.
+                return .directPaid(try directMethod(storedValue: input.storedInstallationMethod))
             }
-            let method = try directMethod(storedValue: input.storedInstallationMethod)
-            if input.certificate?.isDirectPaidCandidate(at: date) == true {
-                return .directPaid(method)
-            }
-            if input.hasEmbeddedRuntime { return .containerized }
-            // A standalone build has no guest destination. Keep its established direct pipeline
-            // for already signed/ad-hoc IPAs; signing preflight still requires an identity.
-            return .directPaid(method)
         }
     }
 
@@ -170,9 +178,17 @@ final class SigningModeManager: ObservableObject {
     static let shared = SigningModeManager()
     static let preferenceKey = "VexSign.signingModePreference"
     static let preferredDirectMethodKey = "VexSign.preferredDirectInstallationMethod"
+    static let identityKey = "VexSign.signingIdentityChoice"
+    static let methodKey = "VexSign.installationMethodChoice"
     private static let installationMethodKey = "VexSign.installationMethod"
 
     @Published private(set) var preference: SigningModePreference
+    /// Who signs. Changing this value never writes to `methodChoice` or to the
+    /// stored installation method.
+    @Published private(set) var identityChoice: SigningIdentityChoice
+    /// Where the signed package goes. The separate direct transport picker only
+    /// refines the `.direct` choice.
+    @Published private(set) var methodChoice: InstallationMethodChoice
     private let defaults: UserDefaults
     /// Profile parsing can be expensive in a library with hundreds of rows. Identity UUID,
     /// revocation and recorded expiry form the cache key; a new import uses a new identity UUID.
@@ -182,9 +198,49 @@ final class SigningModeManager: ObservableObject {
         self.defaults = defaults
         preference = defaults.string(forKey: Self.preferenceKey)
             .flatMap(SigningModePreference.init(rawValue:)) ?? .automatic
+        identityChoice = defaults.string(forKey: Self.identityKey)
+            .flatMap(SigningIdentityChoice.init(rawValue:)) ?? .importedCertificate
+        let storedMethod = defaults.integer(forKey: Self.installationMethodKey)
+        methodChoice = defaults.string(forKey: Self.methodKey)
+            .flatMap(InstallationMethodChoice.init(rawValue:))
+            ?? (storedMethod == 2 ? .embeddedContainer : .direct)
+    }
+
+    /// Identity-only mutation: no route key is touched.
+    func selectIdentity(_ newChoice: SigningIdentityChoice) {
+        guard identityChoice != newChoice else { return }
+        identityChoice = newChoice
+        defaults.set(newChoice.rawValue, forKey: Self.identityKey)
+    }
+
+    /// Delivery-only mutation: no identity key is touched. An explicit container
+    /// selection survives an identity change; an explicit direct selection restores
+    /// the saved direct transport rather than inventing one from the certificate.
+    func selectMethod(_ newChoice: InstallationMethodChoice) {
+        switch newChoice {
+        case .direct:
+            if defaults.integer(forKey: Self.installationMethodKey) == 2 {
+                defaults.set(preferredDirectMethod, forKey: Self.installationMethodKey)
+            }
+            preference = .directPaid
+        case .embeddedContainer:
+            defaults.set(2, forKey: Self.installationMethodKey)
+            preference = .containerized
+        }
+        methodChoice = newChoice
+        defaults.set(newChoice.rawValue, forKey: Self.methodKey)
+        defaults.set(preference.rawValue, forKey: Self.preferenceKey)
     }
 
     func selectPreference(_ newPreference: SigningModePreference) {
+        switch newPreference {
+        case .directPaid: methodChoice = .direct
+        case .containerized: methodChoice = .embeddedContainer
+        case .automatic:
+            methodChoice = defaults.integer(forKey: Self.installationMethodKey) == 2
+                ? .embeddedContainer : .direct
+        }
+        defaults.set(methodChoice.rawValue, forKey: Self.methodKey)
         if newPreference == .directPaid,
            defaults.integer(forKey: Self.installationMethodKey) == 2 {
             defaults.set(preferredDirectMethod, forKey: Self.installationMethodKey)
@@ -207,11 +263,25 @@ final class SigningModeManager: ObservableObject {
         return value == 0 || value == 1 ? value : 0
     }
 
-    func pipeline(for app: AppInfoPresentable? = nil, at date: Date = Date()) throws -> InstallationPipeline {
+    /// Uses the separately stored identity choice. The route is still resolved from
+    /// the separately stored delivery choice, never from this identity.
+    func pipeline(
+        for app: AppInfoPresentable? = nil,
+        at date: Date = Date()
+    ) throws -> InstallationPipeline {
+        try pipeline(for: app, at: date, identitySource: identityChoice.source)
+    }
+
+    func pipeline(
+        for app: AppInfoPresentable? = nil,
+        at date: Date = Date(),
+        identitySource: SigningIdentitySource
+    ) throws -> InstallationPipeline {
         let storedMethod = defaults.integer(forKey: Self.installationMethodKey)
         return try InstallationRouter.resolve(InstallationRoutingInput(
             preference: preference,
             certificate: certificateEvidence(for: app),
+            identitySource: identitySource,
             hasEmbeddedRuntime: EmbeddedContainerRuntime.isAvailable,
             storedInstallationMethod: storedMethod,
             preferredDirectInstallationMethod: preferredDirectMethod

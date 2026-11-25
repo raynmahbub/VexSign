@@ -237,6 +237,13 @@ enum VexSignShortcutCatalogue {
             phrase: nil
         ),
         Entry(
+            id: "accountRefreshReview",
+            title: .localized("Review Account Refresh"),
+            detail: .localized("Opens the manual Apple Account refresh review. Approvals, signing and install stay in the app; the Shortcut changes nothing by itself."),
+            systemImage: "arrow.triangle.2.circlepath",
+            phrase: nil
+        ),
+        Entry(
             id: "cellularRenewalReview",
             title: .localized("Review Renewal over Cellular"),
             detail: .localized("Opens a foreground renewal review for a signed library app. Does not change Wi-Fi or VPN settings."),

@@ -69,7 +69,8 @@ final class WebManager: NSObject, ObservableObject {
 	@Published var allowCertificateExport: Bool {
 		didSet { UserDefaults.standard.set(allowCertificateExport, forKey: Keys.certificateExport) }
 	}
-	/// Keep server reachable in background via silent-audio keep-alive.
+	/// Renew a normal background task assertion so the server stays reachable longer
+	/// in the background. iOS may still suspend it; this is best-effort, not a guarantee.
 	@Published var keepAlive: Bool {
 		didSet {
 			UserDefaults.standard.set(keepAlive, forKey: Keys.keepAlive)

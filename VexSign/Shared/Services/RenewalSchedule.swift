@@ -70,8 +70,16 @@ struct RenewalPlan: Identifiable, Equatable, Sendable {
 	/// a second, fractional vocabulary.
 	let daysRemaining: Int
 	let status: RenewalStatus
+	/// The underlying credential's revocation flag, so a warning can name the
+	/// one condition a re-sign cannot repair.
+	let isRevoked: Bool
 
 	var id: String { credentialID }
+
+	/// The account layer prefixes its transient profile IDs so a plan can be
+	/// attributed to a source after the two sources are merged. A stored imported
+	/// certificate never carries this prefix.
+	var isAppleAccountCredential: Bool { credentialID.hasPrefix("apple-") }
 
 	/// Fraction of the renewal window that has elapsed, clamped to 0...1. `nil` when the
 	/// window is empty, so a caller cannot divide by zero to draw a progress bar.
@@ -139,7 +147,8 @@ enum RenewalPlanner {
 			expiresAt: expiresAt,
 			window: window,
 			daysRemaining: days,
-			status: status
+			status: status,
+			isRevoked: credential.isRevoked
 		)
 	}
 

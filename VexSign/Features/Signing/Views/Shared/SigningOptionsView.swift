@@ -12,6 +12,7 @@ import NimbleExtensions
 // MARK: - View
 struct SigningOptionsView: View {
     @EnvironmentObject var services: AppContainer
+	@StateObject private var _mode = SigningModeManager.shared
 	@Binding var options: Options
 	var temporaryOptions: Options?
 	/// Selected certificate, used to gate options the profile can't grant (JIT).
@@ -198,6 +199,11 @@ struct SigningOptionsView: View {
 			} footer: {
 				VStack(alignment: .leading, spacing: 6) {
 					Text(.localized("Signs every downloaded or imported app the moment it lands, using these options and your selected certificate, then removes the unsigned copy. Install After Signing applies here too."))
+
+					if _mode.identityChoice == .appleAccount {
+						Text(.localized("Apple Account is selected as the signing identity. Auto Sign will keep the import without signing it; use Settings → Signing Methods → Review Account Refresh for an attended refresh. No stored certificate is substituted."))
+							.foregroundStyle(.orange)
+					}
 
 					if _autoSign, !services.signingPreferences.canAutoSign {
 						Text(.localized("No certificate is selected. Import one in Settings, otherwise auto sign will fail."))

@@ -10,7 +10,7 @@ import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import QRCode from 'qrcode';
 import { z } from 'zod';
 import type { Config } from '../../Configuration/config.js';
-import type { Infrastructure } from '../../VexSign/Storage/infrastructure.js';
+import type { Infrastructure } from '../../Storage/infrastructure.js';
 import { artifactMetadata, batchRequest, checkRequest, jobView, queueCounts, signRequest, uuid } from '../DTOs/contracts.js';
 import { APIError, submitJobs, type Submission } from '../../Signing/JobQueue/jobs.js';
 import { capability, permittedWebhook, verifyCapability } from '../../Security/security.js';

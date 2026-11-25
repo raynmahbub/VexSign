@@ -28,16 +28,27 @@ struct ProvisioningFlowView: View {
     @State var createdProfile: AppleAccountProvisioningReceipt?
     @State var certificateImported = false
     @State var signingHandoff: AppleAccountSigningHandoff?
+    @State var refreshResult: AccountRefreshResult?
     @State var reviewedContextID: UUID?
     /// Every approval this flow collects, in one testable value.
     @State var consent: ProvisioningConsentState
 
     let cellularReview: Bool
+    /// An attended account refresh reuses the review screens but runs the six-stage
+    /// refresh pipeline instead of provisioning alone. It never starts from a Shortcut.
+    let refreshReview: Bool
+    /// An imported app that needs an Apple Account signing identity. Used to preselect
+    /// the app after an attended-review request; it does not skip any approval.
+    let initialAppUUID: String?
     @State var cellularAvailable = false
 
-    init(cellularReview: Bool = false) {
+    init(cellularReview: Bool = false, refreshReview: Bool = false, initialAppUUID: String? = nil) {
         self.cellularReview = cellularReview
-        _consent = State(initialValue: ProvisioningConsentState(cellularReview: cellularReview))
+        self.refreshReview = refreshReview
+        self.initialAppUUID = initialAppUUID
+        var consent = ProvisioningConsentState(cellularReview: cellularReview)
+        if refreshReview { consent.laterProfile = true }
+        _consent = State(initialValue: consent)
     }
 
     // Context from signed-in state
@@ -89,7 +100,7 @@ struct ProvisioningFlowView: View {
                     .padding()
                 }
             }
-            .navigationTitle(.localized("Provision & Sign"))
+            .navigationTitle(refreshReview ? .localized("Refresh Account Signature") : .localized("Provision & Sign"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -103,7 +114,13 @@ struct ProvisioningFlowView: View {
                 Text(msg)
             }
             .interactiveDismissDisabled(isProvisioning)
-            .onAppear { if cellularReview { cellularAvailable = DownloadPreferences.cellularPathAvailable } }
+            .onAppear {
+                if cellularReview { cellularAvailable = DownloadPreferences.cellularPathAvailable }
+                guard let initialAppUUID, selectedApp == nil,
+                      let match = services.workspace.snapshot.apps.first(where: { $0.uuid == initialAppUUID }) else { return }
+                selectedApp = match
+                step = .selectDevice
+            }
             .onReceive(NotificationCenter.default.publisher(for: DownloadPreferences.pathChanged)) { _ in
                 if cellularReview { cellularAvailable = DownloadPreferences.cellularPathAvailable }
             }
@@ -115,12 +132,13 @@ struct ProvisioningFlowView: View {
                 // session change clears them all in one place.
                 consent.reset()
                 createdProfile = nil; signingHandoff = nil; certificateImported = false
+                refreshResult = nil
                 selectedApp = nil; deviceIdentifier = ""; step = .selectApp
                 errorMessage = .localized("The Apple account session changed. Select the app and review permissions again.")
             }
             .onDisappear { provisioningTask?.cancel() }
             .sheet(isPresented: $showAppPicker) {
-                AppPickerView(selectedApp: $selectedApp, signedOnly: cellularReview)
+                AppPickerView(selectedApp: $selectedApp, signedOnly: cellularReview || refreshReview)
             }
             .sheet(isPresented: $showDevicePicker) {
                 DevicePickerView(deviceIdentifier: $deviceIdentifier)
@@ -170,7 +188,7 @@ struct ProvisioningFlowView: View {
     }
 
     @MainActor
-    private func updateStage(_ stage: String, _ progress: Double) {
+    func updateStage(_ stage: String, _ progress: Double) {
         provisioningStage = stage
         provisioningProgress = progress
     }

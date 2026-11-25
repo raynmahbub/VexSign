@@ -1,5 +1,5 @@
 import { loadConfig } from '../Configuration/config.js';
-import { infrastructure } from '../VexSign/Storage/infrastructure.js';
+import { infrastructure } from '../Storage/infrastructure.js';
 import { buildApp } from './Routes/app.js';
 const config = loadConfig();
 const infra = infrastructure(config);

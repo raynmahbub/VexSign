@@ -194,6 +194,13 @@ class WorkflowPolicyTests(unittest.TestCase):
                                check=True, capture_output=True)
                 self.assertEqual(output.read_text(), f'native={expected}\n')
 
+    def test_pull_request_ci_includes_ui_and_workflow_changes(self):
+        events = block((WORKFLOWS / 'ci.yml').read_text(), 'on', 0)
+        pr = block(events, 'pull_request', 2)
+        self.assertIn('types: [opened, synchronize, reopened, ready_for_review]', pr)
+        self.assertIn("- 'UITests/**'", pr)
+        self.assertIn("- '.github/workflows/ci.yml'", pr)
+
     def test_consolidated_triage_retains_permissions_and_prevents_recursion(self):
         text = (ROOT / ".github/workflows/repo-maintenance.yml").read_text()
         triage = block(block(text, 'jobs', 0), 'open-or-update-issue', 2)
@@ -495,7 +502,12 @@ class WorkflowPolicyTests(unittest.TestCase):
                     pr = block(events, 'pull_request', 2)
                     self.assertIn('    branches: [main]', pr)
                     push = block(events, 'push', 2)
-                    self.assertEqual(pr.replace('pull_request:', 'push:', 1), push)
+                    # PRs also declare which events reopen validation; that line
+                    # is not part of the path-filter parity check.
+                    pr_paths = "\n".join(
+                        line for line in pr.splitlines() if not line.strip().startswith('types:')
+                    )
+                    self.assertEqual(pr_paths.replace('pull_request:', 'push:', 1), push)
                 else:
                     self.assertNotRegex(events, r'(?m)^  pull_request(?:_target)?:')
 
@@ -591,6 +603,11 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn("inputs.validation != 'quick'", tests)
         self.assertIn('-parallel-testing-enabled YES', tests)
         self.assertNotIn('needs: build', tests)
+        ui_tests = block(text, 'ui-tests', 2)
+        self.assertIn('needs: quick', ui_tests)
+        self.assertIn("inputs.validation != 'quick'", ui_tests)
+        self.assertIn('-parallel-testing-enabled NO', ui_tests)
+        self.assertNotIn('needs: build', ui_tests)
         self.assertIn('Tools/Validation/repository-validation/test_workflow_policy.py', block(text, 'quick', 2))
 
     def test_identity_is_neither_downloaded_nor_bundled(self):
@@ -805,6 +822,9 @@ class WorkflowPolicyTests(unittest.TestCase):
 
     #: Runners whose minutes are billed at a premium on a private repository.
     PAID_RUNNERS = ('macos-15',)
+    #: A trusted private repository may accept those minutes explicitly. Publishing
+    #: workflows stay public-only regardless of this variable.
+    PRIVATE_MACOS_OPT_IN = "vars.VEXSIGN_PRIVATE_MACOS_VALIDATION == 'true'"
     #: Workflows that *act on* the repository — publishing releases, pushing commits,
     #: filing issues — rather than validating it. They stay tied to the canonical public
     #: repository: a private fork must not publish releases or open maintenance issues.
@@ -848,6 +868,10 @@ class WorkflowPolicyTests(unittest.TestCase):
                     validated_gate_free.append(f'{path.name}:{job}')
             self.assertNotIn('models: read', text)
             for runner in re.findall(r'runs-on: (.+)', text):
+                # The only self-hosted label set is the explicitly opt-in physical-device
+                # runner; it is checked separately by test_physical_device_job_is_opt_in.
+                if runner == '[self-hosted, macos, arm64, ios-device]':
+                    continue
                 self.assertIn(runner, ('ubuntu-24.04', 'macos-15'))
             # Device-testing IPAs have a 14-day exception; logs, quick findings
             # and release publishing-staging artifacts stay at <= 3 days.
@@ -879,6 +903,85 @@ class WorkflowPolicyTests(unittest.TestCase):
         for removed in ('autopilot.yml', 'auto-stable.yml', 'dependency-audit.yml',
                         'server-tests.yml', 'ecosystem.yml'):
             self.assertFalse((WORKFLOWS / removed).exists())
+
+    def test_private_macos_validation_is_an_explicit_opt_in(self):
+        """Paid validation jobs may run on a private repo only when the owner opts in.
+
+        The default stays public-only, so a private mirror cannot spend runner minutes by
+        accident. A maintainer who needs native evidence can set the repository variable
+        and make the job report a real check instead of a skip notice.
+        """
+        for name in (
+            'ci.yml', 'device-bridge.yml', 'embedded-container.yml',
+            'platform-check.yml', 'services.yml',
+        ):
+            text = (WORKFLOWS / name).read_text()
+            jobs = block(text, 'jobs', 0)
+            for job in re.findall(r'^  ([A-Za-z0-9_-]+):$', jobs, re.MULTILINE):
+                job_block = block(jobs, job, 2)
+                if 'runs-on: macos-15' in job_block:
+                    self.assertIn(self.PRIVATE_MACOS_OPT_IN, job_block, f'{name}:{job}')
+        # Publishing stays tied to the canonical public repository.
+        for name in sorted(self.PUBLISHING_WORKFLOWS):
+            path = WORKFLOWS / (name + '.yml')
+            if not path.exists():
+                continue
+            jobs = block(path.read_text(), 'jobs', 0)
+            for job in re.findall(r'^  ([A-Za-z0-9_-]+):$', jobs, re.MULTILINE):
+                job_block = block(jobs, job, 2)
+                if 'runs-on: macos-15' in job_block:
+                    self.assertNotIn(self.PRIVATE_MACOS_OPT_IN, job_block, f'{name}:{job}')
+
+    def test_ci_native_jobs_are_complete_and_honest(self):
+        text = (WORKFLOWS / 'ci.yml').read_text()
+        jobs = block(text, 'jobs', 0)
+        build = block(jobs, 'build', 2)
+        tests = block(jobs, 'tests', 2)
+        ui_tests = block(jobs, 'ui-tests', 2)
+        self.assertIn('- name: Build (Debug)', build)
+        self.assertIn('- name: Build (Release)', build)
+        self.assertIn('- name: Static analyzer', build)
+        self.assertIn('- name: Quality report', tests)
+        self.assertIn('Tools/Audit/quality-report.py', tests)
+        self.assertIn('xcresulttool get test-results tests', tests)
+        self.assertIn('- name: Upload quality report', tests)
+        self.assertIn('-scheme VexSignUITests', ui_tests)
+        self.assertNotIn('-scheme VexSignTests', ui_tests)
+        self.assertIn('-parallel-testing-enabled NO', ui_tests)
+        self.assertIn('Tools/Audit/quality-report.py', ui_tests)
+        self.assertIn('- name: Upload UI xcresult, screenshots and report', ui_tests)
+        self.assertIn('if: always() && steps.test.outcome != \'skipped\'', ui_tests)
+        # A simulator screenshot bundle is UI evidence, not device evidence.
+        self.assertNotIn('feature-acceptance.py', ui_tests)
+        report = block(jobs, 'report', 2)
+        self.assertIn('needs: [quick, build, tests, ui-tests, concurrency, device]', report)
+        self.assertIn('Tools/Audit/combined-report.py', report)
+        self.assertIn('if: always()', report)
+        combine = report[report.index('- name: Combine evidence'):]
+        self.assertNotIn('continue-on-error: true', combine)
+
+    def test_release_requires_the_ci_quality_gate(self):
+        text = (WORKFLOWS / 'release.yml').read_text()
+        self.assertIn('Verify CI quality gate for this commit', text)
+        self.assertIn('Tools/Release/verify_ci_gate.py', text)
+        self.assertIn('REQUIRE_DEVICE: ${{ steps.mode.outputs.publish }}', text)
+        # Publishing without this check would make a skipped device job look accepted.
+        self.assertIn('--require-device', text)
+
+    def test_physical_device_job_is_opt_in_and_never_a_pull_request(self):
+        """Real-iPhone jobs use a self-hosted runner and explicit operator configuration."""
+        text = (WORKFLOWS / 'ci.yml').read_text()
+        jobs = block(text, 'jobs', 0)
+        device = block(jobs, 'device', 2)
+        self.assertIn('runs-on: [self-hosted, macos, arm64, ios-device]', device)
+        self.assertIn("github.event_name != 'pull_request'", device)
+        self.assertIn("vars.VEXSIGN_DEVICE_RUNNER == 'true'", device)
+        self.assertIn('inputs.device == true', device)
+        self.assertIn('needs: [quick, build, tests, ui-tests]', device)
+        self.assertIn('Tools/Audit/run-device-acceptance.py', device)
+        self.assertIn('feature-acceptance.py init', device)
+        # A simulator result must not be presented as hardware evidence.
+        self.assertNotIn('platform=iOS Simulator', device)
 
     def test_ci_repair_assistant_is_same_repo_scoped_draft_only_and_least_privilege(self):
         text = (ROOT / ".github/workflows/ci-repair-assistant.yml").read_text()
@@ -1112,7 +1215,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertEqual(release.count('SPM_CACHE_PATH: ${{ runner.temp }}/SwiftPMCache-Release'), 2)
         makefile = (ROOT / "Makefile").read_text()
         self.assertIn('SPM_CACHE_PATH ?=', makefile)
-        self.assertEqual(makefile.count('$(if $(SPM_CACHE_PATH),-packageCachePath "$(SPM_CACHE_PATH)",)'), 2)
+        self.assertEqual(makefile.count('$(if $(SPM_CACHE_PATH),-packageCachePath "$(SPM_CACHE_PATH)",)'), 3)
         self.assertNotIn('-disablePackageRepositoryCache', release)
 
     def test_existing_validation_check_names_are_retained(self):

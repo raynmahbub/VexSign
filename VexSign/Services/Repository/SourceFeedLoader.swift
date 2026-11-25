@@ -90,6 +90,16 @@ struct SourceFeedLoader: Sendable {
 					outcome: .failed(message: .localized("Couldn't load this source"), rateLimited: false)
 				)
 			}
+			// The byte cap applies to the raw response. The structural check must
+			// run *after* the GitHub release adapter: a release API response is not
+			// an ASRepository feed until it has been adapted, so validating it here
+			// rejected every virtual GitHub source before it could be decoded.
+			guard payload.count <= RepositoryNetworkPolicy.maxFeedBytes else {
+				return SourceFeedResult(
+					identifier: identifier,
+					outcome: .failed(message: .localized("Repository exceeds the source size limit."), rateLimited: false)
+				)
+			}
 
 			let feedPayload: Data
 			if isGitHubReleaseSource {
@@ -133,6 +143,27 @@ struct SourceFeedLoader: Sendable {
 				)
 				return SourceFeedResult(identifier: identifier, outcome: .invalid(payload: feedPayload))
 			}
+		}
+	}
+
+	/// One validation policy for every feed-decoding path. The limit matches the bounded
+	/// GitHub/add-source fetcher, and the structural decode matches what the sync engine
+	/// accepts. Returns a reason to refuse the payload, or nil when it is safe to decode.
+	static func validate(_ payload: Data) -> String? {
+		guard payload.count <= RepositoryNetworkPolicy.maxFeedBytes else {
+			return .localized("Repository exceeds the source size limit.")
+		}
+		return validateShape(payload)
+	}
+
+	/// Structural check for an already-adapted feed. Callers that fetch a raw
+	/// response must adapt a GitHub release first, then call this.
+	static func validateShape(_ payload: Data) -> String? {
+		do {
+			_ = try RepositoryImporter.decode(payload)
+			return nil
+		} catch {
+			return error.localizedDescription
 		}
 	}
 

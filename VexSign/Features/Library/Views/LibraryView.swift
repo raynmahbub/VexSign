@@ -511,6 +511,7 @@ struct LibraryView: View {
             } else {
                 Menu { importMenuActions } label: {
                     NBButton(.localized("Import IPA"), style: .text)
+                        .accessibilityIdentifier(A11y.Library.importPackages)
                 }
             }
         }

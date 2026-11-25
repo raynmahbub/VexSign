@@ -54,6 +54,16 @@ struct VexSignApp: App {
         AppPreferencesBootstrap.prepare()
     }
 
+    /// The UI-test runner passes this flag so a fresh simulator starts on the
+    /// working app instead of behind the optional first-run wizard. It only
+    /// skips onboarding; it does not fake a certificate, install or test result.
+    private var isUIAutomationLaunch: Bool {
+        let arguments = CommandLine.arguments
+        guard let flag = arguments.firstIndex(of: "-vexsign-ui-tests"),
+              flag + 1 < arguments.count else { return false }
+        return arguments[flag + 1] == "1"
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -155,7 +165,9 @@ struct VexSignApp: App {
             }
             .task {
                 await AppLifecycleCoordinator.launch()
-                if !_onboardingCompleted {
+                if isUIAutomationLaunch {
+                    _onboardingCompleted = true
+                } else if !_onboardingCompleted {
                     _showOnboarding = true
                 }
             }

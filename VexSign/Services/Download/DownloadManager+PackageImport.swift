@@ -253,11 +253,35 @@ extension DownloadManager {
 	/// nonisolated and the main-actor accesses become Swift 6 errors.
 	@MainActor
 	func autoSignOrFinish(_ app: AppInfoPresentable, for download: Download) {
+		let correlationID = UUID().uuidString.lowercased()
+		let startedAt = Date()
 		guard AutoSignManager.isEnabled else {
 			if isAppInBackground { sendCompletionNotification(for: download, status: "✅ " + .localized("Added to Library")) }
+			recordImportOutcome(correlationID: correlationID, startedAt: startedAt, status: .succeeded, reason: nil)
 			finishImport(of: download, succeeded: true)
 			return
 		}
+
+        // Import-time signing is unattended. It must not silently use a stored
+        // certificate when the user selected an Apple Account identity.
+        guard AutoSignIdentityPolicy.decide(
+            identity: SigningModeManager.shared.identityChoice
+        ) == .allow else {
+            // Set the request even when backgrounded: the sheet opens when the app
+            // next becomes interactive, rather than losing the user's intent.
+            TabSelectionObserver.shared.requestProvisioningReview(for: app)
+            report(for: download, status: .localized("Apple Account review required")) {
+                Toast.info(.localized("The IPA was kept in your Library. Opening the attended provisioning review; no stored certificate was substituted."))
+            }
+            recordImportOutcome(
+                correlationID: correlationID,
+                startedAt: startedAt,
+                status: .unconfirmed,
+                reason: .localized("Apple Account review required before signing")
+            )
+            finishImport(of: download, succeeded: true)
+            return
+        }
 
         do {
             if try SigningModeManager.shared.pipeline(for: app) == .containerized {
@@ -271,6 +295,7 @@ extension DownloadManager {
                 } else {
                     report(for: download, status: "✅ Added to Library") {}
                 }
+                recordImportOutcome(correlationID: correlationID, startedAt: startedAt, status: .succeeded, reason: nil)
                 finishImport(of: download, succeeded: true)
                 return
             }
@@ -278,6 +303,12 @@ extension DownloadManager {
             report(for: download, status: "❌ Install route unavailable") {
                 Toast.error(error.localizedDescription, duration: .sticky)
             }
+            recordImportOutcome(
+                correlationID: correlationID,
+                startedAt: startedAt,
+                status: .unconfirmed,
+                reason: error.localizedDescription
+            )
             finishImport(of: download, succeeded: true)
             return
         }
@@ -292,16 +323,44 @@ extension DownloadManager {
 				self.report(for: download, status: "✅ Signed") {
 					Toast.success(.localized("Signed successfully"), systemImage: "checkmark.seal.fill")
 				}
+				self.recordImportOutcome(correlationID: correlationID, startedAt: startedAt, status: .succeeded, reason: nil)
+			case .failure(let error) where error is CancellationError:
+				self.report(for: download, status: "❌ Signing cancelled") {
+					Toast.info(.localized("Signing was cancelled. The IPA is still in your Library."))
+				}
+				self.recordImportOutcome(correlationID: correlationID, startedAt: startedAt, status: .cancelled, reason: error.localizedDescription)
 			case .failure(let error):
 				// Keep the import so it can still be signed by hand.
 				self.report(for: download, status: "❌ Signing failed") {
 					Toast.error(error.localizedDescription, duration: .sticky)
 				}
+				self.recordImportOutcome(correlationID: correlationID, startedAt: startedAt, status: .failed, reason: error.localizedDescription)
 			}
 
 			self.objectWillChange.send()
 			download.isSigning = false
 			self.finishImport(of: download, succeeded: true)
+		}
+	}
+
+	private func recordImportOutcome(
+		correlationID: String,
+		startedAt: Date,
+		status: OperationOutcomeStatus,
+		reason: String?
+	) {
+		guard let outcomeRecorder else { return }
+		let record = OperationOutcomeRecord(
+			correlationID: correlationID,
+			operation: "import",
+			stage: "import",
+			status: status,
+			reason: reason,
+			startedAt: startedAt,
+			finishedAt: Date()
+		)
+		Task { @MainActor in
+			await outcomeRecorder(record)
 		}
 	}
 

@@ -236,7 +236,8 @@ final class BatchJobRunner: ObservableObject {
 
 	private func _installAll() async {
 		// Guest imports need an interactive, one-at-a-time handoff. Resolve every item because
-        // automatic routing may select a container for only part of a mixed batch.
+        // automatic routing never selects a container from an identity alone, but a stored
+        // guest selection can still make part of a mixed batch containerized.
         let pipelines = items.map { item -> InstallationPipeline? in
             do { return try SigningModeManager.shared.pipeline(for: item.installable) }
             catch { return nil } // The item's own installer presents this route error.

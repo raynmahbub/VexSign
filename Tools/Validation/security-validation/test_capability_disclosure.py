@@ -4,9 +4,9 @@
 `Info.plist` asks iOS for background modes, local-network access, Bonjour service types, Face ID
 and an App Transport Security exception. Each of those is a promise to the user and, for a
 distributed build, to App Review. The README's "Declared capabilities and their limits"
-section explains what each one is actually used for — including the one that is a distribution risk rather than a
-feature: the `audio` background mode, which VexSign uses to extend background time for installs,
-downloads and signing rather than to play audio.
+section explains what each one is actually used for. The former `audio` keep-alive was removed:
+VexSign does not play audio for the user, and declaring that mode for background installs,
+downloads and signing was a distribution risk.
 
 That explanation cost real work to write and is easy to lose. This check keeps the two in step:
 a capability cannot be declared without being disclosed, and a disclosure cannot be deleted while
@@ -42,14 +42,17 @@ class CapabilityDisclosureTests(unittest.TestCase):
                 f"UIBackgroundModes declares {mode!r}; the README must say what it is for",
             )
 
-    def test_the_audio_mode_is_disclosed_as_a_risk_not_a_feature(self) -> None:
-        # This is the claim that matters: the app does not play audio for the user, it uses the
-        # audio session as a keep-alive. Presenting it as an audio feature would be false.
-        self.assertIn("audio", self.info.get("UIBackgroundModes", []))
-        self.assertIn("Not audio playback", self.disclosure)
-        self.assertIn("distribution risk", self.disclosure.lower())
+    def test_the_audio_mode_is_not_declared_for_a_non_audio_keep_alive(self) -> None:
+        # VexSign used to declare `audio` only to keep installs and signs alive. That is an
+        # App Review risk, and an audio interruption could end the keep-alive early. The
+        # declaration is gone; the README must say what replaced it and what it cannot promise.
+        self.assertNotIn("audio", self.info.get("UIBackgroundModes", []))
+        self.assertIn("best-effort", self.disclosure.lower())
+        self.assertIn("may still suspend", self.disclosure.lower())
         self.assertTrue(BACKGROUND_MANAGER.exists(), "the keep-alive implementation this describes")
-        self.assertIn("AVAudioSession", BACKGROUND_MANAGER.read_text())
+        manager = BACKGROUND_MANAGER.read_text()
+        self.assertNotIn("AVAudioSession", manager)
+        self.assertIn("beginBackgroundTask", manager)
 
     # ---- Usage descriptions and network policy ------------------------------------------
 

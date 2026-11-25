@@ -4,6 +4,7 @@ import NimbleExtensions
 
 struct AnalyticsView: View {
     @EnvironmentObject var services: AppContainer
+    @AppStorage(LocalAnalyticsPreferences.enabledKey) private var _recordLocally = false
     enum Period: String, CaseIterable {
         case daily = "Daily", weekly = "Weekly", monthly = "Monthly"
         var title: String {
@@ -31,11 +32,14 @@ struct AnalyticsView: View {
     var body: some View {
         List {
             Section(.localized("Local Activity")) {
+                Toggle(.localized("Record local activity counts"), isOn: $_recordLocally)
+                Text(.localized("Off by default. While off, no new counts are stored. Counts already stored stay on this device and are never uploaded."))
+                    .font(.caption).foregroundStyle(.secondary)
                 Picker(.localized("Period"), selection: $period) { ForEach(Period.allCases, id: \.self) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
                 Picker(.localized("Metric"), selection: $metric) { ForEach(AnalyticsMetric.allCases) { Text($0.title).tag($0) } }
                 Chart(chart) { point in BarMark(x: .value(.localized("Date"), point.date), y: .value(.localized("Count"), point.count)) }.frame(height: 230)
                 Text(String.localized("Total: %lld", arguments: chart.reduce(0) { $0 + $1.count })).font(.headline)
-                Text(.localized("Private, on-device counts from this version onward. OTA handoff is not proof of installation. No historical counts are invented.")).font(.caption).foregroundStyle(.secondary)
+                Text(.localized("Private, on-device counts from this version onward, recorded only while the toggle is on. OTA handoff is not proof of installation. No historical counts are invented.")).font(.caption).foregroundStyle(.secondary)
             }
             Section(.localized("Current Inventory")) {
                 LabeledContent(.localized("Certificates"), value: String(certificates))

@@ -59,7 +59,7 @@ protocol DownloadedFilesManaging: AnyObject {
 @MainActor
 protocol DiagnosticsProviding: AnyObject {
     func currentSnapshot() -> DiagnosticOverviewSnapshot
-    func exportDiagnosticArchiveURL() -> URL?
+    func exportDiagnosticArchiveURL() async -> URL?
 }
 
 @MainActor

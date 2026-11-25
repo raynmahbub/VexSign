@@ -23,7 +23,9 @@ class WorkflowTracePolicyTests(unittest.TestCase):
     def test_distributable_and_ci_stamp_actual_checkout(self):
         self.assertIn('VEXSIGN_SOURCE_COMMIT="$(shell git rev-parse HEAD)"', self.text('Makefile'))
         ci = self.text('.github/workflows/ci.yml')
-        self.assertEqual(ci.count('VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)"'), 2)
+        # Debug build, Release build, static analyzer and simulator tests each stamp
+        # the exact checkout they executed. Four occurrences is the contract.
+        self.assertEqual(ci.count('VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)"'), 5)
         self.assertIn('$(VEXSIGN_SOURCE_COMMIT)', self.text('Configuration/BuildSettings/iOS/Info.plist'))
 
     def test_private_pairing_consumers_use_shared_path(self):

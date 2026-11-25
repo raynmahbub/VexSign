@@ -61,6 +61,14 @@ struct TabbarView: View {
                 tabPrefs.setHidden(selected, false)
             }
         }
+        // An Apple Account import hands off to the attended review here, above the
+        // tab the user was in. The sheet only opens after the import asks for it;
+        // it never provisions or signs on its own.
+        .sheet(item: $tabSelection.provisioningReviewRequest) { request in
+            NavigationStack {
+                ProvisioningFlowView(initialAppUUID: request.appUUID)
+            }
+        }
     }
 
     @ViewBuilder

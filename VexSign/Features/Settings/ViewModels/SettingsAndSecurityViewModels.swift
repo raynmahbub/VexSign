@@ -35,7 +35,7 @@ final class DiagnosticsCenterViewModel: ObservableObject {
         guard !isExporting else { return }
         isExporting = true
         Task { @MainActor in
-            let url = provider.exportDiagnosticArchiveURL()
+            let url = await provider.exportDiagnosticArchiveURL()
             isExporting = false
             if let url {
                 platform.shareItems([url])

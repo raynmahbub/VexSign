@@ -262,6 +262,22 @@ jobs:
             echo "channel=${CHANNEL}"
           } >> "$GITHUB_OUTPUT"
 
+      # A publishing release additionally requires the physical-device check from
+      # CI. Previews and build-only runs may proceed on simulator evidence, but are
+      # never labelled as device-verified. Skipped checks are not success.
+      - name: Verify CI quality gate for this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_SHA: ${{ github.sha }}
+          REQUIRE_DEVICE: ${{ steps.mode.outputs.publish }}
+        run: |
+          set -euo pipefail
+          flags=""
+          if [ "$REQUIRE_DEVICE" = "true" ]; then flags="--require-device"; fi
+          python3 Tools/Release/verify_ci_gate.py \
+            --sha "$RELEASE_SHA" \
+            --repo "$GITHUB_REPOSITORY" $flags
+
       - name: Set up Python for repository checks
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:

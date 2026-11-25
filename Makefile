@@ -165,6 +165,8 @@ verify: docs-check project-wiring
 	for entry in \
 	  "#repository structure, aliases and assets" \
   "python3 Tools/Validation/repository-validation/check_project_wiring.py" \
+  "python3 Tools/Validation/repository-validation/check_regression_tests.py --self-test" \
+  "python3 Tools/Validation/repository-validation/check_regression_tests.py" \
 	  "python3 Tools/Validation/repository-validation/test_repo_aliases.py" \
 	  "python3 Tools/Validation/repository-validation/sync_repo_aliases.py --check" \
 	  "python3 Tools/Validation/repository-validation/check_ios_icon_assets.py" \
@@ -177,6 +179,7 @@ verify: docs-check project-wiring
 	  "python3 Tools/Validation/security-validation/test_network_timeout_policy.py" \
 	  "python3 Tools/Validation/security-validation/test_capability_disclosure.py" \
 	  "python3 Tools/Validation/security-validation/test_logging_message_policy.py" \
+	  "python3 Tools/Validation/security-validation/test_operation_outcome_policy.py" \
 	  "python3 Tools/Validation/security-validation/test_cross_file_privacy.py" \
 	  "python3 Tools/Validation/security-validation/test_signing_identity_policy.py" \
 	  "python3 Tools/Audit/test_integration_contracts.py" \
@@ -190,6 +193,12 @@ verify: docs-check project-wiring
 	  "python3 Tools/Validation/repository-validation/test_autopilot.py" \
 	  "python3 Tools/Release/test_release_assets.py" \
 	  "python3 Tools/Audit/test_device_acceptance.py" \
+  "python3 Tools/Audit/test_device_runner_preflight.py" \
+	  "python3 Tools/Audit/test_feature_acceptance.py" \
+	  "python3 Tools/Audit/test_quality_report.py" \
+  "python3 Tools/Audit/test_combined_report.py" \
+	  "python3 Tools/Audit/test_ui_test_target.py" \
+	  "python3 Tools/Release/test_verify_ci_gate.py" \
 	  "python3 Tools/Fixtures/RenewalFixture/test_observation.py" \
 	  "python3 Tools/Build/test_install.py" \
 	  "python3 Tools/Build/test_slot_export.py" \
@@ -212,6 +221,7 @@ verify: docs-check project-wiring
 	  "python3 Tools/Validation/security-validation/concurrency-discipline.py" \
 	  "#concurrency audit (every escape needs a reason)" \
 	  "python3 Tools/Validation/security-validation/test_concurrency_audit.py" \
+	  "python3 Tools/Validation/security-validation/test_swift6_native_regressions.py" \
 	  "#device foundation preparation/security wiring (not Swift tests)" \
 	  "python3 Tools/Validation/security-validation/test_device_foundation.py" \
 	  "python3 Tools/Validation/security-validation/test_install_monitoring_policy.py" \
@@ -403,6 +413,41 @@ test:
 	    $(if $(strip $(SUITE)),$(foreach suite,$(subst $(comma), ,$(SUITE)),-only-testing:VexSignTests/$(strip $(suite))),-only-testing:VexSignTests) \
 	    -parallel-testing-enabled YES \
 	    -parallel-testing-worker-count 2 \
+	    CODE_SIGNING_ALLOWED=YES \
+	    CODE_SIGNING_REQUIRED=YES \
+	    CODE_SIGN_IDENTITY="-" \
+	    AD_HOC_CODE_SIGNING_ALLOWED=YES \
+	    COMPILER_INDEX_STORE_ENABLE=NO \
+	    ONLY_ACTIVE_ARCH=YES \
+	    test
+
+# UI interactions are a separate target: do not merge them into `make test`.
+# UIKit can only drive one app per simulator, so parallel workers are disabled.
+# A result here is simulator evidence; it never proves an iOS install.
+test-ui:
+	@if [ "$(SIMULATOR)" = "auto" ]; then \
+		dest="$$(python3 .github/scripts/select_simulator.py --print-id 2>/dev/null)"; \
+		if [ -z "$$dest" ]; then \
+			echo "No iPhone simulator available. Install an iOS runtime or pass SIMULATOR=..." ; \
+			exit 1; \
+		fi; \
+		dest="platform=iOS Simulator,id=$$dest"; \
+	else \
+		dest="$(SIMULATOR)"; \
+	fi; \
+	echo "UI testing on $$dest"; \
+	xcodebuild \
+	    $(if $(SPM_CACHE_PATH),-packageCachePath "$(SPM_CACHE_PATH)",) \
+	    -skipPackagePluginValidation \
+	    -workspace VexSign.xcworkspace \
+	    -scheme VexSignUITests \
+	    -configuration Debug \
+	    -destination "$$dest" \
+	    -derivedDataPath "$(TMP)/UIDerivedData" \
+	    -resultBundlePath "$(TMP)/VexSignUITests.xcresult" \
+	    -only-testing:VexSignUITests \
+	    -parallel-testing-enabled NO \
+	    VEXSIGN_SOURCE_COMMIT="$(VEXSIGN_SOURCE_COMMIT)" \
 	    CODE_SIGNING_ALLOWED=YES \
 	    CODE_SIGNING_REQUIRED=YES \
 	    CODE_SIGN_IDENTITY="-" \

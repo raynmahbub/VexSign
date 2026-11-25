@@ -234,5 +234,14 @@ class FloorTests(unittest.TestCase):
     def test_no_output_file_is_not_an_error(self):
         coverage._write_github_output(None, {"percent": "1"})
 
+class CoverageBaselinePolicy(unittest.TestCase):
+    def test_ci_never_records_a_baseline_automatically(self):
+        ci = (Path(__file__).resolve().parents[3] / ".github/workflows/ci.yml").read_text()
+        step = ci[ci.index("      - name: Report coverage"):]
+        step = step[:step.index("      - name:", 10)]
+        self.assertIn("--baseline Tools/Validation/repository-validation/coverage-baseline.json", step)
+        self.assertNotIn("\n            --update-baseline", step)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -7,29 +7,21 @@
 
 import Foundation
 import UIKit
-import AVFoundation
 import UserNotifications
 
+/// Best-effort background assertion for an in-flight operation.
+///
+/// This used to play silent audio to keep the process alive. VexSign is not an audio
+/// app, so declaring `UIBackgroundModes: audio` for that purpose is an App Store
+/// rejection risk and an audio interruption could end the keep-alive mid-operation.
+/// The manager now relies only on `UIApplication.beginBackgroundTask`: it renews the
+/// assertion while work is active, posts an expiration notice, and the caller
+/// reconciles on return to the foreground. No claim is made that iOS cannot suspend
+/// the app.
 final class BackgroundTaskManager {
 
-	// AVAudioSession is process-wide; refcount it so one manager stopping can't cut audio for the rest.
-	private static let _sessionLock = NSLock()
-	private static var _sessionUsers = 0
-
-	private static func retainSession() {
-		_sessionLock.lock(); defer { _sessionLock.unlock() }
-		_sessionUsers += 1
-	}
-
-	private static func releaseSession() -> Bool {
-		_sessionLock.lock(); defer { _sessionLock.unlock() }
-		_sessionUsers = max(0, _sessionUsers - 1)
-		return _sessionUsers == 0
-	}
-
-	private var audioPlayer: AVAudioPlayer?
 	private var backgroundTaskID: UIBackgroundTaskIdentifier?
-	private var cycleTask: Task<Void, Error>?
+	private var cycleTimer: Timer?
 	private var isRunning = false
     private let expirationEvent = Notification.Name("VexSign.backgroundTask.expired.\(UUID().uuidString)")
 
@@ -51,22 +43,6 @@ final class BackgroundTaskManager {
 		guard !isRunning else { return }
 		isRunning = true
 
-		do {
-			try AVAudioSession.sharedInstance().setCategory(.playback, options: .mixWithOthers)
-			try AVAudioSession.sharedInstance().setActive(true)
-			Self.retainSession()
-		} catch {
-			isRunning = false
-			return
-		}
-
-		NotificationCenter.default.addObserver(
-			self,
-			selector: #selector(handleAudioInterruption),
-			name: AVAudioSession.interruptionNotification,
-			object: AVAudioSession.sharedInstance()
-		)
-
         NotificationCenter.default.addObserver(self, selector: #selector(handleExpiration), name: expirationEvent, object: nil)
 		startBackgroundCycle()
 	}
@@ -75,52 +51,32 @@ final class BackgroundTaskManager {
 		guard isRunning else { return }
 		isRunning = false
 
-		NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
-
         NotificationCenter.default.removeObserver(self, name: expirationEvent, object: nil)
-		cycleTask?.cancel()
+		cycleTimer?.invalidate()
+		cycleTimer = nil
 		stopBackgroundTask()
-		stopAudio()
-		audioPlayer = nil
-
-		if Self.releaseSession() {
-			try? AVAudioSession.sharedInstance().setActive(false)
-		}
 	}
 
-	@objc private func handleAudioInterruption(_ notification: Notification) {
-		guard
-			let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-			AVAudioSession.InterruptionType(rawValue: raw) == .began
-		else { return }
-
-		if !playAudio() { stop() }
-	}
-
-	// Re-arming the background-task assertion each cycle holds background time indefinitely.
+	/// Renewing the assertion on a timer is only a best-effort extension. iOS may still
+	/// suspend the app; the operation's own recovery path owns the final result.
 	private func startBackgroundCycle() {
-		cycleTask = Task {
-			let audioStarted = await MainActor.run { playAudio() }
-			guard audioStarted else { return }
+		cycleTimer?.invalidate()
+		// A main-run-loop timer keeps UIApplication's background assertion on the
+		// main actor without capturing a weak `self` in a @Sendable Task. Swift 6
+		// rejected that capture, and a background-thread assertion was never valid.
+		let timer = Timer(timeInterval: 10, repeats: true) { [weak self] _ in
+			self?.renewBackgroundTask()
+		}
+		RunLoop.main.add(timer, forMode: .common)
+		cycleTimer = timer
+	}
 
-			await MainActor.run { stopBackgroundTask() }
-
-            let event = expirationEvent
-            backgroundTaskID = await UIApplication.shared.beginBackgroundTask {
-                NotificationCenter.default.post(name: event, object: nil)
-            }
-
-			await MainActor.run { stopAudio() }
-
-			try Task.checkCancellation()
-
-			guard let taskID = backgroundTaskID, taskID != .invalid else {
-				startBackgroundCycle()
-				return
-			}
-
-			try await Task.sleep(for: .seconds(10))
-			startBackgroundCycle()
+	private func renewBackgroundTask() {
+		guard isRunning else { return }
+		stopBackgroundTask()
+		let event = expirationEvent
+		backgroundTaskID = UIApplication.shared.beginBackgroundTask {
+			NotificationCenter.default.post(name: event, object: nil)
 		}
 	}
 
@@ -128,57 +84,13 @@ final class BackgroundTaskManager {
         guard isRunning else { return }
         sendExpirationNotification()
         startBackgroundCycle()
-    }
+	}
 
 	private func stopBackgroundTask() {
 		if let taskID = backgroundTaskID {
 			UIApplication.shared.endBackgroundTask(taskID)
 			backgroundTaskID = nil
 		}
-	}
-
-	@discardableResult
-	private func playAudio() -> Bool {
-		do {
-			if audioPlayer == nil {
-				audioPlayer = try AVAudioPlayer(data: Self.silence)
-				audioPlayer?.numberOfLoops = -1
-			}
-			audioPlayer?.play()
-			return true
-		} catch {
-			return false
-		}
-	}
-
-	// Generated rather than bundled so the keep-alive loop is provably inaudible on the speaker.
-	private static let silence: Data = {
-		let sampleRate: UInt32 = 44100
-		let bytes = Int(sampleRate) * 2
-
-		var wav = Data(capacity: 44 + bytes)
-		func put<T: FixedWidthInteger>(_ value: T) {
-			withUnsafeBytes(of: value.littleEndian) { wav.append(contentsOf: $0) }
-		}
-
-		wav.append(contentsOf: "RIFF".utf8)
-		put(UInt32(36 + bytes))
-		wav.append(contentsOf: "WAVEfmt ".utf8)
-		put(UInt32(16))
-		put(UInt16(1))
-		put(UInt16(1))
-		put(sampleRate)
-		put(sampleRate * 2)
-		put(UInt16(2))
-		put(UInt16(16))
-		wav.append(contentsOf: "data".utf8)
-		put(UInt32(bytes))
-		wav.append(Data(count: bytes))
-		return wav
-	}()
-
-	private func stopAudio() {
-		audioPlayer?.stop()
 	}
 
 	private func sendExpirationNotification() {

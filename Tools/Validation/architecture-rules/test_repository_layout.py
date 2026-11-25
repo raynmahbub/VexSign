@@ -22,7 +22,7 @@ PLATFORM = ROOT / "Platform"
 PBX = ROOT / "VexSign.xcodeproj/project.pbxproj"
 WORKSPACE = ROOT / "VexSign.xcworkspace/contents.xcworkspacedata"
 ROOT_LAYERS = {
-    "VexSign", "Packages", "Tests", "Tools", "Configuration", "Platform",
+    "VexSign", "Packages", "Tests", "UITests", "Tools", "Configuration", "Platform",
     "Services", "Documentation",
 }
 APP_LAYERS = {"Navigation", "Composition", "Bootstrap"}
@@ -33,6 +33,20 @@ ALIASES = (
     ("VexSign/Resources/Templates/repos.json", "repos.json"),
     ("Configuration/Signing/license_plist.yml", "license_plist.yml"),
     ("Services/WebManager/Configuration/render.yaml", "render.yaml"),
+)
+# The root is an entry surface, not a place to grow data files. Dotfiles are allowed
+# as tool configuration; every other root file must be on this reviewed list.
+ROOT_FILES = {
+    ".editorconfig", ".gitattributes", ".gitignore", ".swiftformat", ".swiftlint.yml",
+    "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "LICENSE_ELLEKIT", "Makefile",
+    "README.md", "SECURITY.md", "app-repo.json", "icon.png", "license_plist.yml",
+    "render.yaml", "repos.json",
+}
+# Paths explicitly rejected by the adopted root contract. A synchronized-root move is
+# a build change, so these must fail at the portable gate rather than at a macOS-only build.
+REJECTED_PATHS = (
+    "Core", "Infrastructure", "Sources", "VexSignTests", "VexSignUITests",
+    "Platform/iOS", "Tests/UI", "Tests/UITests", "VexSign/App/iOS",
 )
 GROUPS = {
     "3379C1BB2DA869A1004372DA": "VexSign/App",
@@ -74,6 +88,33 @@ class RepositoryLayoutTests(unittest.TestCase):
                      ".github/ISSUE_TEMPLATE",
                      "VexSign.xcodeproj", "VexSign.xcworkspace"):
             self.assertTrue((ROOT / name).exists(), name)
+
+    def test_root_files_are_curated(self):
+        """No new data/configuration file at the root without a reviewed contract."""
+        actual = {p.name for p in ROOT.iterdir()
+                  if p.is_file() and not p.name.startswith(".")}
+        expected = {name for name in ROOT_FILES if not name.startswith(".")}
+        self.assertEqual(actual, expected, "unexpected or missing root file")
+        for name in sorted(name for name in ROOT_FILES if name.startswith(".")):
+            self.assertTrue((ROOT / name).is_file(), name)
+
+    def test_rejected_root_shapes_stay_absent(self):
+        for relative in REJECTED_PATHS:
+            self.assertFalse((ROOT / relative).exists(),
+                             f"rejected architecture path remains: {relative}")
+
+    def test_test_roots_match_xcode_targets(self):
+        """Target names and source roots are deliberately not the same string."""
+        pbx = PBX.read_text()
+        self.assertIn("name = VexSignTests;", pbx)
+        self.assertIn("path = Tests;", pbx)
+        self.assertIn("name = VexSignUITests;", pbx)
+        self.assertIn("path = UITests;", pbx)
+        self.assertTrue((ROOT / "UITests/VexSignUITests.swift").is_file())
+        self.assertTrue((ROOT / "Tests/UnitTests").is_dir())
+        self.assertFalse((ROOT / "Tests/UI").exists())
+        self.assertFalse((ROOT / "VexSignTests").exists())
+        self.assertFalse((ROOT / "VexSignUITests").exists())
 
     def test_app_platform_roots_keep_every_entry_point(self):
         self.assertEqual({p.name for p in APP.iterdir() if p.is_dir()}, APP_LAYERS)

@@ -34,7 +34,12 @@ class DownloadManager: NSObject, ObservableObject {
 		)
 	}
 	weak var errorDelegate: ErrorDelegate?
+
+	/// Injected by the composition root so an import stage can be exported with the
+	/// same operation ID the sign stage uses. No store is created here.
+	var outcomeRecorder: OperationOutcomeRecording?
 	
+
 	@Published var downloads: [Download] = []
     @Published var interruptedDownloads: [DownloadRecoveryJournal.Record] = []
     @Published var recoveryWarning: String?
@@ -203,7 +208,8 @@ class DownloadManager: NSObject, ObservableObject {
 		NotificationCenter.default.removeObserver(self)
 	}
 	
-	// Audio sessions can only be activated while the app is still foreground.
+	// Begin the background assertion while the app still has foreground time; iOS can
+	// still suspend the process, so the download recovery path owns the final result.
 	func ensureKeepAlive() {
 		guard backgroundTaskManager == nil else { return }
 

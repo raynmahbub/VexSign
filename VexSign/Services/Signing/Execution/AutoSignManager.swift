@@ -17,6 +17,10 @@ final class AutoSignManager {
 
 	private var _tail: Task<Void, Never> = Task {}
 
+	/// Injected by the composition root. Every sign caller — import, web upload, Shortcut,
+	/// library, batch and update — goes through `sign`, so one recorder covers them all.
+	var outcomeRecorder: OperationOutcomeRecording?
+
 	private init() {}
 
 	nonisolated static var isEnabled: Bool {
@@ -34,17 +38,63 @@ final class AutoSignManager {
 	/// blocking preflight issues. Library details shows that review and then called this without
 	/// saying so, which left the engine in its strict mode: the run the user had just confirmed
 	/// stopped on the very issue they accepted. Every caller that shows no review leaves it false.
-	func sign(_ app: AppInfoPresentable, overridingBlockingIssues: Bool = false, repeatInstall: Bool = false) async -> Result<Signed, Error> {
+	func sign(
+		_ app: AppInfoPresentable,
+		overridingBlockingIssues: Bool = false,
+		repeatInstall: Bool = false,
+		recordOutcome: Bool = true
+	) async -> Result<Signed, Error> {
 		let previous = _tail
+		let correlationID = UUID().uuidString.lowercased()
+		let startedAt = Date()
         // Keep Core Data results on the main actor; Task.value carries only Void.
         var result: Result<Signed, Error>?
         let job = Task { @MainActor in
             await previous.value
             result = await Self._perform(app, overridingBlockingIssues: overridingBlockingIssues, repeatInstall: repeatInstall)
+			if recordOutcome, let outcomeRecorder {
+				await outcomeRecorder(Self.outcome(
+					correlationID: correlationID,
+					result: result,
+					startedAt: startedAt
+				))
+			}
         }
         _tail = job
         await job.value
         return result ?? .failure(CancellationError())
+	}
+
+	private static func outcome(
+		correlationID: String,
+		result: Result<Signed, Error>?,
+		startedAt: Date
+	) -> OperationOutcomeRecord {
+		let status: OperationOutcomeStatus
+		let reason: String?
+		switch result {
+		case .some(.success):
+			status = .succeeded
+			reason = nil
+		case .some(.failure(let error)) where error is CancellationError:
+			status = .cancelled
+			reason = error.localizedDescription
+		case .some(.failure(let error)):
+			status = .failed
+			reason = error.localizedDescription
+		case .none:
+			status = .cancelled
+			reason = nil
+		}
+		return OperationOutcomeRecord(
+			correlationID: correlationID,
+			operation: "sign",
+			stage: "sign",
+			status: status,
+			reason: reason,
+			startedAt: startedAt,
+			finishedAt: Date()
+		)
 	}
 
 	private static func _perform(_ app: AppInfoPresentable, overridingBlockingIssues: Bool, repeatInstall: Bool) async -> Result<Signed, Error> {
@@ -115,6 +165,39 @@ final class AutoSignManager {
 
 	nonisolated private static func _certificate() -> CertificatePair? {
 		Storage.shared.getCertificate(for: UserDefaults.standard.integer(forKey: "vexsign.selectedCert"))
+	}
+}
+
+extension AutoSignManager {
+	/// The import button titles and symbols used by the Feather-family workflow: a plain
+	/// download when auto sign is off, "Sign" when it is on, and "Sign & Install" when the
+	/// saved signing options include installation. The exact strings are shared with the
+	/// batch picker so both surfaces make the same promise.
+	enum Action: String, CaseIterable {
+		case keep
+		case sign
+		case install
+
+		static var current: Self {
+			guard isEnabled else { return .keep }
+			return OptionsManager.shared.options.post_installAppAfterSigned ? .install : .sign
+		}
+
+		var title: String {
+			switch self {
+			case .keep: .localized("Add to Library")
+			case .sign: .localized("Sign")
+			case .install: .localized("Sign & Install")
+			}
+		}
+
+		var systemImage: String {
+			switch self {
+			case .keep: "square.and.arrow.down"
+			case .sign: "signature"
+			case .install: "square.and.arrow.down.on.square"
+			}
+		}
 	}
 }
 

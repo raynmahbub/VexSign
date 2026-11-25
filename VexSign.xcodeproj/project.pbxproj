@@ -57,6 +57,13 @@
 			remoteGlobalIDString = C0FFEE00000000000000002A;
 			remoteInfo = VexSignWatchWidgets;
 		};
+		EE000000000000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3379C1B12DA869A1004372DA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3379C1B82DA869A1004372DA;
+			remoteInfo = VexSign;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -109,6 +116,7 @@
 		F34A00000000000000000001 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
 		F34A00000000000000000002 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		F34A00000000000000000003 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		EE0000000000000000000001 /* VexSignUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VexSignUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -378,6 +386,11 @@
 			path = Platform/Watch/VexSignWatchWidgets;
 			sourceTree = "<group>";
 		};
+		EE000000000000000000000B /* VexSignUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -446,6 +459,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EE0000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -464,6 +484,7 @@
 			children = (
 				3379C1BB2DA869A1004372DA /* VexSign */,
 				AABA5D1A2DB3C87800BFCD2C /* VexSignTests */,
+				EE000000000000000000000B /* VexSignUITests */,
 				3A2F0EE82E96DA5A009DE4CE /* VexSignWidgetExtension */,
 				C0FFEE000000000000000001 /* VexSignTV */,
 				C0FFEE00000000000000000D /* VexSignVision */,
@@ -480,6 +501,7 @@
 			children = (
 				3379C1B92DA869A1004372DA /* VexSign.app */,
 				AABA5D192DB3C87800BFCD2C /* VexSignTests.xctest */,
+				EE0000000000000000000001 /* VexSignUITests.xctest */,
 				3A2F0EE52E96DA5A009DE4CE /* VexSignWidgetExtensionExtension.appex */,
 				C0FFEE000000000000000005 /* VexSignTV.app */,
 				C0FFEE000000000000000011 /* VexSignVision.app */,
@@ -689,6 +711,29 @@ packageProductDependencies = (
 			productReference = C0FFEE000000000000000029 /* VexSignWatchWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		EE0000000000000000000002 /* VexSignUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EE0000000000000000000003 /* Build configuration list for PBXNativeTarget "VexSignUITests" */;
+			buildPhases = (
+				EE0000000000000000000006 /* Sources */,
+				EE0000000000000000000007 /* Frameworks */,
+				EE0000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EE0000000000000000000009 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				EE000000000000000000000B /* VexSignUITests */,
+			);
+			name = VexSignUITests;
+			packageProductDependencies = (
+			);
+			productName = VexSignUITests;
+			productReference = EE0000000000000000000001 /* VexSignUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -762,6 +807,7 @@ packageReferences = (
 			targets = (
 				3379C1B82DA869A1004372DA /* VexSign */,
 				AABA5D182DB3C87800BFCD2C /* VexSignTests */,
+				EE0000000000000000000002 /* VexSignUITests */,
 				3A2F0EE42E96DA5A009DE4CE /* VexSignWidgetExtensionExtension */,
 				C0FFEE000000000000000006 /* VexSignTV */,
 				C0FFEE000000000000000012 /* VexSignVision */,
@@ -815,6 +861,13 @@ packageReferences = (
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		C0FFEE000000000000000028 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE0000000000000000000008 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -907,6 +960,13 @@ packageReferences = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EE0000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -933,6 +993,11 @@ packageReferences = (
 			isa = PBXTargetDependency;
 			target = C0FFEE00000000000000002A /* VexSignWatchWidgets */;
 			targetProxy = C0FFEE000000000000000038 /* PBXContainerItemProxy */;
+		};
+		EE0000000000000000000009 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3379C1B82DA869A1004372DA /* VexSign */;
+			targetProxy = EE000000000000000000000A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -2178,6 +2243,88 @@ packageReferences = (
 			};
 			name = "Release-distribution";
 		};
+		EE0000000000000000000004 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.appUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = VexSign;
+			};
+			name = Debug;
+		};
+		EE000000000000000000000D /* Debug-distribution */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.appUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = VexSign;
+			};
+			name = "Debug-distribution";
+		};
+		EE000000000000000000000E /* Release-distribution */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.appUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = VexSign;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = "Release-distribution";
+		};
+		EE0000000000000000000005 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.appUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = VexSign;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -2265,6 +2412,17 @@ packageReferences = (
 				C0FFEE00000000000000002D /* Debug-distribution */,
 				C0FFEE00000000000000002E /* Release */,
 				C0FFEE00000000000000002F /* Release-distribution */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EE0000000000000000000003 /* Build configuration list for PBXNativeTarget "VexSignUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EE0000000000000000000004 /* Debug */,
+				EE0000000000000000000005 /* Release */,
+				EE000000000000000000000D /* Debug-distribution */,
+				EE000000000000000000000E /* Release-distribution */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

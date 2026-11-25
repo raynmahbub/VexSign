@@ -27,6 +27,10 @@ final class InstallQueue: ObservableObject {
 	/// Per-entry outcome, keyed by the entry's id, so the queue list view can show what happened.
 	@Published private(set) var outcomes: [String: InstallOutcome] = [:]
 
+	/// Injected by the composition root. `outcomes` drives the UI; this exports the same
+	/// terminal states as sanitized, correlated records for diagnostics.
+	var outcomeRecorder: OperationOutcomeRecording?
+
 	/// The unified-task record for the current queue run (nil when idle).
     private var preparedNext: (id: String, installer: AppInstaller)?
 	private var unifiedTask: UnifiedTask?
@@ -98,6 +102,22 @@ final class InstallQueue: ObservableObject {
 		isSheetPresented = true
 		activate()
         if installer?.hasPackaged == true { _prepareNext() }
+	}
+
+	private func _recordInstallOutcome(status: OperationOutcomeStatus, reason: String?) {
+		guard let outcomeRecorder else { return }
+		let record = OperationOutcomeRecord(
+			correlationID: UUID().uuidString.lowercased(),
+			operation: "install",
+			stage: "install",
+			status: status,
+			reason: reason,
+			startedAt: Date(),
+			finishedAt: Date()
+		)
+		Task { @MainActor in
+			await outcomeRecorder(record)
+		}
 	}
 
     /// One lookahead only. Preparation overlaps the current OTA transfer/verification,
@@ -327,6 +347,7 @@ final class InstallQueue: ObservableObject {
 		advanceScheduler.cancel()
 		failurePresentation = nil
 		outcomes[current.id] = .skipped
+		_recordInstallOutcome(status: .cancelled, reason: .localized("Installation skipped"))
         preserveDeliveryOnTeardown = installer?.stopPreparingForMonitoringEnd() == true
         if let task = unifiedTask {
             task.context?.confirmationReason = preserveDeliveryOnTeardown
@@ -496,6 +517,7 @@ final class InstallQueue: ObservableObject {
 		case .success(.exported(let package)):
             _finishUnifiedTask()
 			if let current { outcomes[current.id] = .succeeded }
+			_recordInstallOutcome(status: .succeeded, reason: nil)
 			_syncUnifiedTaskProgress()
 			_abandon()
 
@@ -513,6 +535,7 @@ final class InstallQueue: ObservableObject {
             NBHaptic.notify(.success)
             Toast.success(.localized("Installation completed"), systemImage: "checkmark.circle.fill")
 			if let current { outcomes[current.id] = .succeeded }
+			_recordInstallOutcome(status: .succeeded, reason: nil)
 			if let app = installer?.app { InstallCleanup.stage(app) }
 			_syncUnifiedTaskProgress()
             _finishUnifiedTask()
@@ -539,6 +562,10 @@ final class InstallQueue: ObservableObject {
 			if let current {
                 outcomes[current.id] = kind == .unconfirmed ? .unconfirmed : .failed(String(describing: error))
 			}
+			_recordInstallOutcome(
+				status: kind == .unconfirmed ? .unconfirmed : .failed,
+				reason: error.localizedDescription
+			)
 			if let task = unifiedTask {
 				UnifiedTaskCenter.shared.transition(task, to: kind.taskPhase,
 													error: kind.taskPhase == .unconfirmed ? nil : error.localizedDescription)

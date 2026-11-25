@@ -54,6 +54,7 @@ the source is not device acceptance — the caveats in each section still apply.
 - **Local HTTPS installation** using `itms-services://`, plus paired installation through the AFC / `installd` backend.
 - **Signing Live Activities** to follow progress on supported devices.
 - **Auto-sign workflows** and **Update All** for re-signing source updates.
+- **Identity-aware unattended signing:** if Apple Account is the selected signing identity, a local download/import or Shortcut keeps the package and opens the attended provisioning review with that app preselected. Browser uploads return a review-required response. None of these paths substitutes a stored `.p12`.
 
 </details>
 
@@ -143,6 +144,7 @@ Available from **Settings → Ecosystem**.
 - **Profile compatibility, nested-bundle coverage and output verification** to surface identity/extension mismatches and invalid signed outputs.
 - **Signed source metadata verification** for supported publisher signatures; a verified publisher is not proof that an IPA is safe.
 - **Authenticated Web Manager** with explicit network access, API-token controls and separate certificate-export permission.
+- **Opt-in local activity analytics** in Diagnostics. Recording is off by default; while off, no new counts are stored, and stored counts never leave the device.
 - **Anti-Revoke DNS profile tools** for verification-host filtering; these do not guarantee protection from certificate revocation.
 
 </details>
@@ -280,10 +282,8 @@ If a link does not open your app, copy the stable source URL shown below and add
 
 ### Start signing
 
-For computer-free first-install requirements and the full setup sequence, follow
-[the device journey guide](Documentation/Testing/DEVICE-JOURNEY.md). An unsigned
-IPA cannot install itself; account setup inside VexSign starts only after an
-eligible copy of VexSign is already installed.
+An unsigned IPA cannot install itself; account setup inside VexSign starts only
+after an eligible copy of VexSign is already installed.
 
 Download an **unsigned IPA** from [Releases](https://github.com/raynmahbub/VexSign/releases)
 and sign it with an existing sideloading tool/identity. Existing VexSign users can
@@ -302,8 +302,8 @@ promise to the user and, for a distributed build, to App Review.
 
 | Declared | Where | What it actually buys, and its limit |
 |---|---|---|
-| `UIBackgroundModes: audio` | `Configuration/BuildSettings/iOS/Info.plist` | **Not audio playback.** `BackgroundTaskManager` activates an `AVAudioSession(.playback)` and re-arms a background task assertion so an in-flight install, download, signing or Web Manager session survives the app leaving the foreground. iOS may still suspend the app at its own discretion, and an audio interruption (a call, Siri, another app taking the session) stops the keep-alive: `handleAudioInterruption` calls `stop()` when it cannot resume playback. Apple documents the audio mode for apps that play audio for the user; declaring it for a non-audio purpose is a distribution risk. Long operations are **best-effort while backgrounded**, and resume or reconcile when the app returns. |
-| `UIBackgroundModes: download`, `fetch`, `processing` | same | Standard background `URLSession` and `BGTaskScheduler` work. iOS decides when refresh/processing runs; the automation UI says so rather than promising a schedule. |
+| Background keep-alive | `VexSign/System/BackgroundTasks/BackgroundTaskManager.swift` | An in-flight install, download, signing or Web Manager session renews a `UIApplication.beginBackgroundTask` assertion and posts an expiration notice. **No audio session is activated and no `audio` mode is declared.** iOS may still suspend the app at its own discretion; long operations are best-effort while backgrounded and reconcile on return. |
+| `UIBackgroundModes: download`, `fetch`, `processing` | `Configuration/BuildSettings/iOS/Info.plist` | Standard background `URLSession` and `BGTaskScheduler` work. iOS decides when refresh/processing runs; the automation UI says so rather than promising a schedule. |
 | `UIBackgroundModes: remote-notification` | same | Notification delivery, not silent remote execution. |
 | `NSLocalNetworkUsageDescription`, `NSBonjourServices` (`_http._tcp`, `_webdav._tcp`) | same | The in-app Web Manager and companion discovery on the LAN. A locked or backgrounded phone may suspend the server unless the keep-alive above holds, and the user must grant the Local Network permission. |
 | `NSFaceIDUsageDescription` | same | App Lock. No biometric data leaves the device. |
@@ -328,31 +328,59 @@ promise to the user and, for a distributed build, to App Review.
 - **App Review applies to external testers.** Internal TestFlight testers do not
   require review; external testers do.
 
+### Parity caveats that are now explicit
+
+- **Import actions follow the saved signing state.** The Get/import button now says
+  Add to Library, Sign or Sign & Install according to auto-sign and the saved
+  install option, matching the Feather-family workflow. An Apple Account identity
+  still opens the attended review instead of substituting a stored certificate.
+- **Combined repository news** merges every source, removes duplicate identifiers and
+  shows the newest bounded set. It is no longer limited to the first source.
+- **Paired AFC / `installd` installation** is present in code but stays behind the
+  inventory-bridge and exact-installed-version gates. A pairing file or an active
+  VPN does not unlock it, and it is tracked as `needsDevice` in Feature Status.
+- **Local activity analytics are opt-in and off by default.** No new counts are
+  stored while off, and stored counts never leave the device. Turning the toggle off
+  gives the same no-analytics behaviour as a build without the counters.
+- **Computer-free bootstrap** is an acceptance path, not a claim. The local report
+  binds a human observation to one exact IPA SHA-256; nothing is advertised as
+  device-verified until that report passes.
+
 ### Distribution risks a beta must accept explicitly
 
-1. **The audio background mode.** The app declares `audio` and uses it to extend
-   background time for non-audio work. Review guidance does not permit that use, and
-   it is the most likely cause of a rejection. A review-safe build would remove
-   `audio` and accept that long operations pause when backgrounded.
-2. **Two repository fetch paths.** `RepositorySyncEngine` validates and keeps a
-   last-known-good snapshot; `FR.fetchRepositories` (used by the add-source screens)
-   does not cap size or validate the schema, so behaviour differs by screen.
+1. **Background execution is best-effort.** The app no longer declares `audio` to
+   extend non-audio work. `BackgroundTaskManager` renews a normal background task
+   assertion and posts an expiration notice, but iOS may still suspend an operation;
+   the caller reconciles when the app returns.
+2. **Repository fetch policy is shared, not identical.** `SourceFeedLoader` now caps
+   size and checks the feed structure on the add-source path, matching the policy
+   `RepositorySyncEngine` applies. The sync engine still adds ETag caching and a
+   last-known-good snapshot; that extra behaviour remains specific to background sync.
 3. **Web Manager TLS is locally issued.** Browsers and companion devices must trust
    the device CA separately; the in-app flow says so.
 
 ### Evidence status
 
+CI validation runs in `.github/workflows/ci.yml`; its reports distinguish
+portable gates, simulator evidence and skipped device jobs.
+
 | Evidence | Status |
 |---|---|
-| Linux gates (`quick_check`, `Tools/`) | Pass locally and in CI's `quick` job |
-| iOS build and simulator tests | **Unverified.** Every recent macOS run left the jobs queued. No passing build exists for the current HEAD. |
-| Physical-device acceptance | **Pending.** The 102-step `Tests/DeviceAcceptance` checklist is prepared; nothing in it has been run. |
+| Linux gates (`quick_check`, `Tools/`) | Pass locally and in CI's `quick` job; these read source and never compile Swift |
+| iOS build and simulator tests | **Unverified here.** No Swift/Xcode toolchain was available locally. The last merged validation run (PR #282) had a failed `build` job and a failed simulator-test job, so it is not evidence of a green native build. |
+| XCUITest interactions (`UITests/`) | **Unverified here.** A separate `VexSignUITests` target, scheme and `ui-tests` CI job exist, but no simulator run has been observed. Screenshots are attached to each test and uploaded with the `xcresult`; an install is never claimed from a simulator tap. |
+| Physical-device acceptance | **Pending.** [`Tools/Audit/device-acceptance.py`](Tools/Audit/device-acceptance.py) covers 12 baseline checks plus optional native-handoff, bootstrap and renewal cases; its 28 Python tests validate report structure only. [`Tools/Audit/feature-acceptance.py`](Tools/Audit/feature-acceptance.py) adds one bound case for each of the 41 registered features. No device result has been observed. |
 
 ## Build & test
 
 Use macOS and an Xcode with the SDK required by the current branch (the app uses
 iOS 26 SDK APIs; the minimum deployment target is iOS 17.0, and newer APIs are behind
 availability checks). `make bootstrap` validates your environment and resolves packages.
+
+By default the paid macOS jobs in CI run only on a public repository. A trusted private
+repository can accept the billed minutes by setting the repository variable
+`VEXSIGN_PRIVATE_MACOS_VALIDATION=true`; otherwise those jobs are skipped and the
+`quick` job says so in its summary. A skip is not build evidence.
 
 ```bash
 git clone https://github.com/raynmahbub/VexSign.git
@@ -362,6 +390,7 @@ open VexSign.xcworkspace   # VexSign scheme; choose your development team
 make                      # unsigned packages/VexSign-<version>.ipa
 make verify               # portable checks; no Xcode required
 make test                 # iPhone simulator tests (macOS/Xcode)
+make test-ui              # simulator XCUITest interactions and screenshots
 make help                 # all supported entry points
 ```
 
@@ -401,6 +430,7 @@ VexSign/
 ├── Packages/                Swift packages and vendored dependencies
 ├── Services/                Separately deployed backends and integrations
 ├── Tests/                   App tests and shared test support
+├── UITests/                 XCUITest source root (VexSignUITests target)
 ├── Tools/                   Validation, build, audit and release tools
 ├── Configuration/           Build and signing configuration
 ├── Documentation/           Architecture, development and operations guides
@@ -422,9 +452,10 @@ Folder organization alone does not establish an Xcode build or device capability
 ## Quality & releases
 
 - **CI:** relevant PRs/main changes get portable policy checks. Native changes also
-  request an unsigned build and simulator tests when the macOS visibility gate
-  permits them; private repositories currently skip these jobs. A green portable
-  check is not evidence of an iOS build. Component workflows validate their own paths separately.
+  request an unsigned build and separate simulator unit/UI test jobs when the macOS
+  visibility gate permits them; private repositories currently skip those jobs. A green
+  portable check is not evidence of an iOS build. Component workflows validate their own
+  paths separately.
 - **Self-hosted Safari install:** distributors with an eligible pre-signed IPA can
   generate a first-install site from the signing screen.
 - **Stable:** reviewed version bump, matching `v<MARKETING_VERSION>` tag or manual

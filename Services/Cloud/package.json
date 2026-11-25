@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/API/main.js",
     "worker": "node dist/Signing/Worker/worker.js",
-    "migrate": "node dist/VexSign/Storage/migrate.js",
+    "migrate": "node dist/Storage/migrate.js",
     "test": "tsx --test Tests/*.test.ts",
     "check": "tsc --noEmit",
     "contracts": "tsx API/openapi.ts"
@@ -31,7 +31,7 @@
     "zod": "^4.1.5"
   },
   "devDependencies": {
-    "@types/node": "^26.6.6",
+    "@types/node": "^22.20.5",
     "@types/pg": "^8.15.5",
     "@types/qrcode": "^1.5.5",
     "tsx": "^4.23.15",

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { submitJobs, APIError, type Submission } from '../Signing/JobQueue/jobs.js';
-import type { Infrastructure } from '../VexSign/Storage/infrastructure.js';
+import type { Infrastructure } from '../Storage/infrastructure.js';
 import { unseal } from '../Security/security.js';
 
 const request: Submission = { ipaId: 'ipa-a', p12Id: 'p12-a', provisionId: 'provision-a', password: 'sensitive-test-value', idempotencyKey: 'idempotency-a' };

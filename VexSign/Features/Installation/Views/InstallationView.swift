@@ -33,18 +33,54 @@ struct InstallationView: View {
         return error
     }
 
+    private var _selectedInstallMethod: InstallMethodKind {
+        switch _modeManager.methodChoice {
+        case .embeddedContainer: return .liveContainer
+        case .direct: return _installationMethod == 1 ? .idevice : .server
+        }
+    }
+
+    private var _selectedMethodReadiness: InstallReadiness {
+        InstallPreflight.readiness(for: _selectedInstallMethod, _preflight)
+    }
+
     // MARK: Body
     var body: some View {
         NBList(.localized("Installation")) {
             Section {
-                Picker(.localized("App Routing"), systemImage: "arrow.triangle.branch", selection: Binding(
-                    get: { _modeManager.preference },
-                    set: { _modeManager.selectPreference($0) }
+                Picker(.localized("Signing identity"), systemImage: "person.crop.circle.badge.checkmark", selection: Binding(
+                    get: { _modeManager.identityChoice },
+                    set: { _modeManager.selectIdentity($0) }
                 )) {
-                    ForEach(SigningModePreference.allCases) { preference in
-                        Text(preference.title).tag(preference)
-                    }
+                    Text(.localized("Imported .p12 + profile")).tag(SigningIdentityChoice.importedCertificate)
+                    Text(.localized("Apple Account")).tag(SigningIdentityChoice.appleAccount)
                 }
+                Text(.localized("This chooses who signs. It never changes the installation method below."))
+                    .font(.caption).foregroundStyle(.secondary)
+            } header: {
+                Text(.localized("1. Signing identity"))
+            }
+
+            Section {
+                Picker(.localized("Installation method"), systemImage: "arrow.triangle.branch", selection: Binding(
+                    get: { _modeManager.methodChoice },
+                    set: { _modeManager.selectMethod($0) }
+                )) {
+                    Text(.localized("Direct installation")).tag(InstallationMethodChoice.direct)
+                    Text(.localized("Embedded container")).tag(InstallationMethodChoice.embeddedContainer)
+                }
+
+                HStack {
+                    Text(.localized("Device readiness"))
+                    Spacer()
+                    Text(verbatim: InstallPreflight.summary(for: _selectedMethodReadiness))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(_preflightColor(_selectedMethodReadiness))
+                }
+                Text(verbatim: InstallPreflight.detail(for: InstallMethodReport(
+                    method: _selectedInstallMethod, readiness: _selectedMethodReadiness
+                )))
+                .font(.caption).foregroundStyle(.secondary)
 
                 if let pipeline = _pipeline {
                     LabeledContent(.localized("Resolved route")) {
@@ -57,13 +93,13 @@ struct InstallationView: View {
                         .font(.caption)
                 }
             } header: {
-                Text(.localized("Dual-mode app routing"))
+                Text(.localized("2. Installation method"))
             } footer: {
-                Text(.localized("Automatic uses a usable long-lived or enterprise certificate for direct signing. In the combined host, a missing, expired, revoked or short-profile certificate selects the container instead. Standalone builds retain their direct OTA/IDevice path for already signed IPAs. Explicit modes never silently fall back."))
+                Text(.localized("Direct uses the transport chosen below. Embedded container needs the combined host runtime; if it is not ready the route fails closed instead of falling back. An Apple Account never selects it for you."))
             }
 
             Section {
-                Picker(.localized("Direct Installation Type"), systemImage: "arrow.down.app", selection: Binding(
+                Picker(.localized("Direct transport"), systemImage: "arrow.down.app", selection: Binding(
                     get: {
                         _installationMethod == 0 || _installationMethod == 1
                             ? _installationMethod : _modeManager.preferredDirectMethod
@@ -74,8 +110,8 @@ struct InstallationView: View {
                     Text(.localized("idevice")).tag(1)
                 }
 
-                if _modeManager.preference == .containerized {
-                    Text(.localized("Changing this selector chooses Direct Paid / Certificate routing. Your current container selection remains unchanged until then."))
+                if _modeManager.methodChoice == .embeddedContainer {
+                    Text(.localized("This refines Direct installation only. Choosing a transport switches the installation method back to Direct; it does not change the signing identity."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -136,7 +172,7 @@ struct InstallationView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { _refreshPreflight() }
         }
-        .appAnimation(.default, value: _modeManager.preference)
+        .appAnimation(.default, value: _modeManager.methodChoice)
     }
 
     // MARK: Preflight

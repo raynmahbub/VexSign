@@ -32,6 +32,10 @@ enum A11y {
 		/// Shown in place of the sign button when the preflight found a requirement that
 		/// cannot be signed through.
 		static let preflightCannotSign = "vexsign.signing.preflight.cannotsign"
+		static let paidCertificate = "vexsign.signing.method.paid"
+		static let freeAppleID = "vexsign.signing.method.freeappleid"
+		static let trollStore = "vexsign.signing.method.trollstore"
+		static let identityDeliverySeparation = "vexsign.signing.identitydelivery"
 	}
 
 	/// The queue that installs a signed bundle.
@@ -47,6 +51,16 @@ enum A11y {
 	}
 
 	/// The Home tab: the search field and the round import button that opens the file picker.
+	enum Tasks {
+		static let downloadOptions = "vexsign.tasks.downloadoptions"
+		static let importFromFiles = "vexsign.tasks.importfiles"
+	}
+
+	enum Settings {
+		static let signingMethods = "vexsign.settings.signingmethods"
+		static let installationEngine = "vexsign.settings.installationengine"
+	}
+
 	enum Home {
 		static let search = "vexsign.home.search"
 		static let importPackages = "vexsign.home.import"
@@ -61,6 +75,7 @@ enum A11y {
 		static let resign = "vexsign.library.resign"
 		static let export = "vexsign.library.export"
 		static let selectionToggle = "vexsign.library.selection"
+		static let importPackages = "vexsign.library.import"
 	}
 
 	/// Every identifier, for the test that keeps them unique and prefixed.
@@ -68,10 +83,14 @@ enum A11y {
 		[
 			Signing.start, Signing.stop, Signing.progress, Signing.console, Signing.workflow,
 			Signing.attemptWorkflow, Signing.preflightCannotSign,
+			Signing.paidCertificate, Signing.freeAppleID, Signing.trollStore,
+			Signing.identityDeliverySeparation,
 			Install.start, Install.progress, Install.appName, Install.status,
+			Tasks.downloadOptions, Tasks.importFromFiles,
+			Settings.signingMethods, Settings.installationEngine,
 			Home.search, Home.importPackages,
 			Library.installedBadge, Library.guestBadge, Library.updateBadge, Library.lockBadge,
-			Library.resign, Library.export, Library.selectionToggle
+			Library.resign, Library.export, Library.selectionToggle, Library.importPackages
 		]
 	}
 }

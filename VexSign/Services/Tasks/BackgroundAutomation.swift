@@ -82,6 +82,17 @@ struct BackgroundAutomationPreferences {
 	}
 }
 
+/// Off by default. Opting in lets a scheduled pass check for a due Apple Account
+/// refresh and post a reminder; it never grants account or key-export approval.
+enum AccountRefreshAutomationPreferences {
+    static let enabledKey = "VexSign.automation.accountRefreshReminders"
+
+    static var isEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: enabledKey) }
+        set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
+    }
+}
+
 // MARK: - Result
 struct AutomationRunResult {
 	let refreshedSources: Int
@@ -96,6 +107,12 @@ struct AutomationRunResult {
     /// Apple Account profiles. A count only: the schedule itself lives in
     /// `RenewalScheduleCoordinator`, and the summary says where to look.
     var renewalsDue: Int = 0
+    /// Reminders posted for account refreshes that need the user's approval. A
+    /// count of notices, never a count of profiles that were renewed.
+    var refreshReminders: Int = 0
+    /// Imported credentials whose real expiry or revocation needs attention.
+    /// A warning count only: no periodic refresh is scheduled for them.
+    var certificateWarnings: Int = 0
 }
 
 // Stores counts and outcomes only; no app names, credentials or source URLs.
@@ -303,11 +320,36 @@ enum BackgroundAutomation {
         // 4. Free Apple ID profile expiry check (if signed in). Discovery only — see
         // `trackExpiringFreeAppleIDProfiles`; nothing here renews or re-signs.
 		await trackExpiringFreeAppleIDProfiles()
-		result.renewalsDue = await MainActor.run {
-			RenewalScheduleCoordinator.shared.plans.filter {
-				$0.status == .urgent || $0.status == .lapsed
-			}.count
+        let plans = await MainActor.run { RenewalScheduleCoordinator.shared.plans }
+        // Apple Account plans may be refreshed by the user after a reminder.
+        // Imported material is different: it gets a warning at its actual
+        // expiry/revocation, never a weekly refresh job.
+        result.renewalsDue = plans.filter {
+            $0.isAppleAccountCredential && ($0.status == .urgent || $0.status == .lapsed)
+        }.count
+        result.certificateWarnings = plans.filter {
+            !$0.isAppleAccountCredential
+                && ImportedCertificateRefreshPolicy.warning(for: $0).requiresAttention
+        }.count
+		// Opt-in, best-effort account refresh reminders. The decision is checked
+		// on the actor that owns the schedule and session flag; the pass still
+		// never renews, imports a key or starts an install.
+		let refreshDecision = await MainActor.run { () -> AccountRefreshAutomationDecision in
+			AccountRefreshAutomationPolicy.decide(
+				isEnabled: AccountRefreshAutomationPreferences.isEnabled,
+				hasDueRefresh: RenewalScheduleCoordinator.shared.plans.contains {
+					$0.isAppleAccountCredential && $0.status.isActionable
+				},
+				sessionReady: RenewalRenewabilityState.shared.isAccountSessionReady,
+				fromBackground: fromBackground
+			)
 		}
+		if let reason = refreshDecision.reason {
+            result.refreshReminders += 1
+            // A separate notification: the opt-in refresh reminder must not be
+            // swallowed by the unrelated "notify on auto update" preference.
+            postAccountRefreshReminder(reason)
+        }
 		guard !Task.isCancelled else {
 			AutomationHistoryStore.shared.record("cancelled", fromBackground: fromBackground, result: result, duration: Date().timeIntervalSince(startedAt))
 			return nil
@@ -387,6 +429,23 @@ enum BackgroundAutomation {
 		}
 	}
 
+	/// A background reminder never contains credentials and never claims work was done.
+	private nonisolated static func postAccountRefreshReminder(_ reason: AccountRefreshReminderReason) {
+		let content = UNMutableNotificationContent()
+		content.title = .localized("Apple Account refresh needs you")
+		switch reason {
+		case .sessionNeedsAuthentication:
+			content.body = .localized("Sign in to your Apple Account in VexSign to review a due refresh. Nothing was changed automatically.")
+		case .approvalRequired:
+			content.body = .localized("Review the due account refresh in VexSign. Provisioning, key export and installation need your approval.")
+		}
+		content.sound = .default
+		content.interruptionLevel = .active
+		UNUserNotificationCenter.current().add(
+			UNNotificationRequest(identifier: "vexsign.account-refresh.\(UUID().uuidString)", content: content, trigger: nil)
+		)
+	}
+
 	private nonisolated static func postSummary(_ result: AutomationRunResult) {
 		let content = UNMutableNotificationContent()
 		content.title = .localized("VexSign automation")
@@ -417,6 +476,12 @@ enum BackgroundAutomation {
         if result.renewalsDue > 0 {
             // Says where to look, never what was done: nothing in this pass renews.
             lines.append(String.localized("%lld signed apps need re-signing", arguments: result.renewalsDue))
+        }
+        if result.refreshReminders > 0 {
+            lines.append(String.localized("%lld account refreshes need review", arguments: result.refreshReminders))
+        }
+        if result.certificateWarnings > 0 {
+            lines.append(String.localized("%lld certificates need attention (no automatic refresh)", arguments: result.certificateWarnings))
         }
 		if result.skipped > 0 {
 			lines.append(String.localized("%lld skipped", arguments: result.skipped))
