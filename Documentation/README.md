@@ -7,11 +7,9 @@
 | Guide | Use it for |
 | --- | --- |
 | [Architecture](Architecture/README.md) | Source ownership, feature boundaries and dependency composition |
-| [Development](Development/README.md) | Getting started and local development commands |
-| [Testing](Testing/README.md) | Test suites and the distinction between portable, simulator and device evidence |
-| [Security](Security/README.md) | Security responsibilities and reporting guidance |
-| [Deployment](Deployment/README.md) | App and optional backend deployment entry points |
-| [Release](Release/README.md) | Release-change expectations and verification evidence |
+
+Other guides were removed. Use `make help`, `README.md`, `CONTRIBUTING.md`,
+`SECURITY.md` and `.github/workflows/` for the retained operating instructions.
 
 ## Working from the root
 

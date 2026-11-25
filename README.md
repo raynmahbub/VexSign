@@ -282,10 +282,8 @@ If a link does not open your app, copy the stable source URL shown below and add
 
 ### Start signing
 
-For computer-free first-install requirements and the full setup sequence, follow
-[the device journey guide](Documentation/Testing/DEVICE-JOURNEY.md). An unsigned
-IPA cannot install itself; account setup inside VexSign starts only after an
-eligible copy of VexSign is already installed.
+An unsigned IPA cannot install itself; account setup inside VexSign starts only
+after an eligible copy of VexSign is already installed.
 
 Download an **unsigned IPA** from [Releases](https://github.com/raynmahbub/VexSign/releases)
 and sign it with an existing sideloading tool/identity. Existing VexSign users can
@@ -363,8 +361,8 @@ promise to the user and, for a distributed build, to App Review.
 
 ### Evidence status
 
-The CI design, runner setup and report meanings are documented in
-[`Documentation/CI/automated-qa.md`](Documentation/CI/automated-qa.md).
+CI validation runs in `.github/workflows/ci.yml`; its reports distinguish
+portable gates, simulator evidence and skipped device jobs.
 
 | Evidence | Status |
 |---|---|

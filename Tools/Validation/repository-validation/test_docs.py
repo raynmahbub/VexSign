@@ -76,8 +76,7 @@ class DocumentationTests(unittest.TestCase):
         for target in ('Documentation/README.md', 'CONTRIBUTING.md', 'SECURITY.md'):
             self.assertIn(target, readme)
         index = (checker.ROOT / 'Documentation/README.md').read_text()
-        for area in ('Architecture', 'Development', 'Testing', 'Security', 'Deployment', 'Release'):
-            self.assertIn(f']({area}/README.md)', index)
+        self.assertIn('](Architecture/README.md)', index)
         self.assertIn('## Root compatibility files', index)
 
     def test_current_service_outputs_and_local_secrets_are_ignored(self):
