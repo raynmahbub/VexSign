@@ -9,7 +9,7 @@ newline:
     sha256( pem.strip() + "\\n" + crt.strip() + "\\n" + cn.strip() )
 
 Keeping the rule this small is deliberate: `services/Installation/Installation/TLS/LocalTLSIdentity.swift`
-computes the same value in the app, and `Tests/SecurityTests/CertificateValidation/LocalTLSIdentityTests.swift`
+computes the same value in the app, and `VexSignTests/SecurityTests/CertificateValidation/LocalTLSIdentityTests.swift`
 holds both to it.
 
 Usage:

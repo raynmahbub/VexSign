@@ -114,7 +114,7 @@ class ReportParsingTests(unittest.TestCase):
     "rule_id" : "indent"
   },
   {
-    "file" : "Tests/UnitTests/Persistence/CleanupOperationGuardTests.swift",
+    "file" : "VexSignTests/UnitTests/Persistence/CleanupOperationGuardTests.swift",
     "line" : 293,
     "reason" : "Remove trailing whitespace",
     "rule_id" : "trailingSpace"
@@ -213,7 +213,7 @@ class VendoredScopeTests(unittest.TestCase):
             "VexSign/Features/Dashboard/Home/Views/AppStoreView.swift",
             # NativeSigning is first-party even though it lives under Packages/.
             "Packages/NativeSigning/Sources/Anything.swift",
-            "Tests/UnitTests/Persistence/CleanupOperationGuardTests.swift",
+            "VexSignTests/UnitTests/Persistence/CleanupOperationGuardTests.swift",
         ):
             self.assertFalse(drift.is_excluded(path, excludes), path)
 

@@ -21,8 +21,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-INFO = ROOT / "Configuration/BuildSettings/iOS/Info.plist"
-ENTITLEMENTS = ROOT / "Configuration/Entitlements/iOS/VexSign.entitlements"
+INFO = ROOT / "Config/BuildSettings/iOS/Info.plist"
+ENTITLEMENTS = ROOT / "Config/Entitlements/iOS/VexSign.entitlements"
 BACKGROUND_MANAGER = ROOT / "VexSign/System/BackgroundTasks/BackgroundTaskManager.swift"
 DISCLOSURE = README = ROOT / "README.md"
 

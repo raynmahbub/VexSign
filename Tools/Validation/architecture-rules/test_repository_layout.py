@@ -22,8 +22,8 @@ PLATFORM = ROOT / "Platform"
 PBX = ROOT / "VexSign.xcodeproj/project.pbxproj"
 WORKSPACE = ROOT / "VexSign.xcworkspace/contents.xcworkspacedata"
 ROOT_LAYERS = {
-    "VexSign", "Packages", "Tests", "UITests", "Tools", "Configuration", "Platform",
-    "Services", "Documentation",
+    "VexSign", "Packages", "VexSignTests", "Tools", "Config", "Platform",
+    "Services", "Docs",
 }
 APP_LAYERS = {"Navigation", "Composition", "Bootstrap"}
 SKIP = {".git", "node_modules", "dist", "__pycache__", ".pytest_cache", ".venv", ".build", ".swiftpm"}
@@ -31,22 +31,22 @@ ALIASES = (
     ("VexSign/Resources/icon.png", "icon.png"),
     ("VexSign/Resources/Templates/app-repo.json", "app-repo.json"),
     ("VexSign/Resources/Templates/repos.json", "repos.json"),
-    ("Configuration/Signing/license_plist.yml", "license_plist.yml"),
+    ("Config/Signing/license_plist.yml", "license_plist.yml"),
     ("Services/WebManager/Configuration/render.yaml", "render.yaml"),
 )
 # The root is an entry surface, not a place to grow data files. Dotfiles are allowed
 # as tool configuration; every other root file must be on this reviewed list.
 ROOT_FILES = {
     ".editorconfig", ".gitattributes", ".gitignore", ".swiftformat", ".swiftlint.yml",
-    "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "LICENSE_ELLEKIT", "Makefile",
-    "README.md", "SECURITY.md", "app-repo.json", "icon.png", "license_plist.yml",
-    "render.yaml", "repos.json",
+    "LICENSE", "Makefile", "README.md", "app-repo.json", "icon.png",
+    "license_plist.yml", "render.yaml", "repos.json",
 }
 # Paths explicitly rejected by the adopted root contract. A synchronized-root move is
 # a build change, so these must fail at the portable gate rather than at a macOS-only build.
 REJECTED_PATHS = (
-    "Core", "Infrastructure", "Sources", "VexSignTests", "VexSignUITests",
-    "Platform/iOS", "Tests/UI", "Tests/UITests", "VexSign/App/iOS",
+    "Core", "Infrastructure", "Sources", "Tests", "UITests", "Configuration",
+    "Documentation", "VexSignUITests", "Platform/iOS", "VexSignTests/UI",
+    "VexSign/App/iOS",
 )
 GROUPS = {
     "3379C1BB2DA869A1004372DA": "VexSign/App",
@@ -59,7 +59,8 @@ GROUPS = {
     "E0E0E0000000000000000007": "VexSign/Features",
     "E0E0E0000000000000000008": "VexSign/Resources",
     "E0E0E0000000000000000009": "VexSign/Security",
-    "AABA5D1A2DB3C87800BFCD2C": "Tests",
+    "AABA5D1A2DB3C87800BFCD2C": "VexSignTests",
+    "EE000000000000000000000B": "VexSignTests/UITests",
     "3A2F0EE82E96DA5A009DE4CE": "Platform/Extensions/WidgetExtension",
     "C0FFEE000000000000000001": "Platform/TV",
     "C0FFEE00000000000000000D": "Platform/Vision",
@@ -81,9 +82,10 @@ class RepositoryLayoutTests(unittest.TestCase):
                          ROOT_LAYERS | {"VexSign.xcodeproj", "VexSign.xcworkspace"})
         for legacy in ("App", "Apple", "DesignSystem", "Networking", "Shared", "Storage", "Resources",
                        "VexSign/App/iOS", "VexSign/Packages", "VexSign/Tests", "VexSign/Tools",
-                       "VexSign/Configuration", "Integrations", "app", "services", "res"):
+                       "VexSign/Configuration", "Configuration", "Documentation", "Tests", "UITests",
+                       "Integrations", "app", "services", "res"):
             self.assertFalse((ROOT / legacy).exists(), f"legacy root remains: {legacy}")
-        for name in ("README.md", "Makefile", "LICENSE", "LICENSE_ELLEKIT",
+        for name in ("README.md", "Makefile", "LICENSE",
                      ".github", ".github/workflows",
                      ".github/ISSUE_TEMPLATE",
                      "VexSign.xcodeproj", "VexSign.xcworkspace"):
@@ -107,13 +109,13 @@ class RepositoryLayoutTests(unittest.TestCase):
         """Target names and source roots are deliberately not the same string."""
         pbx = PBX.read_text()
         self.assertIn("name = VexSignTests;", pbx)
-        self.assertIn("path = Tests;", pbx)
+        self.assertIn("path = VexSignTests;", pbx)
         self.assertIn("name = VexSignUITests;", pbx)
-        self.assertIn("path = UITests;", pbx)
-        self.assertTrue((ROOT / "UITests/VexSignUITests.swift").is_file())
-        self.assertTrue((ROOT / "Tests/UnitTests").is_dir())
-        self.assertFalse((ROOT / "Tests/UI").exists())
-        self.assertFalse((ROOT / "VexSignTests").exists())
+        self.assertIn("path = VexSignTests/UITests;", pbx)
+        self.assertTrue((ROOT / "VexSignTests/UITests/VexSignUITests.swift").is_file())
+        self.assertTrue((ROOT / "VexSignTests/UnitTests").is_dir())
+        self.assertFalse((ROOT / "Tests").exists())
+        self.assertFalse((ROOT / "UITests").exists())
         self.assertFalse((ROOT / "VexSignUITests").exists())
 
     def test_app_platform_roots_keep_every_entry_point(self):
@@ -226,11 +228,12 @@ class RepositoryLayoutTests(unittest.TestCase):
 
     def test_tests_tools_and_configuration_roots(self):
         for suite in ("UnitTests", "IntegrationTests", "SecurityTests", "PerformanceTests", "Support"):
-            self.assertTrue(list((ROOT / "Tests" / suite).rglob("*")), suite)
+            self.assertTrue(list((ROOT / "VexSignTests" / suite).rglob("*")), suite)
+        self.assertTrue((ROOT / "VexSignTests/UITests/VexSignUITests.swift").is_file())
         for name in ("Shared.xcconfig", "Debug.xcconfig", "Release.xcconfig"):
-            self.assertTrue((ROOT / "Configuration/BuildSettings" / name).is_file(), name)
-        self.assertTrue((ROOT / "Configuration/BuildSettings/iOS/Info.plist").is_file())
-        self.assertTrue((ROOT / "Configuration/Entitlements/iOS/VexSign.entitlements").is_file())
+            self.assertTrue((ROOT / "Config/BuildSettings" / name).is_file(), name)
+        self.assertTrue((ROOT / "Config/BuildSettings/iOS/Info.plist").is_file())
+        self.assertTrue((ROOT / "Config/Entitlements/iOS/VexSign.entitlements").is_file())
         for tool in ("Validation", "Scripts", "Release", "Build", "Audit"):
             self.assertTrue(list((ROOT / "Tools" / tool).rglob("*")), tool)
 
@@ -312,7 +315,7 @@ class RepositoryLayoutTests(unittest.TestCase):
         references = re.findall(r"baseConfigurationReference = ([A-F0-9]+) /\* (Debug|Release)\.xcconfig \*/;", pbx)
         self.assertEqual(len(references), 4)
         for name in ("Shared", "Debug", "Release"):
-            path = ROOT / "Configuration/BuildSettings" / (name + ".xcconfig")
+            path = ROOT / "Config/BuildSettings" / (name + ".xcconfig")
             self.assertTrue(path.is_file())
             if name != "Shared":
                 self.assertIn('#include "Shared.xcconfig"', path.read_text())
@@ -320,7 +323,7 @@ class RepositoryLayoutTests(unittest.TestCase):
             self.assertTrue((ROOT / relative).exists(), macro + relative)
 
     def test_bridging_header_includes_resolve_under_the_new_roots(self):
-        header = ROOT / "Configuration/BuildSettings/iOS/VexSign-Bridging-Header.h"
+        header = ROOT / "Config/BuildSettings/iOS/VexSign-Bridging-Header.h"
         includes = re.findall(r'^\s*#(?:include|import)\s+"([^"]+)"', header.read_text(), re.M)
         self.assertEqual(len(includes), 4, includes)
         resolved = {(header.parent / relative).resolve() for relative in includes}
@@ -348,7 +351,7 @@ class RepositoryLayoutTests(unittest.TestCase):
     def test_source_fixtures_read_files_that_exist(self):
         """A test that reads a repository file by path breaks silently on a move."""
         reads = set()
-        for path in sorted((ROOT / "Tests").rglob("*.swift")):
+        for path in sorted((ROOT / "VexSignTests").rglob("*.swift")):
             reads.update(re.findall(r'RepositorySourceFixture\.read\("([^"]+)"\)',
                                     path.read_text(encoding="utf-8")))
         self.assertTrue(reads, "no source fixtures found; the pattern changed")
@@ -375,8 +378,8 @@ class RepositoryLayoutTests(unittest.TestCase):
     def test_ci_filters_and_validation_entry_points_follow_the_new_tree(self):
         workflows = ROOT / ".github/workflows"
         text = "\n".join(p.read_text() for p in workflows.glob("*.yml"))
-        for pattern in ("VexSign/App/**", "Packages/**", "Tests/**", "Tools/**",
-                        "Configuration/**", "Services/Cloud/**", "Services/WebManager/**",
+        for pattern in ("VexSign/App/**", "Packages/**", "VexSignTests/**", "Tools/**",
+                        "Config/**", "Services/Cloud/**", "Services/WebManager/**",
                         "VexSign/Shared/**", "VexSign/Services/**", "VexSign/Storage/**", "VexSign/Networking/**",
                         "VexSign/System/**", "VexSign/DesignSystem/**", "VexSign/Resources/**",
                         "VexSign/Features/**", "VexSign/Security/**"):

@@ -55,7 +55,7 @@ SWIFT_MODULES: dict[str, str] = {
     "VexSignVision": "Platform/Vision",
     "VexSignWatch": "Platform/Watch/VexSignWatch",
     "VexSignWatchWidgets": "Platform/Watch/VexSignWatchWidgets",
-    "VexSignTests": "Tests",
+    "VexSignTests": "VexSignTests",
     "AltSourceKit": "Packages/AltSourceKit/Sources",
     "NimbleExtensions": "Packages/NimbleKit/Sources/NimbleKit/NimbleExtensions",
     "NimbleJSON": "Packages/NimbleKit/Sources/NimbleKit/NimbleJSON",
@@ -105,7 +105,7 @@ SKIP_DIRS = {".git", ".build", "Zsign", "IDeviceKitten", "packages", "Payload", 
 # tool-owned parent/child pairs, not blanket feature/vendor/Xcode exemptions.
 OWNERSHIP_ROOTS = {
     "App", "Shared", "Storage", "Networking", "Apple", "DesignSystem", "Packages",
-    "Services", "Tests", "Tools", "Configuration", "Resources", "VexSign",
+    "Services", "VexSignTests", "Tools", "Config", "Resources", "VexSign",
 }
 APP_ROOT = "App"
 # Wrappers that used to nest one directory deeper than the layout allows. They are declared
@@ -547,7 +547,7 @@ def check_security_settings(root: Path, report: Report) -> None:
     signed build; the ATS check is an error because there is no configuration in which
     the app needs it.
     """
-    info = root / "Configuration/BuildSettings/iOS/Info.plist"
+    info = root / "Config/BuildSettings/iOS/Info.plist"
     if info.is_file():
         try:
             plist = plistlib.loads(info.read_bytes())
@@ -566,7 +566,7 @@ def check_security_settings(root: Path, report: Report) -> None:
                 "NSAllowsArbitraryLoadsInWebContent is enabled: web views load plaintext content.",
                 rel(root, info), _line_of(info, "NSAllowsArbitraryLoadsInWebContent"), 1))
 
-    entitlements = root / "Configuration/Entitlements/iOS/VexSign.entitlements"
+    entitlements = root / "Config/Entitlements/iOS/VexSign.entitlements"
     if entitlements.is_file():
         try:
             values = plistlib.loads(entitlements.read_bytes())
@@ -688,7 +688,7 @@ def run_self_tests() -> int:
                     self.assertTrue(swift_files_for(root, module_dir), f"{module_dir} has no Swift files")
 
         def test_single_file_is_not_redundant(self):
-            self.assertEqual(layout_findings(["Configuration/BuildSettings/FilePickerFix.m"]), [])
+            self.assertEqual(layout_findings(["Config/BuildSettings/FilePickerFix.m"]), [])
 
         def test_redundant_chain_detected(self):
             findings = layout_findings(["Tools/Development/FilePickerFix/FilePickerFix.m"])
@@ -803,8 +803,8 @@ def run_self_tests() -> int:
         def test_security_settings_catch_ats_and_debug_entitlements(self):
             with tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                (root / "Configuration/BuildSettings/iOS").mkdir(parents=True)
-                info = root / "Configuration/BuildSettings/iOS/Info.plist"
+                (root / "Config/BuildSettings/iOS").mkdir(parents=True)
+                info = root / "Config/BuildSettings/iOS/Info.plist"
                 info.write_bytes(plistlib.dumps({"NSAppTransportSecurity": {"NSAllowsArbitraryLoads": True}}))
                 report = Report(root)
                 check_security_settings(root, report)
@@ -815,8 +815,8 @@ def run_self_tests() -> int:
                 check_security_settings(root, clean)
                 self.assertEqual(clean.findings, [])
 
-                (root / "Configuration/Entitlements/iOS").mkdir(parents=True)
-                (root / "Configuration/Entitlements/iOS/VexSign.entitlements").write_bytes(
+                (root / "Config/Entitlements/iOS").mkdir(parents=True)
+                (root / "Config/Entitlements/iOS/VexSign.entitlements").write_bytes(
                     plistlib.dumps({"get-task-allow": True}))
                 debug = Report(root)
                 check_security_settings(root, debug)
@@ -826,10 +826,10 @@ def run_self_tests() -> int:
         def test_script_input_rename(self):
             with tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                (root / "Configuration/BuildSettings").mkdir(parents=True)
-                (root / "Configuration/BuildSettings/FilePickerFix.m").touch()
+                (root / "Config/BuildSettings").mkdir(parents=True)
+                (root / "Config/BuildSettings/FilePickerFix.m").touch()
                 project = root / "Project.xcodeproj/project.pbxproj"
-                for value, errors in (("$(SRCROOT)/Configuration/BuildSettings/FilePickerFix.m", 0),
+                for value, errors in (("$(SRCROOT)/Config/BuildSettings/FilePickerFix.m", 0),
                                       ("$(SRCROOT)/Tools/Development/FilePickerFix/FilePickerFix.m", 1),
                                       ("$(BUILT_PRODUCTS_DIR)/FilePickerFix.dylib", 0)):
                     report = Report(root)

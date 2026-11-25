@@ -6,7 +6,7 @@ import { mkdtemp, writeFile, rm, stat, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Job } from 'bullmq';
-import type { Config } from '../Configuration/config.js';
+import type { Config } from '../Config/config.js';
 import type { Infrastructure } from '../Storage/infrastructure.js';
 import { seal } from '../Security/security.js';
 import { deliverWebhooks, failureCode, fetchAsset, finish, hashingStream, processJob, type WorkerDeps } from '../Signing/Worker/processor.js';

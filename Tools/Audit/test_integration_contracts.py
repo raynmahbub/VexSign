@@ -17,16 +17,16 @@ ANISETTE_CLIENT = ROOT / "Packages/NativeSigning/Authentication/HTTPSAnisettePro
 ANISETTE_MOCK = ROOT / "Services/Cloud/Anisette/main.swift"
 ANISETTE_CONTRACT = (ROOT / "Tools/Validation/security-validation/evidence"
                      / "service-contracts.md")
-MAIN_ENTITLEMENTS = ROOT / "Configuration/Entitlements/iOS/VexSign.entitlements"
-WIDGET_ENTITLEMENTS = ROOT / "Configuration/Entitlements/VexSignWidgetExtension/VexSignWidgetExtension.entitlements"
-WATCH_ENTITLEMENTS = ROOT / "Configuration/Entitlements/VexSignWatch/VexSignWatch.entitlements"
-WATCH_WIDGET_ENTITLEMENTS = ROOT / "Configuration/Entitlements/VexSignWatchWidgets/VexSignWatchWidgets.entitlements"
+MAIN_ENTITLEMENTS = ROOT / "Config/Entitlements/iOS/VexSign.entitlements"
+WIDGET_ENTITLEMENTS = ROOT / "Config/Entitlements/VexSignWidgetExtension/VexSignWidgetExtension.entitlements"
+WATCH_ENTITLEMENTS = ROOT / "Config/Entitlements/VexSignWatch/VexSignWatch.entitlements"
+WATCH_WIDGET_ENTITLEMENTS = ROOT / "Config/Entitlements/VexSignWatchWidgets/VexSignWatchWidgets.entitlements"
 MANIFEST_SERVICE = ROOT / "VexSign/Services/Installation/Installation/OTA/ManifestService.swift"
 APP_INSTALLER = ROOT / "VexSign/Services/Installation/Installation/AppInstaller.swift"
 LOG_REDACTION = ROOT / "VexSign/Services/Diagnostics/LogRedaction.swift"
-LOG_REDACTION_TESTS = ROOT / "Tests/SecurityTests/CredentialRedaction/LogRedactionTests.swift"
+LOG_REDACTION_TESTS = ROOT / "VexSignTests/SecurityTests/CredentialRedaction/LogRedactionTests.swift"
 BASE64_STAGING = ROOT / "Packages/NimbleKit/Sources/NimbleKit/NimbleExtensions/FileManager/FileManager+shortcuts.swift"
-BASE64_STAGING_TESTS = ROOT / "Tests/SecurityTests/URLValidation/DeepLinkBase64StagingTests.swift"
+BASE64_STAGING_TESTS = ROOT / "VexSignTests/SecurityTests/URLValidation/DeepLinkBase64StagingTests.swift"
 
 
 def _keys(block: str) -> set[str]:
@@ -68,7 +68,7 @@ class DownloadReleaseMetadataContractTests(unittest.TestCase):
         block = source.split("var downloadIntegrityExpectation:", 1)[1]
         self.assertIn("byteCount: currentDownloadSize", block)
         self.assertNotIn("size ?? versionBytes", block)
-        tests = (ROOT / "Tests/UnitTests/Application/DownloadIntegrityTests.swift").read_text()
+        tests = (ROOT / "VexSignTests/UnitTests/Application/DownloadIntegrityTests.swift").read_text()
         for name in (
             "testSelectedVersionSizeWinsOverConflictingTopLevelMetadata",
             "testAnotherURLsLegacySizeIsNeverAppliedToAReleaseWithNoSize",
@@ -91,7 +91,7 @@ class DownloadReleaseMetadataContractTests(unittest.TestCase):
     def test_persisted_discovery_size_is_optional_with_executable_swift_regressions(self) -> None:
         model = (ROOT / "VexSign/Shared/Services/DiscoveryIndex.swift").read_text()
         self.assertIn("var downloadByteCount: Int64? = nil", model)
-        tests = (ROOT / "Tests/UnitTests/Repositories/RepositoryDiscoveryAdapterTests.swift").read_text()
+        tests = (ROOT / "VexSignTests/UnitTests/Repositories/RepositoryDiscoveryAdapterTests.swift").read_text()
         for name in (
             "testDiscoveryForwardsTheSourcesSelectedDownloadSize",
             "testAnOldListingWithoutSizeRemainsUnverifiedAndDownloadable",

@@ -35,7 +35,7 @@ PROJECT = ROOT / "VexSign.xcodeproj/project.pbxproj"
 SOURCE_ROOTS = ("VexSign/App", "VexSign/Features", "VexSign/Shared", "VexSign/Storage",
                 "VexSign/Networking", "VexSign/Security", "VexSign/System",
                 "VexSign/DesignSystem", "VexSign/Services", "VexSign/Resources",
-                "Platform", "Tests")
+                "Platform", "VexSignTests")
 
 BUNDLED_RESOURCES = (
     ("Localizations/Localizable.xcstrings",
@@ -69,13 +69,17 @@ def objects(text):
 
 
 def sync_roots(text):
-    """Synchronized root groups as (id, display name, on-disk path)."""
+    """Synchronized root groups as (id, display name, on-disk path, membership exceptions)."""
     roots = []
     for oid, (name, body) in objects(text).items():
         if "isa = PBXFileSystemSynchronizedRootGroup;" not in body:
             continue
         path = re.search(r"path = ([^;]+);", body)
-        roots.append((oid, name, path.group(1) if path else None))
+        exceptions = []
+        m = re.search(r"membershipExceptions = \((.*?)\);", body, re.DOTALL)
+        if m:
+            exceptions = [x.strip().strip('"') for x in m.group(1).split(',') if x.strip()]
+        roots.append((oid, name, path.group(1) if path else None, exceptions))
     return roots
 
 
@@ -107,12 +111,23 @@ def target_groups(text):
 
 
 def nested_roots(roots):
-    """Pairs where one synchronized root's path contains another's."""
-    paths = [(oid, name, path) for oid, name, path in roots if path]
+    """Pairs where one synchronized root's path contains another's.
+
+    A nested root is allowed when the outer root explicitly excludes that path via
+    membershipExceptions (Xcode 16 file-system synchronized groups). This is used
+    for intentional layouts like VexSignTests containing VexSignTests/UITests as a
+    separate test target.
+    """
+    paths = [(oid, name, path, exceptions) for oid, name, path, *rest in roots if path
+             for exceptions in [rest[0] if rest else []]]
     pairs = []
-    for _, outer_name, outer in paths:
-        for _, inner_name, inner in paths:
-            if outer != inner and inner.startswith(outer.rstrip("/") + "/"):
+    for _, outer_name, outer, exceptions in paths:
+        outer_prefix = outer.rstrip("/") + "/"
+        for _, inner_name, inner, _ in paths:
+            if outer != inner and inner.startswith(outer_prefix):
+                rel = inner[len(outer_prefix):]
+                if rel in exceptions or inner in exceptions:
+                    continue
                 pairs.append((outer_name, outer, inner_name, inner))
     return pairs
 
@@ -124,7 +139,7 @@ def orphaned_sources(root, roots):
     tree outside every root is dead weight: the build either ignores it or fails
     with a missing symbol, and no other gate notices.
     """
-    reachable = [path.rstrip("/") for _, _, path in roots if path]
+    reachable = [path.rstrip("/") for _, _, path, *_ in roots if path]
     orphans = []
     for name in SOURCE_ROOTS:
         base = root / name
@@ -142,7 +157,7 @@ def unbundled(root, roots, targets):
     """Resources that no app target's synchronized root can reach."""
     ios = targets.get("VexSign") or []
     reachable = []
-    for oid, _, path in roots:
+    for oid, _, path, *_ in roots:
         if oid in ios and path:
             reachable.append(path.rstrip("/"))
     missing = []
@@ -161,7 +176,7 @@ def problems(root=ROOT, project=PROJECT):
     targets = target_groups(text)
     found = []
 
-    unreferenced = sorted({oid for oid, _, _ in roots}
+    unreferenced = sorted({oid for oid, _, _, *_ in roots}
                           - {oid for ids in targets.values() for oid in ids})
     if unreferenced:
         found.append(f"{len(unreferenced)} synchronized root(s) belong to no target: "

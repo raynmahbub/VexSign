@@ -148,7 +148,7 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         self.assertLess(source.index("try policy.validatePackageDownloadURL"), source.index("try provider.download(app)"))
         self.require("VexSign/App/Composition/AppContainer.swift", "DiscoveryUseCase(provider: discovery, policy: securityPolicy)")
         self.require("VexSign/Services/Repository/RepositoryDiscoveryAdapter.swift", "try security.validatePackageDownloadURL(url)")
-        fixture = (ROOT / "Tests/UnitTests/Repositories/DiscoveryViewModelTests.swift").read_text()
+        fixture = (ROOT / "VexSignTests/UnitTests/Repositories/DiscoveryViewModelTests.swift").read_text()
         self.assertIn("FakeCatalog: DiscoveryCatalogProviding", fixture)
         self.assertIn("DiscoveryUseCase(provider: provider, policy: SecurityPolicyGateway())", fixture)
         self.assertNotIn("DiscoveryViewModel(downloads:", fixture)

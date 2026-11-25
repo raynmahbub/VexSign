@@ -33,7 +33,7 @@ DIAGNOSTIC = re.compile(r"^(?P<path>[^\s:][^:]*\.swift):(?P<line>\d+):(?P<column
 
 #: Where first-party source lives, mirroring `.swiftformat`'s excludes the other way round.
 FIRST_PARTY_PREFIXES = ("VexSign/App/", "VexSign/Shared/", "VexSign/Storage/", "VexSign/Networking/", "VexSign/System/",
-                        "VexSign/DesignSystem/", "VexSign/Services/", "Tests/",
+                        "VexSign/DesignSystem/", "VexSign/Services/", "VexSignTests/",
                         "Packages/NimbleKit/", "Packages/AltSourceKit/",
                         "Packages/NativeSigning/", "Packages/DeviceBridge/")
 

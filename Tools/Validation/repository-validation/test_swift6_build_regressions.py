@@ -95,7 +95,7 @@ class Swift6BuildRegressionTests(unittest.TestCase):
         self.assertNotIn("LibraryGridSwipeDelete(enabled: true) {", source)
 
     def test_hosted_swipe_tests_do_not_write_the_read_only_system_accessibility_environment(self) -> None:
-        test = _source(ROOT / "Tests/UnitTests/Persistence/LibrarySwipeLayoutTests.swift")
+        test = _source(ROOT / "VexSignTests/UnitTests/Persistence/LibrarySwipeLayoutTests.swift")
         modifier = _source(VEXSIGN / "VexSign/Features/Library/Views/LibraryGridSwipeDelete.swift")
         self.assertNotIn(r".environment(\.accessibilityReduceMotion", test)
         self.assertIn("reduceMotionRequested: reduceMotion", test)
@@ -104,7 +104,7 @@ class Swift6BuildRegressionTests(unittest.TestCase):
         self.assertIn("LibraryGridSwipePolicy.allowsAnimation(", modifier)
 
     def test_throwing_lease_assertions_propagate_out_of_the_lifetime_scope(self) -> None:
-        test = _source(ROOT / "Tests/UnitTests/Signing/SigningIdentityLeaseTests.swift")
+        test = _source(ROOT / "VexSignTests/UnitTests/Signing/SigningIdentityLeaseTests.swift")
         self.assertIn("try withExtendedLifetime(leased.leases) {", test)
         self.assertIn("try withExtendedLifetime(conflict) {", test)
         self.assertIn("XCTAssertThrowsError(try AppOperationRegistry.shared.acquire(key))", test)

@@ -265,7 +265,7 @@ def _require_premium_access(
 def _local_feed() -> dict | None:
     """Your real feed: PREMIUM_FEED_FILE (env) or Configuration/premium.json.
     Read on every request so edits apply without a restart. The nonsecret
-    Configuration/premium.example.json shows the shape ASRepository decodes."""
+    Config/premium.example.json shows the shape ASRepository decodes."""
     path = os.environ.get("PREMIUM_FEED_FILE") or os.path.join(
         os.path.dirname(__file__), "..", "Configuration", "premium.json"
     )

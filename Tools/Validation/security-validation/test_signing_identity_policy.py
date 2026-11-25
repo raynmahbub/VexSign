@@ -171,7 +171,7 @@ class PublicSealFixtureTests(unittest.TestCase):
     def test_public_fixture_cms_cdhash_plist_is_independently_readable(self):
         # This is fixture validation, NOT a production CMS verifier or an Apple
         # trust claim. The Objective-C++ bridge performs cryptographic checking.
-        value = json.loads((ROOT / "Tests/Support/Fixtures/CodeSignatureCMSFixture.json").read_text())
+        value = json.loads((ROOT / "VexSignTests/Support/Fixtures/CodeSignatureCMSFixture.json").read_text())
         executable = base64.b64decode(value['executable'], validate=True)
         little = lambda at: struct.unpack_from('<I', executable, at)[0]
         command = 32
@@ -234,7 +234,7 @@ class SigningCredentialAndOutputWiringTests(unittest.TestCase):
         self.assertLess(body.index('decoded = try authenticateProfile('), body.index('try await exportIdentity(password)'))
         self.assertIn('try NativeSigningHandoffPreflight.validate(decoded', body)
         self.assertNotIn('CertificateReader(', body)
-        tests = (ROOT / "Tests/UnitTests/Signing/NativeSigningHandoffPreflightTests.swift").read_text()
+        tests = (ROOT / "VexSignTests/UnitTests/Signing/NativeSigningHandoffPreflightTests.swift").read_text()
         self.assertIn('testDefaultAuthenticatorRejectsUnsignedProfileBeforePrivateKeyExport', tests)
         self.assertIn('authenticateProfile: { data, verificationTime in', tests)
         self.assertNotIn('Data([0x30, 0x03, 0x02, 0x01, 0x00])', tests)

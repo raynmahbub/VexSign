@@ -30,7 +30,7 @@ class DeviceFoundationPreparationTests(unittest.TestCase):
                 self.assertEqual((output / "Sources/DeviceFoundation" / name).read_bytes(), source.read_bytes())
                 self.assertEqual(hashes[source.relative_to(ROOT).as_posix()], hashlib.sha256(source.read_bytes()).hexdigest())
             for name in PREPARE.FIXTURES:
-                self.assertEqual((output / "Tests/DeviceFoundationTests" / name).read_bytes(),
+                self.assertEqual((output / "VexSignTests/DeviceFoundationTests" / name).read_bytes(),
                                  (ROOT / PREPARE.TESTS / name).read_bytes())
             self.assertEqual(json.loads((output / "source-hashes.json").read_text())["sourceSHA256"], hashes)
             self.assertEqual(PREPARE.prepare(output), hashes)

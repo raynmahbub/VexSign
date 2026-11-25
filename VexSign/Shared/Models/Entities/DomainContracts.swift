@@ -105,7 +105,7 @@ enum DeepLinkCommand: Equatable, Sendable {
     private static let packageExtensions: Set<String> = ["ipa", "tipa"]
     private static let tweakExtensions: Set<String> = ["dylib", "deb", "framework", "bundle", "zip"]
     /// Matches the `com.vexsign.backup` document type the app declares in
-    /// `Configuration/BuildSettings/iOS/Info.plist`.
+    /// `Config/BuildSettings/iOS/Info.plist`.
     private static let backupExtensions: Set<String> = ["vexbackup"]
 
     /// Pure deterministic parser — unit-testable without UIApplication, SwiftUI, or CoreData.

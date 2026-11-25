@@ -23,7 +23,7 @@ LINK = re.compile(r'!?\[[^\]\n]*\]\(<?([^\s)>]+)>?(?:\s+"[^"\n]*")?\)')
 # documentation surfaces or the brand assets, always with a file extension.
 DOC_REFERENCE = re.compile(
     r'(?<![\w/])((?:README|CONTRIBUTING|SECURITY|BRAND)\.md|'
-    r'Documentation/[A-Za-z0-9._/-]+\.(?:md|json|ya?ml|txt)|'
+    r'Docs/[A-Za-z0-9._/-]+\.(?:md|json|ya?ml|txt)|'
     r'Resources/brand/[A-Za-z0-9._/-]+\.(?:md|svg|png))'
 )
 REFERENCE_SCAN = ('.github/workflows/*.yml', 'Tools/**/*.py')

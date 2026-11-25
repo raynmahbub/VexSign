@@ -1,4 +1,4 @@
-import { loadConfig } from '../Configuration/config.js';
+import { loadConfig } from '../Config/config.js';
 import { infrastructure } from '../Storage/infrastructure.js';
 import { buildApp } from './Routes/app.js';
 const config = loadConfig();

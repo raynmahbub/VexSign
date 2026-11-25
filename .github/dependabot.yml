@@ -32,7 +32,7 @@ updates:
       include: scope
 
   - package-ecosystem: pip
-    # requirements.txt is in Configuration/, so point at the directory that
+    # requirements.txt is in Config/, so point at the directory that
     # actually holds it rather than the service root.
     directory: /Services/WebManager/Configuration
     schedule:

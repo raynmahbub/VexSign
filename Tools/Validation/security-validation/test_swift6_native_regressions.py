@@ -33,7 +33,7 @@ class Swift6NativeRegressions(unittest.TestCase):
         self.assertNotIn("importIdentity: { expected in", text)
 
     def test_ui_identifier_query_uses_the_xcuitest_api(self):
-        text = source("UITests/VexSignUITestCase.swift")
+        text = source("VexSignTests/UITests/VexSignUITestCase.swift")
         self.assertIn("app.descendants(matching: .any).matching(identifier: identifier)", text)
         self.assertNotIn("app.descendants[matching:", text)
 
@@ -46,13 +46,13 @@ class Swift6NativeRegressions(unittest.TestCase):
         self.assertNotIn("if let rejection = Self.validateShape(feedPayload)", text)
 
     def test_malformed_source_test_expects_a_cached_invalid_payload(self):
-        text = source("Tests/UnitTests/Repositories/SourceFeedLoaderTests.swift")
+        text = source("VexSignTests/UnitTests/Repositories/SourceFeedLoaderTests.swift")
         self.assertIn("func testAddSourcePathKeepsASchemaThatIsNotARepositoryAsInvalidPayload", text)
         self.assertIn("case let .invalid(kept) = result.outcome", text)
         self.assertNotIn("testAddSourcePathRefusesASchemaThatIsNotARepository", text)
 
     def test_accessibility_contract_covers_every_declared_identifier(self):
-        text = source("Tests/UnitTests/Application/AccessibilityIdentifiersTests.swift")
+        text = source("VexSignTests/UnitTests/Application/AccessibilityIdentifiersTests.swift")
         for identifier in ("A11y.Signing.paidCertificate", "A11y.Signing.trollStore",
                            "A11y.Signing.identityDeliverySeparation", "A11y.Tasks.downloadOptions",
                            "A11y.Tasks.importFromFiles", "A11y.Settings.signingMethods",
@@ -60,23 +60,23 @@ class Swift6NativeRegressions(unittest.TestCase):
             self.assertIn(identifier, text, f"the A11y contract test no longer covers {identifier}")
 
     def test_combined_news_fixtures_are_decodable_repositories(self):
-        text = source("Tests/UnitTests/Sources/CombinedSourceNewsTests.swift")
+        text = source("VexSignTests/UnitTests/Sources/CombinedSourceNewsTests.swift")
         self.assertIn('"apps":[{"name":"Fixture"', text)
         self.assertNotIn('"apps":[]', text)
 
     def test_expiry_warning_fixture_matches_the_notice_window(self):
-        text = source("Tests/UnitTests/Identity/ImportedCertificateRefreshPolicyTests.swift")
+        text = source("VexSignTests/UnitTests/Identity/ImportedCertificateRefreshPolicyTests.swift")
         self.assertIn(".notice", text)
         self.assertIn("certificateDays: 10", text)
 
     def test_account_refresh_test_uses_the_no_argument_import_step(self):
-        text = source("Tests/UnitTests/Accounts/ManualAccountRefreshTests.swift")
+        text = source("VexSignTests/UnitTests/Accounts/ManualAccountRefreshTests.swift")
         self.assertIn("importIdentity: { [self] in", text)
         self.assertNotIn("steps.importIdentity = { _ in", text)
         self.assertNotIn("changed.certificateUUID =", text)
 
     def test_routing_test_initializers_follow_memberwise_order(self):
-        text = source("Tests/UnitTests/Signing/SigningModeRoutingTests.swift")
+        text = source("VexSignTests/UnitTests/Signing/SigningModeRoutingTests.swift")
         self.assertNotIn("identitySource: .appleAccount, certificate:", text)
         self.assertNotIn("identitySource: identity, certificate:", text)
 
@@ -86,7 +86,7 @@ class Swift6NativeRegressions(unittest.TestCase):
         adapter = source("VexSign/Storage/Repositories/SubsystemAdapters.swift")
         logs = source("VexSign/Features/Dashboard/Diagnostics/LogsView.swift")
         settings = source("VexSign/Features/Settings/ViewModels/SettingsAndSecurityViewModels.swift")
-        mock = source("Tests/UnitTests/Application/CleanArchitectureLayerTests.swift")
+        mock = source("VexSignTests/UnitTests/Application/CleanArchitectureLayerTests.swift")
 
         self.assertIn("static func createDiagnosticBundle(outcomes: OperationOutcomeJournal? = nil) async -> URL?", exporter)
         self.assertIn("await (outcomes ?? OperationOutcomeJournal()).exportJSON()", exporter)

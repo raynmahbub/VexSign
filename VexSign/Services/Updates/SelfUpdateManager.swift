@@ -288,7 +288,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 			return SelfUpdatePlan(method: preferred, blocker: nil, alternative: nil, selfReplacement: nil)
 		}
 
-        // Configuration/file presence never grants permission to export keys,
+        // Config/file presence never grants permission to export keys,
         // authorize a native mutation, or call a command acknowledgement installed.
         let blocker: SelfUpdateBlocker
         switch preferred {

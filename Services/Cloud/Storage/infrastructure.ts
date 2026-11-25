@@ -3,7 +3,7 @@ import { Redis } from 'ioredis';
 import { Queue } from 'bullmq';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { Config } from '../Configuration/config.js';
+import type { Config } from '../Config/config.js';
 
 export function infrastructure(config: Config) {
   const pool = new pg.Pool({ connectionString: config.DATABASE_URL, max: 12, statement_timeout: 30_000 });

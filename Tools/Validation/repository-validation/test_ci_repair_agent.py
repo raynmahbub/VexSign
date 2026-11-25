@@ -49,7 +49,7 @@ class RepairPatchSafetyTests(unittest.TestCase):
             'VexSign/Features/Downloads/ViewModels/SigningModel.swift',
             'VexSign/Security/Policies/Example.swift',
             'VexSign/App/Credentials.swift',
-            'Tests/SecurityTests/Example.swift',
+            'VexSignTests/SecurityTests/Example.swift',
             'Packages/SideSign/Package.swift',
             'VexSign/Features//Sources/Views/Example.swift',
             'VexSign/Features/Sources/Views/../Example.swift',
@@ -64,7 +64,7 @@ class RepairPatchSafetyTests(unittest.TestCase):
             agent.validate_patch(patch('VexSign/App/Unrelated.swift'), {'VexSign/App/Example.swift'})
 
     def test_rejects_workflows_tools_and_non_swift_resources(self):
-        for path in ('.github/workflows/ci.yml', 'Tools/build.py', 'Configuration/BuildSettings/iOS/Info.plist'):
+        for path in ('.github/workflows/ci.yml', 'Tools/build.py', 'Config/BuildSettings/iOS/Info.plist'):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 agent.validate_patch(patch(path), {path})
 

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, createSign, randomBytes } from 'node:crypto';
 import { buildApp } from '../API/Routes/app.js';
-import type { Config } from '../Configuration/config.js';
+import type { Config } from '../Config/config.js';
 import type { Infrastructure } from '../Storage/infrastructure.js';
 import { capability } from '../Security/security.js';
 

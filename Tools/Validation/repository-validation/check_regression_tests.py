@@ -21,7 +21,7 @@ import unittest
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[3]
-TEST_PREFIXES = ("Tests/", "UITests/", "Services/Integrations/tests/")
+TEST_PREFIXES = ("VexSignTests/", "VexSignTests/UITests/", "Services/Integrations/tests/")
 
 
 def is_test(path: str) -> bool:
@@ -45,7 +45,7 @@ def evaluate(paths: list[str]) -> list[str]:
     return [
         "Changed first-party source without a regression test:",
         *("  - " + path for path in sources[:20]),
-        "Add or modify a test in Tests/, UITests/ or the affected package's test suite.",
+        "Add or modify a test in VexSignTests/, VexSignTests/UITests/ or the affected package's test suite.",
     ]
 
 
@@ -98,7 +98,7 @@ class RegressionPolicyTests(unittest.TestCase):
         self.assertTrue(evaluate(["VexSign/Services/Foo.swift"]))
 
     def test_ui_test_counts_as_a_regression_test(self):
-        self.assertEqual(evaluate(["VexSign/Services/Foo.swift", "UITests/FooUITests.swift"]), [])
+        self.assertEqual(evaluate(["VexSign/Services/Foo.swift", "VexSignTests/UITests/FooUITests.swift"]), [])
 
     def test_docs_and_gate_scripts_are_not_app_source(self):
         self.assertEqual(evaluate(["README.md", "Tools/Audit/check.py"]), [])
