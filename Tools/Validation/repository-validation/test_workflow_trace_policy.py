@@ -26,7 +26,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         # Debug build, Release build, static analyzer and simulator tests each stamp
         # the exact checkout they executed. Four occurrences is the contract.
         self.assertEqual(ci.count('VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)"'), 5)
-        self.assertIn('$(VEXSIGN_SOURCE_COMMIT)', self.text('Configuration/BuildSettings/iOS/Info.plist'))
+        self.assertIn('$(VEXSIGN_SOURCE_COMMIT)', self.text('Config/BuildSettings/iOS/Info.plist'))
 
     def test_private_pairing_consumers_use_shared_path(self):
         consumers = {

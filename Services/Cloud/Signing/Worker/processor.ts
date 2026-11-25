@@ -8,7 +8,7 @@ import { createHash, createHmac, hkdfSync } from 'node:crypto';
 import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import type { Job } from 'bullmq';
-import type { Config } from '../../Configuration/config.js';
+import type { Config } from '../../Config/config.js';
 import type { Infrastructure } from '../../Storage/infrastructure.js';
 import { unseal, permittedWebhook } from '../../Security/security.js';
 import { invokeSigner as defaultInvokeSigner, type SignerInput } from '../CloudSigningCoordinator/signer.js';
@@ -17,7 +17,7 @@ import { invokeSigner as defaultInvokeSigner, type SignerInput } from '../CloudS
  * The job pipeline, separated from the process that runs it.
  *
  * Everything here takes its dependencies as an argument, so `worker.ts` stays a thin entrypoint and
- * tests can inject fakes the way `Tests/api.test.ts` does for `buildApp`.
+ * tests can inject fakes the way `VexSignTests/api.test.ts` does for `buildApp`.
  */
 export type WorkerDependencies = {
   invokeSigner?: typeof defaultInvokeSigner;

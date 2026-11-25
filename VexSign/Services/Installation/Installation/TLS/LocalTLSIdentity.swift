@@ -145,7 +145,7 @@ enum LocalTLSIdentity {
 	/// SHA-256 over the three identity files, trimmed and joined with newlines.
 	///
 	/// This is the rule `Tools/Development/tls-pack-digest.py` checks for offline fixtures and
-	/// the one `Tests/SecurityTests/CertificateValidation/LocalTLSIdentityTests.swift` holds both implementations to.
+	/// the one `VexSignTests/SecurityTests/CertificateValidation/LocalTLSIdentityTests.swift` holds both implementations to.
 	static func packDigest(pem: String, cert: String, commonName: String) -> String {
 		let joined = [pem, cert, commonName]
 			.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }

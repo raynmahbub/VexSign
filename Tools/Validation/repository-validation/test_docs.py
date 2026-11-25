@@ -14,17 +14,17 @@ class DocumentationTests(unittest.TestCase):
     def test_links(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / 'Documentation').mkdir(parents=True)
-            (root / 'Documentation/space name.md').write_text('ok')
+            (root / 'Docs').mkdir(parents=True)
+            (root / 'Docs/space name.md').write_text('ok')
             (root / 'README.md').write_text(
-                '[ok](Documentation/space%20name.md#heading)\n'
+                '[ok](Docs/space%20name.md#heading)\n'
                 '[remote](https://example.com/no.md)\n[anchor](#heading)\n'
                 '```md\n[example](missing-example.md)\n```\n'
-                '[missing](Documentation/missing.md)\n![image](missing.png)\n'
+                '[missing](Docs/missing.md)\n![image](missing.png)\n'
                 '[escape](../outside.md)\n')
             errors = list(checker.broken_links(root))
             self.assertEqual(len(errors), 3)
-            for target in ('Documentation/missing.md', 'missing.png', '../outside.md'):
+            for target in ('Docs/missing.md', 'missing.png', '../outside.md'):
                 self.assertTrue(any(target in error for error in errors))
 
     def test_paths_named_in_tooling_are_resolved(self):
@@ -34,16 +34,16 @@ class DocumentationTests(unittest.TestCase):
         """
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / 'Documentation/Development').mkdir(parents=True)
-            (root / 'Documentation/Development/PLATFORMS.md').write_text('ok')
+            (root / 'Docs/Development').mkdir(parents=True)
+            (root / 'Docs/Development/PLATFORMS.md').write_text('ok')
             (root / '.github/workflows').mkdir(parents=True)
             (root / '.github/workflows/release.yml').write_text(
-                'see Documentation/Development/PLATFORMS.md\n'
-                'see Documentation/Engineering/PLATFORMS.md\n'
+                'see Docs/Development/PLATFORMS.md\n'
+                'see Docs/Engineering/PLATFORMS.md\n'
                 'note: Tools/Validation/security-validation/evidence/run.json\n')
             errors = list(checker.broken_references(root))
             self.assertEqual(len(errors), 1, errors)
-            self.assertIn('Documentation/Engineering/PLATFORMS.md', errors[0])
+            self.assertIn('Docs/Engineering/PLATFORMS.md', errors[0])
             self.assertIn('release.yml', errors[0])
 
     def test_test_modules_are_not_scanned_for_references(self):
@@ -51,7 +51,7 @@ class DocumentationTests(unittest.TestCase):
             root = Path(directory)
             (root / 'Tools').mkdir(parents=True)
             (root / 'Tools/test_fixture.py').write_text(
-                'FIXTURE = "Documentation/missing.md"\n')
+                'FIXTURE = "Docs/missing.md"\n')
             self.assertEqual(list(checker.broken_references(root)), [])
 
     def test_repository_references(self):
@@ -73,11 +73,8 @@ class DocumentationTests(unittest.TestCase):
         readme = (checker.ROOT / 'README.md').read_text()
         self.assertIn('## Start here', readme)
         self.assertIn('## Repository map', readme)
-        for target in ('Documentation/README.md', 'CONTRIBUTING.md', 'SECURITY.md'):
-            self.assertIn(target, readme)
-        index = (checker.ROOT / 'Documentation/README.md').read_text()
-        self.assertIn('](Architecture/README.md)', index)
-        self.assertIn('## Root compatibility files', index)
+        self.assertIn('Docs/Architecture.md', readme)
+        self.assertTrue((checker.ROOT / 'Docs/Architecture.md').is_file())
 
     def test_current_service_outputs_and_local_secrets_are_ignored(self):
         import subprocess

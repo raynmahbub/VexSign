@@ -156,7 +156,7 @@ class WorkflowPolicyTests(unittest.TestCase):
     def test_ci_scope_keeps_native_sources_and_unknown_paths(self):
         native = runpy.run_path(str(ROOT / "Tools/Validation/repository-validation/ci-scope.py"))['needs_native']
         self.assertFalse(native(['Tools/Release/test_release_assets.py', 'Tools/Release/generate-changelog.sh', 'README.md']))
-        for path in ('VexSign/App/App.swift', 'Tests/Test.swift', 'Packages/NativeSigning/Tests/Test.swift',
+        for path in ('VexSign/App/App.swift', 'VexSignTests/Test.swift', 'Packages/NativeSigning/Tests/Test.swift',
                      'Makefile', 'Packages/SideSign/Package.swift', 'Packages/Vendor/source.cpp', '.github/workflows/ci.yml',
                      '.github/workflows/ci-repair-assistant.yml', 'Tools/Scripts/bootstrap.sh', 'unknown-file'):
             self.assertTrue(native([path]), path)
@@ -198,7 +198,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         events = block((WORKFLOWS / 'ci.yml').read_text(), 'on', 0)
         pr = block(events, 'pull_request', 2)
         self.assertIn('types: [opened, synchronize, reopened, ready_for_review]', pr)
-        self.assertIn("- 'UITests/**'", pr)
+        self.assertIn("- 'VexSignTests/UITests/**'", pr)
         self.assertIn("- '.github/workflows/ci.yml'", pr)
 
     def test_consolidated_triage_retains_permissions_and_prevents_recursion(self):
@@ -339,7 +339,7 @@ class WorkflowPolicyTests(unittest.TestCase):
     def test_migrated_warning_roots_keep_first_party_and_vendor_boundaries(self):
         reporter = runpy.run_path(str(ROOT / '.github/scripts/xcodebuild_report.py'))
         is_owned, roots = reporter['is_first_party'], reporter['DEFAULT_FIRST_PARTY']
-        for path in ['VexSign/App/File.swift', 'Tests/Test.swift',
+        for path in ['VexSign/App/File.swift', 'VexSignTests/Test.swift',
                      'Packages/NimbleKit/Sources/File.swift', 'Packages/AltSourceKit/File.swift',
                      'Services/Integrations/File.swift']:
             self.assertTrue(is_owned(path, roots), path)
@@ -542,7 +542,7 @@ class WorkflowPolicyTests(unittest.TestCase):
                               section)
 
     def test_app_dependencies_and_vendored_package_changes_are_covered(self):
-        for path in ('VexSign/App/VexSignApp.swift', 'Tests/UnitTests/Application/DesignSystemTests.swift',
+        for path in ('VexSign/App/VexSignApp.swift', 'VexSignTests/UnitTests/Application/DesignSystemTests.swift',
                      'Packages/NimbleKit/Package.swift', 'Packages/AltSourceKit/Package.swift',
                      'VexSign.xcodeproj/project.pbxproj', 'Packages/Vendor/Zsign/Package.swift',
                      'Packages/Vendor/IDeviceKitten/Package.swift',

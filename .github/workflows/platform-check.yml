@@ -40,7 +40,7 @@ on:
       - '.github/scripts/prefetch_spm_artifacts.py'
       - '.github/scripts/xcodebuild_report.py'
       - '.github/workflows/platform-check.yml'
-      - 'Configuration/**'
+      - 'Config/**'
   pull_request:
     branches: [main]
     paths:
@@ -72,7 +72,7 @@ on:
       - '.github/scripts/prefetch_spm_artifacts.py'
       - '.github/scripts/xcodebuild_report.py'
       - '.github/workflows/platform-check.yml'
-      - 'Configuration/**'
+      - 'Config/**'
   workflow_dispatch:
 
 permissions:

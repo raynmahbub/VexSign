@@ -187,7 +187,7 @@ def private_members_by_type(path: Path) -> dict[str, tuple[str, str]]:
 
 MODULE_ROOTS = {
     "App": "VexSign",
-    "Tests": "VexSignTests",
+    "VexSignTests": "VexSignTests",
     "Platform/TV": "VexSignTV",
     "Platform/Vision": "VexSignVision",
     "Platform/Extensions/WidgetExtension": "VexSignWidgetExtension",

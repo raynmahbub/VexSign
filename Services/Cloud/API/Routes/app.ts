@@ -9,7 +9,7 @@ import { Upload } from '@aws-sdk/lib-storage';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import QRCode from 'qrcode';
 import { z } from 'zod';
-import type { Config } from '../../Configuration/config.js';
+import type { Config } from '../../Config/config.js';
 import type { Infrastructure } from '../../Storage/infrastructure.js';
 import { artifactMetadata, batchRequest, checkRequest, jobView, queueCounts, signRequest, uuid } from '../DTOs/contracts.js';
 import { APIError, submitJobs, type Submission } from '../../Signing/JobQueue/jobs.js';

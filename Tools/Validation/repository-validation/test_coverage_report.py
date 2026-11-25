@@ -37,7 +37,7 @@ REPORT = {
             file_report("/runner/work/project/VexSign/Services/Diagnostics/FileLogger.swift", 25, 30),
             file_report("/runner/work/project/VexSign/Shared/Models/Empty.swift", 0, 0),
             file_report("/runner/DerivedData/SourcePackages/checkouts/Nuke/Sources/Task.swift", 0, 400),
-            file_report("/runner/work/project/Tests/UnitTests/Application/SomeTests.swift", 0, 200),
+            file_report("/runner/work/project/VexSignTests/UnitTests/Application/SomeTests.swift", 0, 200),
         ],
     }],
 }
@@ -46,7 +46,7 @@ REPORT = {
 class FilteringTests(unittest.TestCase):
     def test_dependencies_and_test_bundles_are_excluded(self):
         self.assertFalse(coverage.is_first_party("/x/SourcePackages/checkouts/Nuke/Sources/Task.swift"))
-        self.assertFalse(coverage.is_first_party("/x/Tests/UnitTests/Application/SomeTests.swift"))
+        self.assertFalse(coverage.is_first_party("/x/VexSignTests/UnitTests/Application/SomeTests.swift"))
         self.assertFalse(coverage.is_first_party("/x/VexSign/App/Thing.h"))
         self.assertTrue(coverage.is_first_party("/x/VexSign/Storage/Database/Storage.swift"))
 

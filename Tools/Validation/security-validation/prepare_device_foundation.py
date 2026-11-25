@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 OUTPUT = ROOT / ".build/device-foundation"
 VENDOR = "Packages/Vendor/IDeviceKitten/Sources/IDeviceSwift/Heartbeat"
-TESTS = "Tests/UnitTests/Devices"
+TESTS = "VexSignTests/UnitTests/Devices"
 PRODUCTION = {
     **{name: f"{VENDOR}/{name}" for name in (
         "PairingRecordDocument.swift", "PairingPlistEnvelope.swift", "PairingFileStorage.swift",
@@ -53,7 +53,7 @@ def prepare(output: Path = OUTPUT) -> dict[str, str]:
         raise ValueError("Expected a non-symlink device-foundation output directory")
     mapping = {
         **{relative: f"Sources/DeviceFoundation/{name}" for name, relative in PRODUCTION.items()},
-        **{f"{TESTS}/{name}": f"Tests/DeviceFoundationTests/{name}" for name in FIXTURES},
+        **{f"{TESTS}/{name}": f"VexSignTests/DeviceFoundationTests/{name}" for name in FIXTURES},
         "Packages/Vendor/IDeviceKitten/LICENSE": "UPSTREAM-LICENSE.txt",
     }
     # Validate every source before creating/changing output. A tracked symlink

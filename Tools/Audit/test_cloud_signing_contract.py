@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OPENAPI = ROOT / "Services/Cloud/openapi.json"
 CLIENT = ROOT / "VexSign/Services/Signing/Engines/Cloud/CloudSigningClient.swift"
 UPLOAD_BODY = ROOT / "VexSign/Services/Signing/Engines/Cloud/CloudUploadBody.swift"
-CONTRACT_TESTS = ROOT / "Tests/UnitTests/Signing/CloudSigningContractTests.swift"
+CONTRACT_TESTS = ROOT / "VexSignTests/UnitTests/Signing/CloudSigningContractTests.swift"
 
 APP = (ROOT / "Services/Cloud/API/Routes/app.ts").read_text()
 

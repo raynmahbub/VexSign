@@ -8,7 +8,7 @@ on:
     paths:
       - 'Services/Integrations/**'
       - 'VexSign/System/DeviceCommunication/PrimaryHostEntry.swift'
-      - 'Configuration/BuildSettings/iOS/Info.plist'
+      - 'Config/BuildSettings/iOS/Info.plist'
       - 'VexSign.xcodeproj/**'
       - 'Packages/NativeSigning/**'
       - 'Packages/SideSign/Sources/**'
@@ -33,13 +33,13 @@ on:
       - 'Services/Integrations/**'
       - 'Packages/**'
       - '.github/workflows/embedded-container.yml'
-      - 'Configuration/**'
+      - 'Config/**'
   pull_request:
     branches: [main]
     paths:
       - 'Services/Integrations/**'
       - 'VexSign/System/DeviceCommunication/PrimaryHostEntry.swift'
-      - 'Configuration/BuildSettings/iOS/Info.plist'
+      - 'Config/BuildSettings/iOS/Info.plist'
       - 'VexSign.xcodeproj/**'
       - 'Packages/NativeSigning/**'
       - 'Packages/SideSign/Sources/**'
@@ -64,7 +64,7 @@ on:
       - 'Services/Integrations/**'
       - 'Packages/**'
       - '.github/workflows/embedded-container.yml'
-      - 'Configuration/**'
+      - 'Config/**'
   workflow_dispatch:
     inputs:
       host_mode:

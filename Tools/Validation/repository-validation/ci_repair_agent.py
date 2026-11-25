@@ -80,7 +80,7 @@ def _source_path(path: str) -> bool:
         or SENSITIVE_PATH.search(path)
     ):
         return False
-    if path.startswith(("VexSign/App/", "Tests/")):
+    if path.startswith(("VexSign/App/", "VexSignTests/")):
         return True
     parts = pure.parts
     return (

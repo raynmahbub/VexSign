@@ -13,7 +13,7 @@ TestFlight rollback. Two things make that safe, and both are easy to undo by acc
 
 This is a source check rather than a compiled test because the property is structural, and because
 the Swift toolchain is not available everywhere this suite runs. The behaviour itself is covered by
-`Tests/UnitTests/Application/TaskHistoryJournalTests.swift` and `Tests/UnitTests/Signing/TaskSigningTraceCompatibilityTests.swift`
+`VexSignTests/UnitTests/Application/TaskHistoryJournalTests.swift` and `VexSignTests/UnitTests/Signing/TaskSigningTraceCompatibilityTests.swift`
 in CI.
 """
 

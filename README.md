@@ -7,7 +7,7 @@
     <a href="https://github.com/raynmahbub/VexSign/blob/main/LICENSE"><img alt="GPL-3.0 license" src="https://img.shields.io/badge/license-GPL--3.0-blue.svg"></a>
     <a href="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml/badge.svg"></a>
   </p>
-  <p><a href="#download">Download</a> · <a href="#features">Features</a> · <a href="#build--test">Build</a> · <a href="Documentation/README.md">Documentation</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
+  <p><a href="#download">Download</a> · <a href="#features">Features</a> · <a href="#build--test">Build</a> · <a href="Docs/Architecture.md">Architecture</a></p>
   <img src="VexSign/Resources/brand/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%">
 </div>
 
@@ -26,8 +26,7 @@ inspection tools in a native SwiftUI app for iPhone and iPad.
 | Install VexSign | [Downloads & first steps](#download) |
 | Explore what it does | [Features](#features) · [Capabilities & limits](#declared-capabilities-and-their-limits) |
 | Build or run checks | [Build & test](#build--test) |
-| Understand the codebase | [Repository map](#repository-map) · [Architecture](Documentation/Architecture/README.md) |
-| Contribute or report a vulnerability | [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) |
+| Understand the codebase | [Repository map](#repository-map) · [Architecture](Docs/Architecture.md) |
 
 ## Why choose VexSign?
 
@@ -303,13 +302,13 @@ promise to the user and, for a distributed build, to App Review.
 | Declared | Where | What it actually buys, and its limit |
 |---|---|---|
 | Background keep-alive | `VexSign/System/BackgroundTasks/BackgroundTaskManager.swift` | An in-flight install, download, signing or Web Manager session renews a `UIApplication.beginBackgroundTask` assertion and posts an expiration notice. **No audio session is activated and no `audio` mode is declared.** iOS may still suspend the app at its own discretion; long operations are best-effort while backgrounded and reconcile on return. |
-| `UIBackgroundModes: download`, `fetch`, `processing` | `Configuration/BuildSettings/iOS/Info.plist` | Standard background `URLSession` and `BGTaskScheduler` work. iOS decides when refresh/processing runs; the automation UI says so rather than promising a schedule. |
+| `UIBackgroundModes: download`, `fetch`, `processing` | `Config/BuildSettings/iOS/Info.plist` | Standard background `URLSession` and `BGTaskScheduler` work. iOS decides when refresh/processing runs; the automation UI says so rather than promising a schedule. |
 | `UIBackgroundModes: remote-notification` | same | Notification delivery, not silent remote execution. |
 | `NSLocalNetworkUsageDescription`, `NSBonjourServices` (`_http._tcp`, `_webdav._tcp`) | same | The in-app Web Manager and companion discovery on the LAN. A locked or backgrounded phone may suspend the server unless the keep-alive above holds, and the user must grant the Local Network permission. |
 | `NSFaceIDUsageDescription` | same | App Lock. No biometric data leaves the device. |
 | `NSUserNotificationUsageDescription` | same | Not a key iOS reads — notifications ask for permission at runtime. Declared so this section accounts for everything in `Info.plist`. |
 | `NSAppTransportSecurity → NSAllowsLocalNetworking` | same | Only local-network cleartext is permitted. There is **no** `NSAllowsArbitraryLoads`; remote sources must be HTTPS. |
-| `com.apple.security.application-groups` → `group.com.vexsign.app` | `Configuration/Entitlements/iOS/VexSign.entitlements` | Shared container for the app, widget and extensions. |
+| `com.apple.security.application-groups` → `group.com.vexsign.app` | `Config/Entitlements/iOS/VexSign.entitlements` | Shared container for the app, widget and extensions. |
 | `get-task-allow = false` | same | Correct for distribution; a debug build overrides this. |
 
 ### What VexSign cannot do, on any device
@@ -368,7 +367,7 @@ portable gates, simulator evidence and skipped device jobs.
 |---|---|
 | Linux gates (`quick_check`, `Tools/`) | Pass locally and in CI's `quick` job; these read source and never compile Swift |
 | iOS build and simulator tests | **Unverified here.** No Swift/Xcode toolchain was available locally. The last merged validation run (PR #282) had a failed `build` job and a failed simulator-test job, so it is not evidence of a green native build. |
-| XCUITest interactions (`UITests/`) | **Unverified here.** A separate `VexSignUITests` target, scheme and `ui-tests` CI job exist, but no simulator run has been observed. Screenshots are attached to each test and uploaded with the `xcresult`; an install is never claimed from a simulator tap. |
+| XCUITest interactions (`VexSignTests/UITests/`) | **Unverified here.** A separate `VexSignUITests` target, scheme and `ui-tests` CI job exist, but no simulator run has been observed. Screenshots are attached to each test and uploaded with the `xcresult`; an install is never claimed from a simulator tap. |
 | Physical-device acceptance | **Pending.** [`Tools/Audit/device-acceptance.py`](Tools/Audit/device-acceptance.py) covers 12 baseline checks plus optional native-handoff, bootstrap and renewal cases; its 28 Python tests validate report structure only. [`Tools/Audit/feature-acceptance.py`](Tools/Audit/feature-acceptance.py) adds one bound case for each of the 41 registered features. No device result has been observed. |
 
 ## Build & test
@@ -410,7 +409,7 @@ The `Makefile` is the supported entry point; `make help` lists every target.
 ## Repository map
 
 One app source tree, separate companion targets, and explicit homes for tooling
-and deployable services. Start with [the architecture guide](Documentation/Architecture/README.md)
+and deployable services. Start with [the architecture guide](Docs/Architecture.md)
 for dependency rules and ownership.
 
 ```text
@@ -429,11 +428,11 @@ VexSign/
 ├── Platform/                Watch, TV, Vision and widget targets
 ├── Packages/                Swift packages and vendored dependencies
 ├── Services/                Separately deployed backends and integrations
-├── Tests/                   App tests and shared test support
-├── UITests/                 XCUITest source root (VexSignUITests target)
-├── Tools/                   Validation, build, audit and release tools
-├── Configuration/           Build and signing configuration
-├── Documentation/           Architecture, development and operations guides
+├── VexSignTests/                App tests and shared test support
+│   └── UITests/                 XCUITest source root (VexSignUITests target)
+├── Tools/                       Validation, build, audit and release tools
+├── Config/                      Build and signing configuration
+├── Docs/                        Architecture, development and operations guides
 ├── VexSign.xcodeproj/        Xcode project
 ├── VexSign.xcworkspace/      Preferred Xcode entry point
 └── Makefile                 Supported build and verification commands
@@ -442,8 +441,8 @@ VexSign/
 **Why a few assets remain at the root:** `app-repo.json`, `repos.json`, `icon.png`,
 `license_plist.yml` and `render.yaml` are published compatibility aliases used by
 feeds and external tools. Edit their canonical files, not the root copies;
-[the documentation index](Documentation/README.md#root-compatibility-files)
-lists their owners. `make verify` checks that the copies stay in sync.
+`python3 Tools/Validation/repository-validation/sync_repo_aliases.py --check`
+verifies they stay in sync.
 
 Feature use cases and shared workspace contracts use injected ports. Legacy
 UI-to-storage/service coupling is still tracked, not claimed to be fully removed.
@@ -471,5 +470,4 @@ Local signing keeps signing work on-device; optional remote flows have different
 trust boundaries. Archives are validated before extraction, and the local install
 server uses a device-specific TLS identity. Do not put credentials in issues.
 
-[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) ·
-[Changelog](CHANGELOG.md) · [GPL-3.0 license](LICENSE) · [ElleKit license](LICENSE_ELLEKIT)
+[GPL-3.0 license](LICENSE)

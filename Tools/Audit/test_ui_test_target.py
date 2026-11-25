@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PBX = ROOT / "VexSign.xcodeproj/project.pbxproj"
 SCHEME = ROOT / "VexSign.xcodeproj/xcshareddata/xcschemes/VexSignUITests.xcscheme"
-UI = ROOT / "UITests"
+UI = ROOT / "VexSignTests/UITests"
 CI = ROOT / ".github/workflows/ci.yml"
 
 spec = importlib.util.spec_from_file_location("vexsign_quality_report", ROOT / "Tools/Audit/quality-report.py")
@@ -40,11 +40,14 @@ class UITestTargetTests(unittest.TestCase):
         self.assertIn("productReference = EE0000000000000000000001", target)
         self.assertIn("EE0000000000000000000009 /* PBXTargetDependency */", target)
         group = pbx_object("EE000000000000000000000B")
-        self.assertIn("path = UITests;", group)
-        self.assertTrue((ROOT / "UITests").is_dir())
-        # A nested synchronized root breaks the app target with duplicate
-        # resources and an unresolved module dependency.
-        self.assertFalse((ROOT / "Tests/UI").exists())
+        self.assertIn("path = VexSignTests/UITests;", group)
+        self.assertTrue((ROOT / "VexSignTests/UITests").is_dir())
+        # UI tests live under VexSignTests but remain a separate synchronized root;
+        # the parent VexSignTests group must exclude UITests to avoid duplicate membership.
+        tests_group = pbx_object("AABA5D1A2DB3C87800BFCD2C")
+        self.assertIn("membershipExceptions", tests_group)
+        self.assertIn("UITests", tests_group)
+        self.assertFalse((ROOT / "UITests").exists())
 
     def test_shared_scheme_tests_only_the_ui_target(self):
         root = ET.parse(SCHEME).getroot()

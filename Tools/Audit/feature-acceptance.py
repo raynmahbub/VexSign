@@ -157,8 +157,8 @@ def validate_observation(prefix, observation, kind, errors):
         errors.append(f"{prefix}: requires observation notes")
     if kind == "unit":
         evidence = observation.get("evidence")
-        if not isinstance(evidence, str) or not evidence.startswith("Tests/"):
-            errors.append(f"{prefix}: unit evidence must name a Tests/ file")
+        if not isinstance(evidence, str) or not evidence.startswith("VexSignTests/"):
+            errors.append(f"{prefix}: unit evidence must name a VexSignTests/ file")
             return
         path = ROOT / evidence
         if not path.is_file() or "func test" not in path.read_text(encoding="utf-8"):

@@ -119,11 +119,11 @@ root is a `403`, never a normalization trick.
 The pure pieces are covered, and each is worth reading before changing the
 behaviour:
 
-- `Tests/UnitTests/Application/WebManagerAccessTests.swift` — Host/Origin
+- `VexSignTests/UnitTests/Application/WebManagerAccessTests.swift` — Host/Origin
   checks, token extraction and constant-time comparison, hidden-app visibility.
-- `Tests/UnitTests/Application/WebManagerFilenamePolicyTests.swift` —
+- `VexSignTests/UnitTests/Application/WebManagerFilenamePolicyTests.swift` —
   traversal and header-injection rules for names.
-- `Tests/UnitTests/Application/WebDAVTransferPolicyTests.swift` — containment.
+- `VexSignTests/UnitTests/Application/WebDAVTransferPolicyTests.swift` — containment.
 - `Tools/Validation/security-validation/test_webmanager_wiring.py` — a
   text gate that the middleware is installed in the expected order.
 
@@ -277,7 +277,7 @@ Honest limits, in one place:
 The pages are also reachable from the app: **Settings → Ecosystem → Web Tools**.
 
 This optional component keeps its entry points in `API/`, nonsecret deployment
-inputs/reference data in `Configuration/`, tests in `Tests/` and the served icon
+inputs/reference data in `Config/`, tests in `VexSignTests/` and the served icon
 in `Dashboard/`. `PREMIUM_FEED_FILE` still overrides the default
 `Configuration/premium.json`; no real feed, secret or deployment is added here.
 The normal local iOS signing workflow does not require this backend. When

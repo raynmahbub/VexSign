@@ -16,7 +16,7 @@ feature = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(feature)
 
 COMMIT = "a" * 40
-UNIT_EVIDENCE = "Tests/UnitTests/Signing/AutoSignIdentityPolicyTests.swift"
+UNIT_EVIDENCE = "VexSignTests/UnitTests/Signing/AutoSignIdentityPolicyTests.swift"
 
 
 class FeatureAcceptanceTests(unittest.TestCase):

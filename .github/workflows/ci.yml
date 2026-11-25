@@ -41,8 +41,8 @@ on:
     paths:
       - 'VexSign/App/**'
       - 'VexSign/Features/**'
-      - 'Tests/**'
-      - 'UITests/**'
+      - 'VexSignTests/**'
+      - 'VexSignTests/UITests/**'
       - 'VexSign/Shared/**'
       - 'VexSign/Storage/**'
       - 'VexSign/Networking/**'
@@ -86,15 +86,15 @@ on:
       - '.github/build-warnings-baseline.json'
       - '.github/workflows/ci.yml'
       - '.github/workflows/ci-repair-assistant.yml'
-      - 'Configuration/**'
+      - 'Config/**'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'VexSign/App/**'
       - 'VexSign/Features/**'
-      - 'Tests/**'
-      - 'UITests/**'
+      - 'VexSignTests/**'
+      - 'VexSignTests/UITests/**'
       - 'VexSign/Shared/**'
       - 'VexSign/Storage/**'
       - 'VexSign/Networking/**'
@@ -138,7 +138,7 @@ on:
       - '.github/build-warnings-baseline.json'
       - '.github/workflows/ci.yml'
       - '.github/workflows/ci-repair-assistant.yml'
-      - 'Configuration/**'
+      - 'Config/**'
   workflow_dispatch:
     inputs:
       validation:

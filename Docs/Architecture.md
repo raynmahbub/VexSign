@@ -20,7 +20,7 @@ needs a new area changes this document in the same commit.
 | `Platform` | Separate Apple platform targets. |
 | `Packages` | Independently maintained reusable components. |
 | `Tests` | Automated verification; source root of the `VexSignTests` target. |
-| `UITests` | XCUITest automation; sibling of `Tests/`, source root of `VexSignUITests`. |
+| `UITests` | XCUITest automation; sibling of `VexSignTests/`, source root of `VexSignUITests`. |
 | `Tools` | CI, validation, auditing and release automation. |
 
 `Security`, not `Apple`: Apple frameworks are an implementation detail inside these areas, not a
@@ -96,14 +96,14 @@ UI or persistence framework and to name nothing from `Services/Download`.
 - `Platform/` — `Extensions/WidgetExtension`, `TV`, `Vision`, `Watch`.
 - `Packages/` — `NativeSigning`, `DeviceBridge`, `SideSign`, `AltSourceKit`, `NimbleKit`, `Vendor/`.
 - `Services/` — separately deployable backends: `Cloud`, `WebManager`, `Integrations`.
-- `Tests/` — `UnitTests`, `IntegrationTests`, `SecurityTests`, `PerformanceTests`,
+- `VexSignTests/` — `UnitTests`, `IntegrationTests`, `SecurityTests`, `PerformanceTests`,
   `Support/Fixtures`. This is the source root of the `VexSignTests` target; the folder is
   not renamed to match the target name.
-- `UITests/` — sibling XCUITest root of the real `VexSignUITests` target. UI sources are
-  never nested under `Tests/UI/` or a root `VexSignUITests/` directory.
-- `Configuration/` — `BuildSettings/`, `Entitlements/`, `Signing/`.
+- `VexSignTests/UITests/` — sibling XCUITest root of the real `VexSignUITests` target. UI sources are
+  never nested under `VexSignTests/UI/` or a root `VexSignUITests/` directory.
+- `Config/` — `BuildSettings/`, `Entitlements/`, `Signing/`.
 - `Tools/` — `Audit/`, `Build/`, `Fixtures/`, `Release/`, `Scripts/`, `Validation/`.
-- `Documentation/` — this document plus `CI`, `Development`, `Deployment`, `Security`,
+- `Docs/` — this document plus `CI`, `Development`, `Deployment`, `Security`,
   `Testing`, `Release`.
 
 ## Dependency rules
