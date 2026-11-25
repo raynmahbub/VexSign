@@ -51,7 +51,7 @@ struct SigningMethodsView: View {
                     NavigationLink(destination: CertificatesView()) {
                         Label(.localized("Manage Certificates"), systemImage: "checkmark.seal")
                     }
-                    .disabled(!SigningMethodAvailability.current(for: .paidCertificate).isAvailable)
+                    // Import must stay reachable before the first identity exists.
 
                     Text(.localized("Import a .p12 certificate and .mobileprovision profile. This chooses who signs only. Choose the installation method separately; profile scope, entitlements and certificate validity still require signing preflight."))
                         .font(.caption).foregroundStyle(.secondary)

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Architecture boundary guardrails for VexSign's Clean Architecture layers.
+"""Source guardrails for VexSign's feature-oriented architecture.
 
-Ensures Domain remains pure Foundation, Presentation/Views stay decoupled from raw
-network/persistence/business logic, and VexSignApp wires the explicit AppContainer.
+Shared models stay independent of UI/infrastructure, feature use cases consume
+ports, and selected views/view models delegate workflows. Security owns trust
+policy, Networking owns transport, and App owns composition. These portable
+checks do not prove Swift compilation or runtime/device behavior.
 """
 
 from __future__ import annotations
@@ -18,9 +20,8 @@ APP = ROOT / "VexSign" / "App"
 SHARED = ROOT / "VexSign" / "Shared"
 SERVICES = ROOT / "VexSign/Services"
 NETWORKING = ROOT / "VexSign" / "Networking"
-STORAGE = ROOT / "VexSign" / "Storage"
-DESIGN = ROOT / "VexSign" / "DesignSystem"
-APPLE = ROOT / "VexSign" / "System"
+FEATURES = VEXSIGN / "Features"
+SECURITY = VEXSIGN / "Security"
 
 
 def _strip_comments(text: str) -> str:
@@ -33,10 +34,20 @@ def _imports(source: str) -> set[str]:
 
 
 class ArchitectureBoundaryTests(unittest.TestCase):
-    def test_domain_layer_is_pure_foundation_without_globals(self) -> None:
-        domain_dir = SHARED / "Models"
-        swift_files = sorted(domain_dir.rglob("*.swift"))
-        self.assertTrue(swift_files, "Domain layer must exist")
+    def swift_sources(self, directory: Path) -> list[Path]:
+        self.assertTrue(directory.is_dir(), f"Missing architecture area: {directory}")
+        files = sorted(directory.rglob("*.swift"))
+        self.assertTrue(files, f"No Swift sources in {directory}; boundary scan would be empty")
+        return files
+
+    def test_current_architecture_areas_have_sources(self) -> None:
+        for area in ("App", "Features", "DesignSystem", "Shared", "Services",
+                     "Storage", "Networking", "Security", "System"):
+            with self.subTest(area=area):
+                self.swift_sources(VEXSIGN / area)
+
+    def test_shared_models_avoid_ui_infrastructure_and_globals(self) -> None:
+        swift_files = self.swift_sources(SHARED / "Models")
 
         forbidden_imports = {
             "SwiftUI",
@@ -62,13 +73,13 @@ class ArchitectureBoundaryTests(unittest.TestCase):
                     f"{path.relative_to(ROOT)} must not reference {symbol}",
                 )
 
-    def test_application_layer_avoids_ui_frameworks_and_shared_urlsession(self) -> None:
-        # Use cases are the application layer. Feature Views/ViewModels/Models are
-        # presentation and are covered by the presentation checks below.
-        swift_files = sorted(VEXSIGN.rglob("**/UseCases/**/*.swift"))
-        swift_files += sorted((SHARED / "Models/Workspace").rglob("*.swift"))
+    def test_feature_use_cases_avoid_ui_frameworks_and_shared_urlsession(self) -> None:
+        # Feature use cases orchestrate through ports; workspace contracts are shared.
+        swift_files = [path for path in self.swift_sources(FEATURES) if "UseCases" in path.parts]
+        self.assertTrue(swift_files, "Feature use cases must exist")
+        swift_files += self.swift_sources(SHARED / "Models/Workspace")
         swift_files = sorted({path for path in swift_files if not path.is_dir()})
-        self.assertTrue(swift_files, "Application layer must exist")
+        self.assertTrue(swift_files, "Use cases and workspace contracts must exist")
 
         for path in swift_files:
             src = _strip_comments(path.read_text(encoding="utf-8"))
@@ -98,7 +109,7 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         self.assertIn("environment.supportSnapshot()", src)
 
     def test_presentation_layer_avoids_coredata_and_direct_urlsession(self) -> None:
-        pres_dir = VEXSIGN / "Features"
+        pres_dir = FEATURES
         strict_originals = (
             "../App/Navigation/State/AppContainerEnvironment.swift",
             "Certificates/ViewModels/CertificatesCoordinator.swift",
@@ -236,7 +247,7 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         # Storage owns persistence, so a Core Data bridge belongs in Storage/Keychain.
         forbidden = {"SwiftUI", "UIKit", "CoreData", "Nuke", "AppKit"}
         offenders = {}
-        for path in sorted((VEXSIGN / "Security").rglob("*.swift")):
+        for path in self.swift_sources(SECURITY):
             hits = _imports(_strip_comments(path.read_text(encoding="utf-8"))) & forbidden
             if hits:
                 offenders[path.relative_to(ROOT).as_posix()] = sorted(hits)
@@ -249,7 +260,7 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         offenders = {}
         workflow_types = ("DownloadIntegrity.", "DownloadManager.", "DownloadPreferences.")
         leaks = {}
-        for path in sorted((NETWORKING).rglob("*.swift")):
+        for path in self.swift_sources(NETWORKING):
             source = _strip_comments(path.read_text(encoding="utf-8"))
             hits = _imports(source) & forbidden
             if hits:

@@ -413,6 +413,25 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         runtime = self.require("VexSign/System/Compatibility/EmbeddedContainerRuntime.swift", "try ArchiveSafetyValidator.validate(local)", "try Task.checkCancellation()", "source.stopAccessingSecurityScopedResource()")
         self.assertRegex(runtime, r"try Task.checkCancellation\(\)\s*//[^\n]*\n\s*//[^\n]*\n\s*return VEXEmbeddedRuntimeStageIPA\(local\)")
 
+    def test_setup_reuses_method_configuration_and_diagnostics(self):
+        self.require("VexSign/Features/Dashboard/Onboarding/OnboardingView.swift",
+            "_isChoosingSigningMethod = true", "SigningMethodsView()",
+            "DiagnosticsCenterView()", "preflight still required")
+        source = code("VexSign/Features/Signing/Views/SigningMethodsView.swift")
+        start = source.index("NavigationLink(destination: CertificatesView())")
+        end = source.index('Text(.localized("Import a .p12', start)
+        self.assertNotIn(".disabled", source[start:end],
+            "First-time users must be able to import their first identity")
+
+    def test_diagnostic_export_includes_retained_subsystem_events(self):
+        self.require("VexSign/Services/Diagnostics/DiagnosticBundleExporter.swift",
+            "_sanitize(FileLogger.readAll())", 'appendingPathComponent("activity.txt")')
+        source = code("VexSign/Services/Diagnostics/FileLogger.swift")
+        start = source.index("static func readAll()")
+        end = source.index("static func clear()", start)
+        self.assertIn("_queue.sync", source[start:end],
+            "Export must wait for queued outcome events before reading disk history")
+
     def test_onboarding_and_explorer_cancellation_use_the_existing_import_owner(self):
         self.require("VexSign/Features/Dashboard/Onboarding/OnboardingView.swift", "services.library.importPackage(url)", "importTask?.cancel()")
         self.require("VexSign/Storage/Repositories/CoreDataWorkspaceRepository.swift", "PackageImportService.importPackage(source)", "cancellation.adopt(worker)")

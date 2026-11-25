@@ -114453,6 +114453,61 @@
           }
         }
       }
+    },
+    "%lld certificate(s) imported — preflight still required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld certificate(s) imported — preflight still required"
+          }
+        }
+      }
+    },
+    "Certificate-based signing runs on this device. Apple Account setup contacts Apple and your configured Anisette provider; optional remote services have separate trust boundaries." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate-based signing runs on this device. Apple Account setup contacts Apple and your configured Anisette provider; optional remote services have separate trust boundaries."
+          }
+        }
+      }
+    },
+    "Choose Paid Certificate to import your .p12, its password and a compatible .mobileprovision profile. Choose Free Apple ID to review account provisioning and its current limits. Account setup and installation are separate steps; neither bypasses device or profile requirements." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Paid Certificate to import your .p12, its password and a compatible .mobileprovision profile. Choose Free Apple ID to review account provisioning and its current limits. Account setup and installation are separate steps; neither bypasses device or profile requirements."
+          }
+        }
+      }
+    },
+    "Choose Signing Method" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Signing Method"
+          }
+        }
+      }
+    },
+    "If a step fails, open Diagnostics Center and export a diagnostic bundle. Review it before sharing. A submitted install is not confirmation that iOS installed the app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If a step fails, open Diagnostics Center and export a diagnostic bundle. Review it before sharing. A submitted install is not confirmation that iOS installed the app."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

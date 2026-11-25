@@ -7,7 +7,7 @@
     <a href="https://github.com/raynmahbub/VexSign/blob/main/LICENSE"><img alt="GPL-3.0 license" src="https://img.shields.io/badge/license-GPL--3.0-blue.svg"></a>
     <a href="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml/badge.svg"></a>
   </p>
-  <p><a href="#download">Download</a> · <a href="#build--test">Build</a></p>
+  <p><a href="#download">Download</a> · <a href="#features">Features</a> · <a href="#build--test">Build</a> · <a href="Documentation/README.md">Documentation</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
   <img src="VexSign/Resources/brand/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%">
 </div>
 
@@ -18,6 +18,16 @@ inspection tools in a native SwiftUI app for iPhone and iPad.
 > compatible device/profile. Native Apple ID provisioning and guest-host
 > packaging are experimental. TV, Watch and Vision apps are **companions**, not
 > standalone signers. No tool can bypass Apple's certificate or provisioning rules.
+
+## Start here
+
+| I want to… | Go to |
+| --- | --- |
+| Install VexSign | [Downloads & first steps](#download) |
+| Explore what it does | [Features](#features) · [Capabilities & limits](#declared-capabilities-and-their-limits) |
+| Build or run checks | [Build & test](#build--test) |
+| Understand the codebase | [Repository map](#repository-map) · [Architecture](Documentation/Architecture/README.md) |
+| Contribute or report a vulnerability | [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) |
 
 ## Why choose VexSign?
 
@@ -272,6 +282,11 @@ If a link does not open your app, copy the stable source URL shown below and add
 
 ### Start signing
 
+For computer-free first-install requirements and the full setup sequence, follow
+[the device journey guide](Documentation/Testing/DEVICE-JOURNEY.md). An unsigned
+IPA cannot install itself; account setup inside VexSign starts only after an
+eligible copy of VexSign is already installed.
+
 Download an **unsigned IPA** from [Releases](https://github.com/raynmahbub/VexSign/releases)
 and sign it with an existing sideloading tool/identity. Existing VexSign users can
 sign an update in-app. Stable source URL:
@@ -394,37 +409,55 @@ The `Makefile` is the supported entry point; `make help` lists every target.
 > folder in `Platform/` plus the specific files it shares with the app.
 > `check_project_wiring.py` enforces both rules before Xcode runs.
 
-### Source layout
+## Repository map
 
-There is one application source root, `VexSign/`, and one directory per layer inside it:
-`App`, `Features`, `DesignSystem`, `Shared`, `Services`, `Storage`, `Networking`,
-`Security`, `System` and `Resources`. Repository-level directories sit beside it:
-`Platform` (TV, Vision, Watch and the widget extension), `Packages`, `Services` (the
-separately deployed `Cloud`, `WebManager` and `Integrations` backends), `Tests`, `Tools`,
-`Configuration` and `Documentation`. The unit target `VexSignTests` uses `Tests/` as its
-source root; the `VexSignUITests` target uses the sibling `UITests/` root. Anything the app
-must contain at runtime lives in
-`VexSign/Resources`, because the targets use Xcode folder-synchronization and only bundle
-what is inside their own folder. `App/` holds lifecycle, bootstrap, composition and
-navigation; `Features/` holds the user-facing screens; `Services/` orchestrates
-workflows; `Security/` owns signing, cryptography, certificate and policy decisions;
-`System/` owns the operating-system integrations. The companion targets live in
-`Platform/`. `SharedPlatformInfo/` stays in `VexSign/Resources/` because the iOS app
-bundles it. Existing target names, bundle identifiers, schemes and the experimental host
-integration are retained. `Documentation/Architecture/README.md` is the baseline for
-which layer owns what, and `test_repository_layout.py` enforces the layout, including the
-exact tool-owned wrapper exceptions. Multi-child folders are not flattened.
+One app source tree, separate companion targets, and explicit homes for tooling
+and deployable services. Start with [the architecture guide](Documentation/Architecture/README.md)
+for dependency rules and ownership.
 
-Domain/Application are Foundation-only; migrated workflows use injected ports.
-Legacy UI-to-storage/service coupling is still tracked, not claimed to be fully
-removed.
-The source reorganization does not establish an Xcode build or device capability.
+```text
+VexSign/
+├── VexSign/                 iOS app source and bundled resources
+│   ├── App/                 Lifecycle, navigation and dependency composition
+│   ├── Features/            Feature screens, view models and use cases
+│   ├── DesignSystem/        Reusable UI and visual styles
+│   ├── Shared/              Common models, contracts and utilities
+│   ├── Services/            App workflow orchestration
+│   ├── Storage/             Persistence and secret-storage implementations
+│   ├── Networking/          Transport and API clients
+│   ├── Security/            Signing, validation and trust policies
+│   ├── System/              OS and device adapters
+│   └── Resources/           Assets, localization and templates
+├── Platform/                Watch, TV, Vision and widget targets
+├── Packages/                Swift packages and vendored dependencies
+├── Services/                Separately deployed backends and integrations
+├── Tests/                   App tests and shared test support
+├── UITests/                 XCUITest source root (VexSignUITests target)
+├── Tools/                   Validation, build, audit and release tools
+├── Configuration/           Build and signing configuration
+├── Documentation/           Architecture, development and operations guides
+├── VexSign.xcodeproj/        Xcode project
+├── VexSign.xcworkspace/      Preferred Xcode entry point
+└── Makefile                 Supported build and verification commands
+```
+
+**Why a few assets remain at the root:** `app-repo.json`, `repos.json`, `icon.png`,
+`license_plist.yml` and `render.yaml` are published compatibility aliases used by
+feeds and external tools. Edit their canonical files, not the root copies;
+[the documentation index](Documentation/README.md#root-compatibility-files)
+lists their owners. `make verify` checks that the copies stay in sync.
+
+Feature use cases and shared workspace contracts use injected ports. Legacy
+UI-to-storage/service coupling is still tracked, not claimed to be fully removed.
+Folder organization alone does not establish an Xcode build or device capability.
 
 ## Quality & releases
 
-- **CI:** relevant PRs/main changes get portable policy checks, an unsigned build
-  and separate simulator unit/UI test jobs. Component workflows validate their
-  own paths separately.
+- **CI:** relevant PRs/main changes get portable policy checks. Native changes also
+  request an unsigned build and separate simulator unit/UI test jobs when the macOS
+  visibility gate permits them; private repositories currently skip those jobs. A green
+  portable check is not evidence of an iOS build. Component workflows validate their own
+  paths separately.
 - **Self-hosted Safari install:** distributors with an eligible pre-signed IPA can
   generate a first-install site from the signing screen.
 - **Stable:** reviewed version bump, matching `v<MARKETING_VERSION>` tag or manual
@@ -440,4 +473,5 @@ Local signing keeps signing work on-device; optional remote flows have different
 trust boundaries. Archives are validated before extraction, and the local install
 server uses a device-specific TLS identity. Do not put credentials in issues.
 
-[GPL-3.0 license](LICENSE)
+[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) ·
+[Changelog](CHANGELOG.md) · [GPL-3.0 license](LICENSE) · [ElleKit license](LICENSE_ELLEKIT)
