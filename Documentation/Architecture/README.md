@@ -19,7 +19,8 @@ needs a new area changes this document in the same commit.
 | `System` | Device communication and operating-system integrations. |
 | `Platform` | Separate Apple platform targets. |
 | `Packages` | Independently maintained reusable components. |
-| `Tests` | Automated verification. |
+| `Tests` | Automated verification; source root of the `VexSignTests` target. |
+| `UITests` | XCUITest automation; sibling of `Tests/`, source root of `VexSignUITests`. |
 | `Tools` | CI, validation, auditing and release automation. |
 
 `Security`, not `Apple`: Apple frameworks are an implementation detail inside these areas, not a
@@ -36,7 +37,7 @@ The single application source tree is `VexSign/`. There is no second root inside
 - `Shared/` — `Models/{Entities,ValueObjects,Enums,Policies,Results}`, `Protocols/`, `Errors/`,
   `Extensions/`, `Localization/`.
 - `Services/` — `Signing`, `Identity`, `Accounts`, `Import`, `Installation`, `Repository`,
-  `Download`, `Backup`, `Tasks`, `Updates`, `Diagnostics`.
+  `Download`, `Backup`, `Tasks`, `Updates`, `Diagnostics`, `WebManager`.
 - `Storage/` — `Database/`, `Keychain/`, `FileSystem/`, `Repositories/`.
 - `Networking/` — `HTTP/`, `API/`, `Downloads/`, `Authentication/`, `Monitoring/`.
 - `Security/` — `Certificates/`, `Cryptography/`, `CodeSigning/`, `Entitlements/`,
@@ -95,11 +96,15 @@ UI or persistence framework and to name nothing from `Services/Download`.
 - `Platform/` — `Extensions/WidgetExtension`, `TV`, `Vision`, `Watch`.
 - `Packages/` — `NativeSigning`, `DeviceBridge`, `SideSign`, `AltSourceKit`, `NimbleKit`, `Vendor/`.
 - `Services/` — separately deployable backends: `Cloud`, `WebManager`, `Integrations`.
-- `Tests/` — `UnitTests`, `IntegrationTests`, `SecurityTests`, `PerformanceTests`, `UITests`,
-  `Fixtures`.
-- `Configuration/` — `Signing`, `Build`, `Environment`.
-- `Tools/` — `Scripts`, `Validation`, `Audit`, `Release`.
-- `Documentation/` — this document plus `Development`, `Security`, `Testing`, `Release`.
+- `Tests/` — `UnitTests`, `IntegrationTests`, `SecurityTests`, `PerformanceTests`,
+  `Support/Fixtures`. This is the source root of the `VexSignTests` target; the folder is
+  not renamed to match the target name.
+- `UITests/` — sibling XCUITest root of the real `VexSignUITests` target. UI sources are
+  never nested under `Tests/UI/` or a root `VexSignUITests/` directory.
+- `Configuration/` — `BuildSettings/`, `Entitlements/`, `Signing/`.
+- `Tools/` — `Audit/`, `Build/`, `Fixtures/`, `Release/`, `Scripts/`, `Validation/`.
+- `Documentation/` — this document plus `CI`, `Development`, `Deployment`, `Security`,
+  `Testing`, `Release`.
 
 ## Dependency rules
 
@@ -113,6 +118,16 @@ UI or persistence framework and to name nothing from `Services/Download`.
 - `AppContainer` composes dependencies; only `App/Composition/AppEnvironment` injects them.
 - No circular dependencies between features.
 - Backend services must not be coupled to the iOS application target.
+
+## Ratified references
+
+- [`root-map.md`](root-map.md) — exact repository root, target-to-root mapping, root aliases
+  and rejected root shapes.
+- [`dependency-rules.md`](dependency-rules.md) — allowed dependency edges and the ports rule.
+- [`security-boundaries.md`](security-boundaries.md) — who decides, who persists, who transports
+  and who adapts the OS.
+- [`adr/0001-production-architecture.md`](adr/0001-production-architecture.md) — the accepted
+  decision record and the alternatives that stay rejected.
 
 ## Guards
 

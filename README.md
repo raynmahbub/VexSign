@@ -401,7 +401,9 @@ There is one application source root, `VexSign/`, and one directory per layer in
 `Security`, `System` and `Resources`. Repository-level directories sit beside it:
 `Platform` (TV, Vision, Watch and the widget extension), `Packages`, `Services` (the
 separately deployed `Cloud`, `WebManager` and `Integrations` backends), `Tests`, `Tools`,
-`Configuration` and `Documentation`. Anything the app must contain at runtime lives in
+`Configuration` and `Documentation`. The unit target `VexSignTests` uses `Tests/` as its
+source root; the `VexSignUITests` target uses the sibling `UITests/` root. Anything the app
+must contain at runtime lives in
 `VexSign/Resources`, because the targets use Xcode folder-synchronization and only bundle
 what is inside their own folder. `App/` holds lifecycle, bootstrap, composition and
 navigation; `Features/` holds the user-facing screens; `Services/` orchestrates
@@ -410,8 +412,12 @@ workflows; `Security/` owns signing, cryptography, certificate and policy decisi
 `Platform/`. `SharedPlatformInfo/` stays in `VexSign/Resources/` because the iOS app
 bundles it. Existing target names, bundle identifiers, schemes and the experimental host
 integration are retained. `Documentation/Architecture/README.md` is the baseline for
-which layer owns what, and `test_repository_layout.py` enforces the layout, including the
-exact tool-owned wrapper exceptions. Multi-child folders are not flattened.
+which layer owns what; its [`root-map.md`](Documentation/Architecture/root-map.md),
+[`dependency-rules.md`](Documentation/Architecture/dependency-rules.md) and
+[`security-boundaries.md`](Documentation/Architecture/security-boundaries.md) and
+[`adr/0001-production-architecture.md`](Documentation/Architecture/adr/0001-production-architecture.md)
+are the ratified production contract. `test_repository_layout.py` enforces the layout, including
+the exact tool-owned wrapper exceptions. Multi-child folders are not flattened.
 
 Domain/Application are Foundation-only; migrated workflows use injected ports.
 Legacy UI-to-storage/service coupling is still tracked, not claimed to be fully

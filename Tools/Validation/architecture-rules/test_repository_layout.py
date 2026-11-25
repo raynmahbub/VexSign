@@ -34,6 +34,28 @@ ALIASES = (
     ("Configuration/Signing/license_plist.yml", "license_plist.yml"),
     ("Services/WebManager/Configuration/render.yaml", "render.yaml"),
 )
+# The root is an entry surface, not a place to grow data files. Dotfiles are allowed
+# as tool configuration; every other root file must be on this reviewed list.
+ROOT_FILES = {
+    ".editorconfig", ".gitattributes", ".gitignore", ".swiftformat", ".swiftlint.yml",
+    "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "LICENSE_ELLEKIT", "Makefile",
+    "README.md", "SECURITY.md", "app-repo.json", "icon.png", "license_plist.yml",
+    "render.yaml", "repos.json",
+}
+# Paths explicitly rejected by ADR 0001. A synchronized-root move is a build change,
+# so these must fail at the portable gate rather than at a macOS-only build.
+REJECTED_PATHS = (
+    "Core", "Infrastructure", "Sources", "VexSignTests", "VexSignUITests",
+    "Platform/iOS", "Tests/UI", "Tests/UITests", "VexSign/App/iOS",
+)
+ARCHITECTURE_DOCS = (
+    "Documentation/Architecture/README.md",
+    "Documentation/Architecture/root-map.md",
+    "Documentation/Architecture/dependency-rules.md",
+    "Documentation/Architecture/security-boundaries.md",
+    "Documentation/Architecture/adr/README.md",
+    "Documentation/Architecture/adr/0001-production-architecture.md",
+)
 GROUPS = {
     "3379C1BB2DA869A1004372DA": "VexSign/App",
     "E0E0E0000000000000000001": "VexSign/Shared",
@@ -74,6 +96,45 @@ class RepositoryLayoutTests(unittest.TestCase):
                      ".github/ISSUE_TEMPLATE",
                      "VexSign.xcodeproj", "VexSign.xcworkspace"):
             self.assertTrue((ROOT / name).exists(), name)
+
+    def test_root_files_are_curated(self):
+        """No new data/configuration file at the root without a reviewed contract."""
+        actual = {p.name for p in ROOT.iterdir()
+                  if p.is_file() and not p.name.startswith(".")}
+        expected = {name for name in ROOT_FILES if not name.startswith(".")}
+        self.assertEqual(actual, expected, "unexpected or missing root file")
+        for name in sorted(name for name in ROOT_FILES if name.startswith(".")):
+            self.assertTrue((ROOT / name).is_file(), name)
+
+    def test_rejected_root_shapes_stay_absent(self):
+        for relative in REJECTED_PATHS:
+            self.assertFalse((ROOT / relative).exists(),
+                             f"rejected architecture path remains: {relative}")
+
+    def test_test_roots_match_xcode_targets(self):
+        """Target names and source roots are deliberately not the same string."""
+        pbx = PBX.read_text()
+        self.assertIn("name = VexSignTests;", pbx)
+        self.assertIn("path = Tests;", pbx)
+        self.assertIn("name = VexSignUITests;", pbx)
+        self.assertIn("path = UITests;", pbx)
+        self.assertTrue((ROOT / "UITests/VexSignUITests.swift").is_file())
+        self.assertTrue((ROOT / "Tests/UnitTests").is_dir())
+        self.assertFalse((ROOT / "Tests/UI").exists())
+        self.assertFalse((ROOT / "VexSignTests").exists())
+        self.assertFalse((ROOT / "VexSignUITests").exists())
+
+    def test_ratified_architecture_docs_are_present_and_linked(self):
+        for relative in ARCHITECTURE_DOCS:
+            self.assertTrue((ROOT / relative).is_file(), relative)
+        readme = (ROOT / "README.md").read_text()
+        baseline = (ROOT / "Documentation/Architecture/README.md").read_text()
+        for link in ("root-map.md", "dependency-rules.md", "security-boundaries.md",
+                     "0001-production-architecture.md"):
+            self.assertIn(link, readme, f"README does not link {link}")
+        for link in ("root-map.md", "dependency-rules.md", "security-boundaries.md",
+                     "0001-production-architecture.md"):
+            self.assertIn(link, baseline, f"architecture baseline does not link {link}")
 
     def test_app_platform_roots_keep_every_entry_point(self):
         self.assertEqual({p.name for p in APP.iterdir() if p.is_dir()}, APP_LAYERS)

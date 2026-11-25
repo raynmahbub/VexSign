@@ -1,0 +1,31 @@
+# Keep checkout bytes identical to .editorconfig (`end_of_line = lf`).
+* text=auto eol=lf
+
+# First-party sources and configuration that must never acquire CRLF.
+*.swift text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.xcconfig text eol=lf
+*.pbxproj text eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+Makefile text eol=lf
+
+# Binary assets and signing material: no line-ending conversion, no text diff.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.pdf binary
+*.ico binary
+*.p12 binary
+*.cer binary
+*.mobileprovision binary
+*.ipa binary
+*.zip binary
+*.realm binary
+*.sqlite binary
+*.db binary
