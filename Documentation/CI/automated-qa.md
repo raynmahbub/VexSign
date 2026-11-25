@@ -14,6 +14,7 @@ and the reports keep the layers separate.
 | `ui-tests` | iOS Simulator | Did XCUITest actually drive the app's tabs, navigation, swipes and import/signing entry points? |
 | `concurrency` | macOS | Are strict-concurrency diagnostics growing? |
 | `device` | self-hosted iPhone | Did the app install and launch on real hardware? Optional, never a PR job. |
+| `report` | Ubuntu | What did all of the above actually produce, and what is still blocked? |
 
 `build` produces an unsigned Debug IPA for inspection. It is a build artifact, not
 proof that tests passed and not a release. `tests` and `ui-tests` each export their
@@ -44,12 +45,18 @@ Every native run uploads:
 
 - `quality-report.json` / `quality-report.md`: passed, failed, skipped, blocked,
   crash signals and the exact executed-test count.
+- `combined-report.json` / `combined-report.md`: one summary of every job, with
+  missing or skipped layers called out instead of being folded into a pass.
 - `coverage.json` and the `xcresult` on failure.
 - build logs for Debug, Release and the analyzer.
 - `ui-tests` result bundle, log, test-results JSON and quality report on **every**
   attempt: XCUITest screenshots are attachments inside the `xcresult`, including
   the final frame captured when an assertion stops a test early.
 - `feature-acceptance.json` from the device job, with one case per registered feature.
+
+An app-source change with no test change fails the portable regression gate
+(`Tools/Validation/repository-validation/check_regression_tests.py`). That gate
+only proves a test moved with the fix; the native jobs still own execution.
 
 See [per-feature acceptance](../Deployment/feature-acceptance.md) for the rules that
 prevent a pending or synthetic observation from becoming a pass.

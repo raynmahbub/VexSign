@@ -317,6 +317,8 @@ jobs:
           python3 Tools/Validation/repository-validation/test_docs.py
           python3 Tools/Validation/repository-validation/check_project_wiring.py
           python3 Tools/Validation/repository-validation/test_project_wiring.py
+          python3 Tools/Validation/repository-validation/check_regression_tests.py --self-test
+          python3 Tools/Validation/repository-validation/check_regression_tests.py
           python3 Tools/Audit/test_integration_contracts.py
           python3 Tools/Validation/architecture-rules/test_architecture_boundaries.py
           python3 Tools/Validation/architecture-rules/test_feature_workspace_boundaries.py
@@ -325,6 +327,7 @@ jobs:
           python3 Tools/Audit/test_device_acceptance.py
           python3 Tools/Audit/test_feature_acceptance.py
           python3 Tools/Audit/test_quality_report.py
+          python3 Tools/Audit/test_combined_report.py
           python3 Tools/Audit/test_ui_test_target.py
           python3 Tools/Release/test_verify_ci_gate.py
           python3 Tools/Validation/security-validation/test_native_promotion_evidence.py
@@ -1162,6 +1165,70 @@ jobs:
           name: strict-concurrency-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/strict-concurrency.log
           if-no-files-found: ignore
+          retention-days: 3
+
+  # ---------------------------------------------------------------------------
+  # One summary that refuses to blur the layers. Each job above keeps its own
+  # gate; this job only collects the evidence and says what is still blocked.
+  # ---------------------------------------------------------------------------
+  report:
+    name: report · consolidated QA evidence
+    if: always()
+    needs: [quick, build, tests, ui-tests, concurrency, device]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      QUICK_RESULT: ${{ needs.quick.result }}
+      BUILD_RESULT: ${{ needs.build.result }}
+      TESTS_RESULT: ${{ needs.tests.result }}
+      UI_RESULT: ${{ needs.ui-tests.result }}
+      CONCURRENCY_RESULT: ${{ needs.concurrency.result }}
+      DEVICE_RESULT: ${{ needs.device.result }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download evidence artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: ${{ runner.temp }}/evidence
+          pattern: |
+            quality-report-*
+            ui-tests-*
+            coverage-*
+            device-evidence-*
+
+      - name: Combine evidence
+        run: |
+          python3 Tools/Audit/combined-report.py \
+            --artifacts "${RUNNER_TEMP}/evidence" \
+            --job "quick=${QUICK_RESULT}" \
+            --job "build=${BUILD_RESULT}" \
+            --job "tests=${TESTS_RESULT}" \
+            --job "ui-tests=${UI_RESULT}" \
+            --job "concurrency=${CONCURRENCY_RESULT}" \
+            --job "device=${DEVICE_RESULT}" \
+            --json "${RUNNER_TEMP}/combined-report.json" \
+            --markdown "${RUNNER_TEMP}/combined-report.md" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Publish consolidated summary
+        if: always()
+        run: |
+          if [ -f "${RUNNER_TEMP}/combined-report.md" ]; then
+            cat "${RUNNER_TEMP}/combined-report.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload consolidated report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: combined-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/combined-report.json
+            ${{ runner.temp }}/combined-report.md
+          if-no-files-found: warn
           retention-days: 3
 
   # ---------------------------------------------------------------------------

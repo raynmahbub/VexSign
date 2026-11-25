@@ -941,6 +941,12 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('if: always() && steps.test.outcome != \'skipped\'', ui_tests)
         # A simulator screenshot bundle is UI evidence, not device evidence.
         self.assertNotIn('feature-acceptance.py', ui_tests)
+        report = block(jobs, 'report', 2)
+        self.assertIn('needs: [quick, build, tests, ui-tests, concurrency, device]', report)
+        self.assertIn('Tools/Audit/combined-report.py', report)
+        self.assertIn('if: always()', report)
+        combine = report[report.index('- name: Combine evidence'):]
+        self.assertNotIn('continue-on-error: true', combine)
 
     def test_release_requires_the_ci_quality_gate(self):
         text = (WORKFLOWS / 'release.yml').read_text()

@@ -165,6 +165,8 @@ verify: docs-check project-wiring
 	for entry in \
 	  "#repository structure, aliases and assets" \
   "python3 Tools/Validation/repository-validation/check_project_wiring.py" \
+  "python3 Tools/Validation/repository-validation/check_regression_tests.py --self-test" \
+  "python3 Tools/Validation/repository-validation/check_regression_tests.py" \
 	  "python3 Tools/Validation/repository-validation/test_repo_aliases.py" \
 	  "python3 Tools/Validation/repository-validation/sync_repo_aliases.py --check" \
 	  "python3 Tools/Validation/repository-validation/check_ios_icon_assets.py" \
@@ -193,6 +195,7 @@ verify: docs-check project-wiring
 	  "python3 Tools/Audit/test_device_acceptance.py" \
 	  "python3 Tools/Audit/test_feature_acceptance.py" \
 	  "python3 Tools/Audit/test_quality_report.py" \
+  "python3 Tools/Audit/test_combined_report.py" \
 	  "python3 Tools/Audit/test_ui_test_target.py" \
 	  "python3 Tools/Release/test_verify_ci_gate.py" \
 	  "python3 Tools/Fixtures/RenewalFixture/test_observation.py" \
