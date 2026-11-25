@@ -22,6 +22,7 @@ struct OnboardingView: View {
 	@AppStorage("VexSign.installationMethod") private var _installMethod = 0
 	@State private var _page = 0
 	@State private var _isAddingCert = false
+	@State private var _isChoosingSigningMethod = false
 	@State private var _isAddingSource = false
 	@State private var _isImportingIPA = false
 	@State private var _importedAppName: String?
@@ -64,6 +65,11 @@ struct OnboardingView: View {
 				CertificatesAddView()
 					.presentationDetents([.medium])
 			}
+			.sheet(isPresented: $_isChoosingSigningMethod) {
+                NBNavigationView(.localized("Signing Methods")) {
+                    SigningMethodsView()
+                }
+            }
 			.sheet(isPresented: $_isAddingSource) {
 				SourcesAddView()
 			}
@@ -88,7 +94,7 @@ struct OnboardingView: View {
 			Text(.localized("Sign and install apps on this device."))
 				.font(.title2.weight(.semibold))
 				.multilineTextAlignment(.center)
-			Text(.localized("VexSign uses your certificate to sign IPAs, then installs them over the local server or a pairing file. Nothing is uploaded."))
+			Text(.localized("Certificate-based signing runs on this device. Apple Account setup contacts Apple and your configured Anisette provider; optional remote services have separate trust boundaries."))
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)
 			BootstrapFact()
@@ -101,8 +107,14 @@ struct OnboardingView: View {
 		VStack(alignment: .leading, spacing: 16) {
 			Text(.localized("Set up signing"))
 				.font(.title2.weight(.semibold))
-			Text(.localized("Import a .p12 and .mobileprovision pair to sign apps directly on this device. You can skip this now and configure Paid Certificate, Free Apple ID, SideStore/LiveContainer, or TrollStore later in Settings → Signing Methods."))
+			Text(.localized("Choose Paid Certificate to import your .p12, its password and a compatible .mobileprovision profile. Choose Free Apple ID to review account provisioning and its current limits. Account setup and installation are separate steps; neither bypasses device or profile requirements."))
 				.foregroundStyle(.secondary)
+			Button {
+                _isChoosingSigningMethod = true
+            } label: {
+                Label(.localized("Choose Signing Method"), systemImage: "signature")
+            }
+            .buttonStyle(.borderedProminent)
 			Button {
 				_isAddingCert = true
 			} label: {
@@ -112,7 +124,7 @@ struct OnboardingView: View {
 
 			if !_certificates.isEmpty {
 				Label(
-					String.localized("%lld certificate(s) ready", arguments: _certificates.count),
+					String.localized("%lld certificate(s) imported — preflight still required", arguments: _certificates.count),
 					systemImage: "checkmark.circle.fill"
 				)
 				.font(.footnote)
@@ -204,6 +216,12 @@ struct OnboardingView: View {
 			Text(.localized("Local Server requires installing and trusting VexSign's local Root CA in iOS Settings → Certificate Trust Settings. Pairing (idevice) needs a pairing file and a loopback VPN. Review readiness any time in Settings → Setup Health."))
 				.font(.footnote)
 				.foregroundStyle(.secondary)
+            NavigationLink(destination: DiagnosticsCenterView()) {
+                Label(.localized("Diagnostics Center"), systemImage: "stethoscope")
+            }
+            Text(.localized("If a step fails, open Diagnostics Center and export a diagnostic bundle. Review it before sharing. A submitted install is not confirmation that iOS installed the app."))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
 			Spacer()
 		}
 		.padding(28)

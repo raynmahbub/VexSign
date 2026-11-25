@@ -26,7 +26,7 @@ pending_notes.txt
 DEV.md
 bk
 manifest-worker
-VexSign/App/iOS/Resources/SelfUpdateConfig.plist
+VexSign/Resources/SelfUpdateConfig.plist
 
 # Signing material and secrets
 *.p12
@@ -50,18 +50,18 @@ cert.txt
 __pycache__/
 *.py[cod]
 .pytest_cache/
-VexSign/Services/WebManager/API/*.db
+Services/WebManager/API/*.db
 # WAL sidecars left behind when a run is killed mid-transaction.
-VexSign/Services/WebManager/API/*.db-wal
-VexSign/Services/WebManager/API/*.db-shm
-VexSign/Services/WebManager/API/.venv/
-VexSign/Services/WebManager/Configuration/premium.json
+Services/WebManager/API/*.db-wal
+Services/WebManager/API/*.db-shm
+Services/WebManager/API/.venv/
+Services/WebManager/Configuration/premium.json
 
 # Cloud signing
-VexSign/Services/Cloud/node_modules/
-VexSign/Services/Cloud/dist/
-VexSign/Services/Cloud/work/
-VexSign/Services/Cloud/*.log
+Services/Cloud/node_modules/
+Services/Cloud/dist/
+Services/Cloud/work/
+Services/Cloud/*.log
 
 # Private real-device acceptance observations
 device-acceptance.local.json

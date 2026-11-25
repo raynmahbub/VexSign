@@ -33,6 +33,15 @@ enum DiagnosticBundleExporter {
 				encoding: .utf8
 			)
 
+            // Include retained disk events too: subsystem callers do not all write to
+            // SigningLog, and the console only holds a bounded subset of history.
+            let activityLogs = _sanitize(FileLogger.readAll())
+            try activityLogs.write(
+                to: stagingDir.appendingPathComponent("activity.txt"),
+                atomically: true,
+                encoding: .utf8
+            )
+
 			// 2. System and Environment Info
 			let envData = _buildEnvironmentJSON()
 			try envData.write(to: stagingDir.appendingPathComponent("environment.json"))

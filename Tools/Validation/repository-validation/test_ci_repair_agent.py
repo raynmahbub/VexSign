@@ -27,6 +27,38 @@ class RepairPatchSafetyTests(unittest.TestCase):
             {'VexSign/App/Example.swift'},
         )
 
+    def test_accepts_only_opted_in_feature_presentation(self):
+        for feature in ('Downloads', 'Sources', 'Tasks'):
+            for area in ('Views', 'ViewModels'):
+                path = f'VexSign/Features/{feature}/{area}/Example.swift'
+                with self.subTest(path=path):
+                    self.assertEqual(agent.validate_patch(patch(path), {path}), {path})
+                    with self.assertRaises(ValueError):
+                        agent.validate_patch(patch(path), set())
+
+    def test_rejects_sensitive_areas_even_when_pr_allowlisted(self):
+        paths = [
+            'VexSign/Features/Signing/Views/Example.swift',
+            'VexSign/Features/Accounts/ViewModels/Example.swift',
+            'VexSign/Features/Certificates/Views/Example.swift',
+            'VexSign/Features/Installation/Views/Example.swift',
+            'VexSign/Features/Backup/Views/Example.swift',
+            'VexSign/Features/Settings/Views/Security/Example.swift',
+            'VexSign/Features/Sources/UseCases/Example.swift',
+            'VexSign/Features/Sources/Views/CredentialEditor.swift',
+            'VexSign/Features/Downloads/ViewModels/SigningModel.swift',
+            'VexSign/Security/Policies/Example.swift',
+            'VexSign/App/Credentials.swift',
+            'Tests/SecurityTests/Example.swift',
+            'Packages/SideSign/Package.swift',
+            'VexSign/Features//Sources/Views/Example.swift',
+            'VexSign/Features/Sources/Views/../Example.swift',
+            'VexSign/Features/Sources/Views/Example.swift/extra',
+        ]
+        for path in paths:
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                agent.validate_patch(patch(path), {path})
+
     def test_rejects_files_outside_the_original_pr_allowlist(self):
         with self.assertRaisesRegex(ValueError, 'outside the allowed'):
             agent.validate_patch(patch('VexSign/App/Unrelated.swift'), {'VexSign/App/Example.swift'})

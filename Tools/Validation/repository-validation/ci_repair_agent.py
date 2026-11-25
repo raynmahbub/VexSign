@@ -59,14 +59,35 @@ def _skip(reason: str) -> None:
     _set_output("patch_ready", "false")
 
 
+# Deliberately not all Features: identity, signing, installation, backup and
+# security settings remain human-led. Expanding this list requires policy review.
+REPAIR_FEATURES = {"Downloads", "Sources", "Tasks"}
+SENSITIVE_PATH = re.compile(
+    r"signing|codesign|certificate|credential|keychain|password|secret|token|"
+    r"crypto|security|authentication|authorization|provision|pairing|release",
+    re.IGNORECASE,
+)
+
+
 def _source_path(path: str) -> bool:
     pure = PurePosixPath(path)
+    if (
+        pure.is_absolute()
+        or ".." in pure.parts
+        or pure.as_posix() != path
+        or "\\" in path
+        or not path.endswith(".swift")
+        or SENSITIVE_PATH.search(path)
+    ):
+        return False
+    if path.startswith(("VexSign/App/", "Tests/")):
+        return True
+    parts = pure.parts
     return (
-        not pure.is_absolute()
-        and ".." not in pure.parts
-        and pure.as_posix() == path
-        and path.endswith(".swift")
-        and (path.startswith("VexSign/App/") or path.startswith("Tests/"))
+        len(parts) >= 5
+        and parts[:2] == ("VexSign", "Features")
+        and parts[2] in REPAIR_FEATURES
+        and parts[3] in {"Views", "ViewModels"}
     )
 
 

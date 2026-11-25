@@ -69,8 +69,12 @@ enum FileLogger {
 
 	/// Full history including the rotated file, oldest first.
 	static func readAll() -> String {
-		let rotated = (try? String(contentsOf: _rotatedFileURL, encoding: .utf8)) ?? "" // try? ok: rotated log may not exist
-		return rotated + read()
+        // Wait for queued writes so an immediate export includes the last outcome.
+        // Callers are outside the private writer queue.
+        _queue.sync {
+            let rotated = (try? String(contentsOf: _rotatedFileURL, encoding: .utf8)) ?? "" // try? ok: rotated log may not exist
+            return rotated + read()
+        }
 	}
 
 	static func clear() {
