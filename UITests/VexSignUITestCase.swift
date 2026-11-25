@@ -78,17 +78,28 @@ class VexSignUITestCase: XCTestCase {
     func tapIdentifier(_ identifier: String, timeout: TimeInterval = 12,
                        file: StaticString = #filePath, line: UInt = #line) {
         let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        // A SwiftUI NavigationLink can carry an identifier on its nested Label
+        // without that Label being the tappable accessibility element. The
+        // containing Form row is, so try it before declaring the row missing.
+        let row = app.cells.containing(.any, identifier: identifier).firstMatch
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if element.exists && element.isHittable {
                 element.tap()
                 return
             }
+            if row.exists && row.isHittable {
+                row.tap()
+                return
+            }
             let scroll = app.scrollViews.firstMatch
             guard scroll.exists, scroll.isHittable else { break }
             scroll.swipeUp()
         }
-        XCTFail("No element with identifier \(identifier)", file: file, line: line)
+        XCTFail(
+            "No tappable element with identifier \(identifier) (element=\(element.exists), row=\(row.exists))",
+            file: file, line: line
+        )
     }
 
     /// SwiftUI lists recycle off-screen rows. Scroll before declaring a label
