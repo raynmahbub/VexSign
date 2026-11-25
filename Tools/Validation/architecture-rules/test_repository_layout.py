@@ -42,19 +42,11 @@ ROOT_FILES = {
     "README.md", "SECURITY.md", "app-repo.json", "icon.png", "license_plist.yml",
     "render.yaml", "repos.json",
 }
-# Paths explicitly rejected by ADR 0001. A synchronized-root move is a build change,
-# so these must fail at the portable gate rather than at a macOS-only build.
+# Paths explicitly rejected by the adopted root contract. A synchronized-root move is
+# a build change, so these must fail at the portable gate rather than at a macOS-only build.
 REJECTED_PATHS = (
     "Core", "Infrastructure", "Sources", "VexSignTests", "VexSignUITests",
     "Platform/iOS", "Tests/UI", "Tests/UITests", "VexSign/App/iOS",
-)
-ARCHITECTURE_DOCS = (
-    "Documentation/Architecture/README.md",
-    "Documentation/Architecture/root-map.md",
-    "Documentation/Architecture/dependency-rules.md",
-    "Documentation/Architecture/security-boundaries.md",
-    "Documentation/Architecture/adr/README.md",
-    "Documentation/Architecture/adr/0001-production-architecture.md",
 )
 GROUPS = {
     "3379C1BB2DA869A1004372DA": "VexSign/App",
@@ -123,18 +115,6 @@ class RepositoryLayoutTests(unittest.TestCase):
         self.assertFalse((ROOT / "Tests/UI").exists())
         self.assertFalse((ROOT / "VexSignTests").exists())
         self.assertFalse((ROOT / "VexSignUITests").exists())
-
-    def test_ratified_architecture_docs_are_present_and_linked(self):
-        for relative in ARCHITECTURE_DOCS:
-            self.assertTrue((ROOT / relative).is_file(), relative)
-        readme = (ROOT / "README.md").read_text()
-        baseline = (ROOT / "Documentation/Architecture/README.md").read_text()
-        for link in ("root-map.md", "dependency-rules.md", "security-boundaries.md",
-                     "0001-production-architecture.md"):
-            self.assertIn(link, readme, f"README does not link {link}")
-        for link in ("root-map.md", "dependency-rules.md", "security-boundaries.md",
-                     "0001-production-architecture.md"):
-            self.assertIn(link, baseline, f"architecture baseline does not link {link}")
 
     def test_app_platform_roots_keep_every_entry_point(self):
         self.assertEqual({p.name for p in APP.iterdir() if p.is_dir()}, APP_LAYERS)

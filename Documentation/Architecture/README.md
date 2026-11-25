@@ -119,16 +119,6 @@ UI or persistence framework and to name nothing from `Services/Download`.
 - No circular dependencies between features.
 - Backend services must not be coupled to the iOS application target.
 
-## Ratified references
-
-- [`root-map.md`](root-map.md) — exact repository root, target-to-root mapping, root aliases
-  and rejected root shapes.
-- [`dependency-rules.md`](dependency-rules.md) — allowed dependency edges and the ports rule.
-- [`security-boundaries.md`](security-boundaries.md) — who decides, who persists, who transports
-  and who adapts the OS.
-- [`adr/0001-production-architecture.md`](adr/0001-production-architecture.md) — the accepted
-  decision record and the alternatives that stay rejected.
-
 ## Guards
 
 `Tools/Validation/architecture-rules/` pins this layout (`test_repository_layout.py`), the layer
