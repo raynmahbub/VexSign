@@ -86,7 +86,7 @@ class DeviceFoundationPreparationTests(unittest.TestCase):
         base = ROOT / package['path']
         paths = set()
         self.assertEqual(len(package['localPatches']), 6)
-        self.assertEqual(len(package['localAdditions']), 9)
+        self.assertEqual(len(package['localAdditions']), 10)
         for entry in package['localPatches'] + package['localAdditions']:
             relative = Path(entry['path'])
             self.assertFalse(relative.is_absolute())
@@ -118,7 +118,7 @@ class DeviceFoundationPreparationTests(unittest.TestCase):
         self.assertIn(dependency['url'], binary_manifest.read_text())
         self.assertIn(dependency['swiftPMChecksum'], binary_manifest.read_text())
         self.assertEqual(hashlib.sha256(binary_manifest.read_bytes()).hexdigest(),
-                         '7213f941601c9e4057eff12bc61e35e64bb2da0ffa9da452e587be80adc5c8b2')
+                         '03fbe1518bd2164e4e4a957e4c8e750bd3ac3797975c243b87663e0a17ca16cb')
 
 
 class DeviceFoundationSecurityWiringTests(unittest.TestCase):

@@ -6,11 +6,10 @@ import UIKit
 public final class InstallationAppProxy: NSObject {
     public var delegate: InstallationProxyAppsDelegate?
 
-    /// Acceptance gate for MUTATIONS. Enabled for the 27+ on-device bootstrap
-    /// implementation path; physical-device acceptance on iOS 27.0.1 is still
-    /// required before claiming production support. Install confirmation remains
-    /// mandatory and is enforced by AppInstaller/InstallConfirmation.
-    public static var hasAcceptedInventoryBridge: Bool { true }
+    /// Acceptance gate for MUTATIONS. Remains gated pending physical-device
+    /// acceptance on real hardware before enabling installation mutations.
+    /// Install confirmation remains mandatory and is enforced by AppInstaller/InstallConfirmation.
+    public static var hasAcceptedInventoryBridge: Bool { false }
     /// Positive inventory cannot establish absence. Removal remains gated pending
     /// physical-device acceptance of absence evidence.
     public static var hasAcceptedRemovalBridge: Bool { false }

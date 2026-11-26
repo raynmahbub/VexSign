@@ -49,6 +49,18 @@ def evaluate(paths: list[str]) -> list[str]:
     ]
 
 
+def commit_exists(sha: str) -> bool:
+    if len(sha) != 40 or not all(c in "0123456789abcdef" for c in sha) or set(sha) == {"0"}:
+        return False
+    result = subprocess.run(
+        ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+        cwd=ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
 def base_sha() -> str:
     event_name = os.environ.get("GITHUB_EVENT_NAME", "")
     event_path = os.environ.get("GITHUB_EVENT_PATH", "")
@@ -61,7 +73,7 @@ def base_sha() -> str:
                 value = event["before"]
             else:
                 value = ""
-            if len(value) == 40 and all(c in "0123456789abcdef" for c in value) and set(value) != {"0"}:
+            if commit_exists(value):
                 return value
         except (KeyError, OSError, ValueError, json.JSONDecodeError):
             pass
@@ -106,6 +118,10 @@ class RegressionPolicyTests(unittest.TestCase):
     def test_tools_are_not_silently_exempt_when_they_are_tests(self):
         self.assertTrue(is_test("Tools/Audit/test_quality_report.py"))
         self.assertFalse(is_app_source("Tools/Audit/test_quality_report.py"))
+
+    def test_unreachable_commit_sha_is_not_treated_as_valid_base(self):
+        self.assertFalse(commit_exists("636fa47" + "0" * 33))
+        self.assertFalse(commit_exists("0" * 40))
 
 
 def main() -> int:
