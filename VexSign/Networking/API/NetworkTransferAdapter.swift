@@ -1,9 +1,12 @@
 import Foundation
 import NimbleExtensions
+import os
 
 /// Concrete infrastructure adapter for validated package & firmware transfers.
 final class NetworkTransferAdapter: SecureTransferProviding {
     private let securityPolicy: SecurityPolicyValidating
+    // Only directories created by this adapter may be released by a caller.
+    private let ownedPackages = OSAllocatedUnfairLock(initialState: [URL: URL]())
 
     init(securityPolicy: SecurityPolicyValidating) {
         self.securityPolicy = securityPolicy
@@ -22,22 +25,38 @@ final class NetworkTransferAdapter: SecureTransferProviding {
             applyAuthHeaders: true
         )
 
+        // The system temporary file and an incompletely staged directory remain
+        // ours on every error, including failure to create the destination.
+        defer {
+            if FileManager.default.fileExists(atPath: tempURL.path) {
+                do { try FileManager.default.removeItem(at: tempURL) }
+                catch { SubsystemDiagnosticsLog.warn("Could not clean temporary package: \(error.localizedDescription)", subsystem: .network) }
+            }
+        }
         let directory = try DownloadStagingPath.createTemporaryDirectory(label: workLabel)
+        var handedOff = false
+        defer {
+            if !handedOff {
+                do { try FileManager.default.removeItem(at: directory) }
+                catch { SubsystemDiagnosticsLog.warn("Could not clean failed package staging: \(error.localizedDescription)", subsystem: .network) }
+            }
+        }
         let suggested = url.lastPathComponent.isEmpty ? "package.ipa" : url.lastPathComponent
         let destination = directory.appendingPathComponent(DownloadStagingPath.safeFilename(suggested))
+        try FileManager.default.moveItem(at: tempURL, to: destination)
+        try Task.checkCancellation()
+        ownedPackages.withLock { $0[destination.standardizedFileURL] = directory }
+        handedOff = true
+        return destination
+    }
+
+    func releaseValidatedPackage(_ url: URL) {
+        let directory = ownedPackages.withLock { $0.removeValue(forKey: url.standardizedFileURL) }
+        guard let directory else { return }
         do {
-            try FileManager.default.moveItem(at: tempURL, to: destination)
-            return destination
+            _ = try CleanupRemovalPolicy.remove(directory, beneath: FileManager.default.temporaryDirectory)
         } catch {
-            do {
-                try FileManager.default.removeItem(at: tempURL)
-            } catch {
-                SubsystemDiagnosticsLog.warn(
-                    "Could not remove temporary download after move error: \(error.localizedDescription)",
-                    subsystem: .network
-                )
-            }
-            throw error
+            SubsystemDiagnosticsLog.warn("Could not clean owned package staging: \(error.localizedDescription)", subsystem: .network)
         }
     }
 

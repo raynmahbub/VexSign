@@ -15,6 +15,60 @@ import SwiftUI
 import IDeviceSwift
 import NimbleExtensions
 
+// Successful response bodies establish delivery coverage, not installation. iOS may
+// fetch an IPA in several (possibly overlapping or out-of-order) HTTP ranges.
+struct OTAPayloadCoverage {
+    private var size: Int64?
+    private var ranges: [Range<Int64>] = []
+    private var isComplete = false
+    private static let maxDisjointRanges = 4096
+
+    /// Bytes in successfully completed responses, without double-counting retries
+    /// or overlaps. This is transfer progress, not device installation evidence.
+    var fractionDelivered: Double {
+        guard let size, size > 0 else { return 0 }
+        let covered = ranges.reduce(Int64(0)) { $0 + ($1.upperBound - $1.lowerBound) }
+        return Double(covered) / Double(size)
+    }
+
+    mutating func recordSuccessfulResponse(rangeHeader: String?, fileSize: Int64) -> Bool {
+        guard !isComplete, fileSize > 0, size == nil || size == fileSize,
+              let range = Self.responseRange(rangeHeader, fileSize: fileSize) else { return false }
+        size = fileSize
+        ranges.append(range)
+        ranges.sort { $0.lowerBound < $1.lowerBound }
+        var merged: [Range<Int64>] = []
+        for current in ranges {
+            if let last = merged.last, current.lowerBound <= last.upperBound {
+                merged[merged.count - 1] = last.lowerBound..<max(last.upperBound, current.upperBound)
+            } else {
+                merged.append(current)
+            }
+        }
+        // A hostile client must not force unbounded bookkeeping. Failing closed
+        // leaves the normal monitoring deadline responsible for the outcome.
+        if merged.count > Self.maxDisjointRanges { ranges = []; return false }
+        ranges = merged
+        isComplete = merged.count == 1 && merged[0].lowerBound == 0 && merged[0].upperBound == fileSize
+        return isComplete
+    }
+
+    private static func responseRange(_ header: String?, fileSize: Int64) -> Range<Int64>? {
+        guard let header else { return 0..<fileSize }
+        guard header.hasPrefix("bytes="), !header.contains(",") else { return nil }
+        let parts = header.dropFirst(6).split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return nil }
+        if parts[0].isEmpty {
+            guard let count = Int64(parts[1]), count > 0, count <= fileSize else { return nil }
+            return (fileSize - count)..<fileSize
+        }
+        guard let start = Int64(parts[0]), start >= 0, start < fileSize else { return nil }
+        if parts[1].isEmpty { return start..<fileSize }
+        guard let end = Int64(parts[1]), end >= start, end < fileSize else { return nil }
+        return start..<(end + 1)
+    }
+}
+
 // MARK: - Class
 class ServerInstaller: Identifiable, ObservableObject {
 	let id = UUID()
@@ -24,6 +78,7 @@ class ServerInstaller: Identifiable, ObservableObject {
 	private let _serverMethod: Int
 	private let _localhostOnly: Bool
 
+    @MainActor private var payloadCoverage = OTAPayloadCoverage()
     var packageArchive: InstallationArchive?
 	var packageUrl: URL?
 	var manifestUrl: URL?
@@ -121,9 +176,9 @@ class ServerInstaller: Identifiable, ObservableObject {
 					return Response(status: .notFound)
 				}
 
-				self._updateStatus(.sendingPayload)
-
-				return try await req.fileio.asyncStreamFile(
+                let rangeHeader = req.headers.first(name: .range)
+                let fileSize = (try? packageUrl.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) // try? ok: unavailable size cannot prove complete delivery
+				let response = try await req.fileio.asyncStreamFile(
 					at: packageUrl.path
                 ) { [archive = self.packageArchive] result in
                     // Vapor retains this completion until the body finishes or fails.
@@ -133,7 +188,13 @@ class ServerInstaller: Identifiable, ObservableObject {
 					switch result {
 					case .success:
 						Task { @MainActor [weak self] in
-							self?._updateStatus(.installing)
+                            guard let self, let fileSize else { return }
+                            let completed = self.payloadCoverage.recordSuccessfulResponse(rangeHeader: rangeHeader, fileSize: fileSize)
+                            // Unlike the upstream progress callback, count only fully
+                            // delivered response ranges and merge overlaps; a failed
+                            // stream must never advance the delivery completion gate.
+                            self.viewModel.uploadProgress = self.payloadCoverage.fractionDelivered
+                            if completed { self._updateStatus(.installing) }
 						}
 					case .failure(let error):
 						Task { @MainActor [weak self] in
@@ -143,6 +204,12 @@ class ServerInstaller: Identifiable, ObservableObject {
 						}
 					}
 				}
+                // Vapor may return a bodyless 304. A cache response is not a
+                // newly started payload transfer and must not start its deadline.
+                if response.status == .ok || response.status == .partialContent {
+                    self._updateStatus(.sendingPayload)
+                }
+                return response
 			case "/healthz":
 				return Response(status: .ok)
 			case "/install":

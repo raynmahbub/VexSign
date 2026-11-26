@@ -24,6 +24,26 @@ final class IPAExtractorTests: XCTestCase {
         try body(archiveURL, root.appendingPathComponent("output"), bytes)
     }
 
+    func testArchiveCopyChecksCancellationBetweenChunks() throws {
+        try fixture { source, output, _ in
+            var checkpoints = 0
+            XCTAssertThrowsError(try AppFileHandler.copyArchive(from: source, to: output) {
+                checkpoints += 1
+                if checkpoints == 3 { throw CancellationError() }
+            }) { XCTAssertTrue($0 is CancellationError) }
+            let copied = try FileManager.default.attributesOfItem(atPath: output.path)[.size] as? NSNumber
+            let original = try FileManager.default.attributesOfItem(atPath: source.path)[.size] as? NSNumber
+            XCTAssertLessThan(try XCTUnwrap(copied).int64Value, try XCTUnwrap(original).int64Value)
+        }
+    }
+
+    func testArchiveCopyPreservesBytes() throws {
+        try fixture { source, output, _ in
+            try AppFileHandler.copyArchive(from: source, to: output, checkpoint: {})
+            XCTAssertEqual(try Data(contentsOf: output), try Data(contentsOf: source))
+        }
+    }
+
     func testRoundTripPreservesBytesExecutableModeAndMonotonicProgress() throws {
         try fixture { source, output, bytes in
             var values: [Double] = []
@@ -48,13 +68,24 @@ final class IPAExtractorTests: XCTestCase {
         }
     }
 
+    func testCancellationDuringArchiveValidationWritesNothing() throws {
+        try fixture { source, output, _ in
+            var checkpoints = 0
+            XCTAssertThrowsError(try IPAExtractor.extract(source, to: output, checkpoint: {
+                checkpoints += 1
+                if checkpoints == 3 { throw CancellationError() }
+            })) { XCTAssertTrue($0 is CancellationError) }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: output.path))
+        }
+    }
+
     func testCancellationDuringLargeEntryStopsBeforeCompletion() throws {
         try fixture { source, output, bytes in
             var checkpoints = 0
             var progress: [Double] = []
             XCTAssertThrowsError(try IPAExtractor.extract(source, to: output, checkpoint: {
                 checkpoints += 1
-                if checkpoints == 7 { throw CancellationError() }
+                if checkpoints == 10 { throw CancellationError() }
             }, progress: { progress.append($0) })) { XCTAssertTrue($0 is CancellationError) }
             XCTAssertFalse(progress.contains(1))
             let binary = output.appendingPathComponent("Payload/Test.app/Test")

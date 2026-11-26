@@ -32,6 +32,12 @@ extension DownloadManager: URLSessionDownloadDelegate {
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
 		guard let download = getDownloadTask(by: downloadTask) else { return }
 		defer { networkTransferFinished(download, task: downloadTask) }
+        // A finish callback can already be queued when the user cancels. It
+        // cannot claim a staging file or restart verification after retirement.
+        guard download.importControl.isControllable else {
+            try? FileManager.default.removeItem(at: location) // try? ok: discard system-owned cancelled temporary payload
+            return
+        }
 		if download.exceededPackageSizeLimit { return }
 
 		if let httpResponse = downloadTask.response as? HTTPURLResponse,
@@ -87,17 +93,21 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			}
 
 			try handlePackageFile(url: destinationURL, dl: download)
-		} catch {
-			if isAppInBackground {
-				sendCompletionNotification(for: download, status: "❌ " + .localized("Download failed"))
-			}
-			
-			download.isActive = false
-		}
+        } catch {
+            // A failed move into staging cannot be imported or resumed from the
+            // URLSession temporary file. Surface the error and retire the row just
+            // like other terminal download failures instead of leaving it stuck.
+            if isAppInBackground {
+                sendCompletionNotification(for: download, status: "❌ " + .localized("Download failed"))
+            } else {
+                showUIErrorMessage(for: download, error: error as NSError)
+            }
+            _cleanupFailedDownload(download)
+        }
 	}
 	
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-		guard let download = getDownloadTask(by: downloadTask) else { return }
+		guard let download = getDownloadTask(by: downloadTask), download.importControl.isControllable else { return }
 		if TransferAcceptancePolicy.transferExceedsPackageLimit(
 			expectedBytes: totalBytesExpectedToWrite,
 			receivedBytes: totalBytesWritten
@@ -153,6 +163,9 @@ extension DownloadManager: URLSessionDownloadDelegate {
 		}
 
         defer { networkTransferFinished(download, task: downloadTask) }
+        // Explicit cancellation already cleared recovery. A late URLSession
+        // completion must not recreate an orphan resume blob or a paused row.
+        guard download.importControl.isControllable else { return }
 
 		let nsError = error as NSError
 
@@ -252,9 +265,10 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			self.allActivityDownloads.removeValue(forKey: download.id)
 			self.finishedDownloadingIDs.remove(download.id)
 
-			if let index = self.getDownloadIndex(by: download.id) {
-				self.downloads.remove(at: index)
-			}
+            if let index = self.downloads.firstIndex(where: { $0 === download }) {
+                self.downloads.remove(at: index)
+            }
+            self.releaseKeepAliveIfIdle()
 
 			let remainingActiveDownloads = self.downloads.filter {
 				($0.progress > 0 && $0.progress < 1.0 && !$0.isPaused) ||

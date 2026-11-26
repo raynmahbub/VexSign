@@ -92,7 +92,8 @@ struct ArchiveSafetyValidator {
         }
     }
 
-    static func validate(_ archiveURL: URL, destination: URL? = nil, limits: Limits = .default) throws {
+    static func validate(_ archiveURL: URL, destination: URL? = nil, limits: Limits = .default,
+                         checkpoint: () throws -> Void = {}) throws {
         let archive: Archive
         do {
             archive = try Archive(url: archiveURL, accessMode: .read)
@@ -111,6 +112,9 @@ struct ArchiveSafetyValidator {
         var implied = ImpliedDirectories()
 
         for entry in archive {
+            // Validation may walk tens of thousands of entries before extraction
+            // starts. The owning import must still be pausable and cancellable.
+            try checkpoint()
             entryCount += 1
             guard entryCount <= limits.maxEntries else { throw ValidationError.tooManyEntries }
 

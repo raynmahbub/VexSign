@@ -142,7 +142,7 @@ struct DeviceConnectivityTests {
 
     @Test("No pairing record means the user has to import one")
     func testNoPairingNeedsUserAction() {
-        let report = DeviceCapabilityResolver.report(DeviceCapabilityContext())
+        let report = DeviceCapabilityResolver.report(DeviceCapabilityContext(osVersion: .init(major: 17, minor: 4)))
         #expect(report.status(for: .pairedInstall) == .requiresUserAction)
         #expect(report.capability(for: .pairedInstall)?.detail.localizedCaseInsensitiveContains("pairing") == true)
     }
@@ -169,6 +169,26 @@ struct DeviceConnectivityTests {
         running.presence = .connected
         running.trust = .verified
         #expect(DeviceCapabilityResolver.report(running).status(for: .pairedInstall) == .supported)
+    }
+
+    @Test("On-device pairing still requires a verified session and accepted inventory")
+    func testOnDeviceRouteRequiresSessionAndBridge() {
+        var context = DeviceCapabilityContext(pairing: .validated(format: .remotePairing, deviceIdentifier: nil),
+            osVersion: .init(major: 27, minor: 0), inventoryBridgeAvailable: true, onDeviceHostAvailable: true)
+        #expect(DeviceCapabilityResolver.report(context).status(for: .pairedInstall) == .requiresCompanion)
+        context.pairingTransportAvailable = true
+        #expect(DeviceCapabilityResolver.report(context).status(for: .pairedInstall) == .requiresAuthorization)
+        context.presence = .connected
+        context.trust = .verified
+        #expect(DeviceCapabilityResolver.report(context).status(for: .pairedInstall) == .supported)
+        context.inventoryBridgeAvailable = false
+        #expect(DeviceCapabilityResolver.report(context).status(for: .pairedInstall) == .unsupported)
+        context.inventoryBridgeAvailable = true
+        context.onDeviceHostAvailable = false
+        #expect(DeviceCapabilityResolver.report(context).status(for: .pairedInstall) == .unsupported)
+        context.onDeviceHostAvailable = true
+        context.pairing = .readable(udid: "00008120-001A2B3C4D5E6F70")
+        #expect(DeviceCapabilityResolver.report(context).status(for: .pairedInstall) == .unsupported)
     }
 
     @Test("An unauthorized device is not a setup problem")
@@ -203,7 +223,7 @@ struct DeviceConnectivityTests {
         #expect(DeviceCapabilityResolver.report(DeviceCapabilityContext()).status(for: .inventoryRead) != .supported)
         let production = DeviceCapabilityContext(pairing: .readable(udid: "00008120-001A2B3C4D5E6F70"),
             presence: .connected, trust: .verified, pairingTransportAvailable: true,
-            osVersion: .init(major: 17, minor: 4))
+            osVersion: .init(major: 17, minor: 4), inventoryBridgeAvailable: false)
         #expect(DeviceCapabilityResolver.report(production).status(for: .pairedInstall) == .unsupported)
         #expect(DeviceCapabilityResolver.report(production).status(for: .inventoryRead) == .unsupported)
     }

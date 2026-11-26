@@ -13,6 +13,18 @@ final class SigningExecutionGateTests: XCTestCase {
         throw FixtureError.failed
     }
 
+    func testIndependentPipelinesShareNativeExecutionGate() async throws {
+        let first = SigningPipeline().executionGate
+        let second = SigningPipeline().executionGate
+        XCTAssertTrue(first === second)
+        try await first.acquire()
+        let waiting = Task { try await second.acquire() }
+        try await waitForWaiters(1, gate: first)
+        await first.release()
+        try await waiting.value
+        await second.release()
+    }
+
     func testWaitersAcquireInFIFOOrder() async throws {
         let gate = SigningExecutionGate()
         try await gate.acquire()

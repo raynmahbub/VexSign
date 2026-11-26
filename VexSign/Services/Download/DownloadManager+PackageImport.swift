@@ -376,7 +376,9 @@ extension DownloadManager {
 		// Captured before `endImport()` clears it — the staged IPA is deleted below.
 		let stagedURL = download.pendingFileURL
 
-        clearRecovery(download)
+        if succeeded || !retainCommitRecoveryIfPresent(download) {
+            clearRecovery(download)
+        }
 		download.isActive = false
         download.isVerifying = false
 		endImport(for: download)
@@ -388,24 +390,30 @@ extension DownloadManager {
 			}
 		}
 
-		// Drop from activity tracking only once archiving completes (not on download finish).
-		if succeeded {
-			completedDownloadNames.append(download.fileName)
-			allActivityDownloads.removeValue(forKey: download.id)
-			finishedDownloadingIDs.remove(download.id)
-		}
+        // Failed imports and rejected integrity checks are terminal too; leaving
+        // them in the activity aggregate makes a later update count them as successes.
+        if succeeded { completedDownloadNames.append(download.fileName) }
+        allActivityDownloads.removeValue(forKey: download.id)
+        finishedDownloadingIDs.remove(download.id)
 
 		// Snapshot before removing this one.
 		let isLastDownload = !downloads.contains { other in
-			other.id != download.id &&
+            other !== download &&
 			(other.isActive || other.isWaitingForSlot || other.isVerifying || other.isSigning || (other.progress > 0 && other.progress < 1.0) || (other.unpackageProgress > 0 && other.unpackageProgress < 1.0))
 		}
 
 		if let index = downloads.firstIndex(where: { $0 === download }) {
 			downloads.remove(at: index)
 		}
+        releaseKeepAliveIfIdle()
 
-		guard isLastDownload else { return }
+        if !isLastDownload {
+            if downloadActivity != nil {
+                forceNextProgressUpdate()
+                updateLiveActivity(activeDownloads: downloads.filter { $0.isActive && !$0.onlyArchiving })
+            }
+            return
+        }
 
 		// Background archiving needs no completion state; foreground keeps it until reopened.
 		if isAppInBackground {

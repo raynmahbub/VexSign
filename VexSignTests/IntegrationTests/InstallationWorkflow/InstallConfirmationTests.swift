@@ -314,6 +314,8 @@ final class InstallConfirmationTests: XCTestCase {
     func testLateTransportCallbackCannotReopenACompletedCard() {
         let model = InstallerStatusViewModel(status: .sendingPayload, isIdevice: false)
         model.updateTransportStatus(.installing)
+        model.updateTransportStatus(.sendingPayload)
+        guard case .installing = model.status else { return XCTFail("A late payload request must not regress installation status") }
         XCTAssertFalse(model.isCompleted)
         AppInstaller.Outcome.installed.publishConfirmedCompletion(to: model)
         model.updateTransportStatus(.sendingPayload)

@@ -35,6 +35,7 @@ struct InstallPreflightInputs: Equatable, Sendable {
 	var hasEmbeddedRuntime: Bool = false
     var osVersion: DeviceOSVersion = .current
     var pairedInventoryAccepted = InstallationAppProxy.hasAcceptedInventoryBridge
+    var onDeviceHostAvailable = PairingHostBridge.isSupported
 }
 
 // MARK: - Evaluation
@@ -55,21 +56,32 @@ enum InstallPreflight {
 
 		case .idevice:
 			switch inputs.pairing {
-			case .absent:
-				return .missing(.localized("No pairing file. Generate one from a computer on the Tunnel screen; the VPN also has to be running."))
+            case .absent:
+                switch DevicePairingRoute.resolve(inputs.osVersion) {
+                case .unsupported: return .unavailable(DeviceTransportError.unsupportedOS.localizedDescription)
+                case .unknownOS: return .unavailable(DeviceTransportError.unknownOS.localizedDescription)
+                case .hostDependencyRequired: return .unavailable(DeviceTransportError.hostUnavailable.localizedDescription)
+                case .importedRemoteRequired: return .unavailable(DeviceTransportError.remoteBridgeUnavailable.localizedDescription)
+                case .importedClassic:
+                    return .missing(.localized("Import a compatible classic pairing record in the Tunnel screen. Activate the VPN, grant explicit device-service consent, and verify the selected device. A record alone does not establish installation readiness."))
+                case .onDeviceHostPairing:
+                    guard inputs.onDeviceHostAvailable else { return .unavailable(DeviceTransportError.hostUnavailable.localizedDescription) }
+                    guard inputs.pairedInventoryAccepted else { return .unavailable(DeviceTransportError.inventoryBridgeUnavailable.localizedDescription) }
+                    return .missing(.localized("In the Tunnel screen, explicitly start on-device pairing and confirm the PIN in Settings. Activate the VPN, grant device-service consent, and verify the selected device. Pairing alone does not establish installation readiness."))
+                }
 			case .unreadable, .oversized, .incomplete:
 				// The record cannot start a session, so this is not "unknown readiness" — it is a
 				// record that has to be replaced, and the sentence says which part is wrong.
 				return .missing(inputs.pairing.detail)
             case .readable, .validated:
                 if let format = inputs.pairing.format {
-                    do { try DeviceTransportPolicy.requireClassicRoute(format: format, version: inputs.osVersion) }
+                    do { try PairingRouteAdmission.requireSessionRoute(format: format, version: inputs.osVersion, onDeviceHostAvailable: inputs.onDeviceHostAvailable) }
                     catch { return .unavailable(error.localizedDescription) }
                 }
                 guard inputs.pairedInventoryAccepted else {
                     return .unavailable(DeviceTransportError.inventoryBridgeUnavailable.localizedDescription)
                 }
-                return .unknown(.localized("Pairing record found. Device trust and VPN connectivity are checked when connecting; a readable record does not prove the device would accept the session."))
+                return .unknown(.localized("Pairing record found. Explicit consent, device trust and VPN connectivity are checked when connecting; a readable record does not prove the device would accept the session."))
 			}
 
 		case .liveContainer:

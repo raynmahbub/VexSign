@@ -56,6 +56,29 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: testIPA.path))
     }
 
+    func testZipPackageUsesTheRealImportPipeline() async throws {
+        let ipa = try createTestIPA()
+        defer { try? FileManager.default.removeItem(at: ipa.deletingLastPathComponent()) } // try? ok: synthetic archive cleanup
+        let zip = ipa.deletingLastPathComponent().appendingPathComponent("App.ZIP")
+        try FileManager.default.copyItem(at: ipa, to: zip)
+        let completed = expectation(description: "ZIP import completes")
+        var imported: AppInfoPresentable?
+        PackageImportService.importPackage(zip) { result in
+            switch result {
+            case .success(let app): imported = app
+            case .failure(let error): XCTFail("ZIP import failed: \(error)")
+            }
+            completed.fulfill()
+        }
+        await fulfillment(of: [completed], timeout: 30)
+        let app = try XCTUnwrap(imported)
+        defer { XCTAssertTrue(Storage.shared.deleteApp(for: app)) }
+        let record = try CoreDataWorkspaceRepository(storage: Storage.shared).appRecord(app)
+        XCTAssertEqual(record.identifier, "com.vexsign.test.pipeline")
+        XCTAssertNotNil(record.bundleURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: zip.path))
+    }
+
     /// Tests that UnifiedTaskCenter correctly tracks the pipeline stages
     func testUnifiedTaskCenterPipelineTracking() async throws {
         let center = UnifiedTaskCenter.shared

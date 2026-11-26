@@ -114508,6 +114508,347 @@
           }
         }
       }
+    },
+    "3 · Pair or review a compatible record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3 · Pair or review a compatible record"
+          }
+        }
+      }
+    },
+    "Advertising pairing host. Open Settings > Privacy & Security > Developer Mode and tap Pair with %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advertising pairing host. Open Settings > Privacy & Security > Developer Mode and tap Pair with %@."
+          }
+        }
+      }
+    },
+    "Authenticate with your Apple Account in Accounts to continue provisioning." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticate with your Apple Account in Accounts to continue provisioning."
+          }
+        }
+      }
+    },
+    "Bootstrap cancelled." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bootstrap cancelled."
+          }
+        }
+      }
+    },
+    "Bootstrap failed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bootstrap failed."
+          }
+        }
+      }
+    },
+    "Cancel pairing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel pairing"
+          }
+        }
+      }
+    },
+    "Checking device environment…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking device environment…"
+          }
+        }
+      }
+    },
+    "Enter this PIN on your iPhone to confirm pairing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter this PIN on your iPhone to confirm pairing."
+          }
+        }
+      }
+    },
+    "No session is confirmed. Open the Tunnel screen to set up a compatible pairing record and verify the selected device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No session is confirmed. Open the Tunnel screen to set up a compatible pairing record and verify the selected device."
+          }
+        }
+      }
+    },
+    "On supported iOS 27+ devices, VexSign can start an on-device pairing host. You must explicitly start pairing and confirm the PIN in Settings. Only bounded flat pairing plists are accepted. The remote identifier is the host's identity, not this iPhone's UDID. Import preserves original bytes and never converts one format into another. Replacing a record requires confirmation and an unchanged reviewed fingerprint." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On supported iOS 27+ devices, VexSign can start an on-device pairing host. You must explicitly start pairing and confirm the PIN in Settings. Only bounded flat pairing plists are accepted. The remote identifier is the host's identity, not this iPhone's UDID. Import preserves original bytes and never converts one format into another. Replacing a record requires confirmation and an unchanged reviewed fingerprint."
+          }
+        }
+      }
+    },
+    "On-device pairing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-device pairing"
+          }
+        }
+      }
+    },
+    "On-device pairing available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-device pairing available"
+          }
+        }
+      }
+    },
+    "Open Settings > Privacy & Security > Developer Mode and enter this PIN. The PIN is shown only for this active session." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings > Privacy & Security > Developer Mode and enter this PIN. The PIN is shown only for this active session."
+          }
+        }
+      }
+    },
+    "Open the Tunnel screen to import a compatible pairing record or start on-device pairing on supported devices. Configure the VPN and verify the selected device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the Tunnel screen to import a compatible pairing record or start on-device pairing on supported devices. Configure the VPN and verify the selected device."
+          }
+        }
+      }
+    },
+    "Open the Tunnel screen to import a compatible pairing record or start on-device pairing on supported devices. Without a verified session there is no device to install over." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the Tunnel screen to import a compatible pairing record or start on-device pairing on supported devices. Without a verified session there is no device to install over."
+          }
+        }
+      }
+    },
+    "Pairing PIN" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing PIN"
+          }
+        }
+      }
+    },
+    "Pairing record stored securely (%@). Verify the device and transport before trusting any device operation. No installation was started." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing record stored securely (%@). Verify the device and transport before trusting any device operation. No installation was started."
+          }
+        }
+      }
+    },
+    "Pairing record stored. Verification is required before any device operation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing record stored. Verification is required before any device operation."
+          }
+        }
+      }
+    },
+    "Please drop an IPA, TIPA or ZIP file." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please drop an IPA, TIPA or ZIP file."
+          }
+        }
+      }
+    },
+    "Preparing on-device pairing…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing on-device pairing…"
+          }
+        }
+      }
+    },
+    "Preparing pairing host…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing pairing host…"
+          }
+        }
+      }
+    },
+    "Start on-device pairing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start on-device pairing"
+          }
+        }
+      }
+    },
+    "The 30-second deadline bounds this screen's wait, not the native FFI call. A blocked worker keeps exclusive ownership until it actually retires. New operations are refused, not run concurrently. Unsupported remote routes and simulators remain blocked; on-device host pairing requires a supported device and a fresh verification." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The 30-second deadline bounds this screen's wait, not the native FFI call. A blocked worker keeps exclusive ownership until it actually retires. New operations are refused, not run concurrently. Unsupported remote routes and simulators remain blocked; on-device host pairing requires a supported device and a fresh verification."
+          }
+        }
+      }
+    },
+    "Validating and storing pairing record…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Validating and storing pairing record…"
+          }
+        }
+      }
+    },
+    "Verify the stored pairing record and local transport before continuing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verify the stored pairing record and local transport before continuing."
+          }
+        }
+      }
+    },
+    "iOS 27+: VexSign can start an on-device RPPairing host session. You must explicitly start pairing, confirm the PIN in Settings, and keep LocalDevVPN active. VexSign does not enable Developer Mode, invent trust, or accept unverified peers." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS 27+: VexSign can start an on-device RPPairing host session. You must explicitly start pairing, confirm the PIN in Settings, and keep LocalDevVPN active. VexSign does not enable Developer Mode, invent trust, or accept unverified peers."
+          }
+        }
+      }
+    },
+    "No pairing record. Open the Tunnel screen to import a compatible record or, on supported devices, start on-device pairing. Configure the VPN and verify the selected device. Pairing alone does not enable installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pairing record. Open the Tunnel screen to import a compatible record or, on supported devices, start on-device pairing. Configure the VPN and verify the selected device. Pairing alone does not enable installation."
+          }
+        }
+      }
+    },
+    "Import a compatible classic pairing record in the Tunnel screen. Activate the VPN, grant explicit device-service consent, and verify the selected device. A record alone does not establish installation readiness." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a compatible classic pairing record in the Tunnel screen. Activate the VPN, grant explicit device-service consent, and verify the selected device. A record alone does not establish installation readiness."
+          }
+        }
+      }
+    },
+    "In the Tunnel screen, explicitly start on-device pairing and confirm the PIN in Settings. Activate the VPN, grant device-service consent, and verify the selected device. Pairing alone does not establish installation readiness." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In the Tunnel screen, explicitly start on-device pairing and confirm the PIN in Settings. Activate the VPN, grant device-service consent, and verify the selected device. Pairing alone does not establish installation readiness."
+          }
+        }
+      }
+    },
+    "Pairing record found. Explicit consent, device trust and VPN connectivity are checked when connecting; a readable record does not prove the device would accept the session." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing record found. Explicit consent, device trust and VPN connectivity are checked when connecting; a readable record does not prove the device would accept the session."
+          }
+        }
+      }
+    },
+    "This source has a malformed signature declaration." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This source has a malformed signature declaration."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

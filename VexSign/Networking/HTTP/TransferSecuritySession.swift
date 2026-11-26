@@ -34,23 +34,24 @@ enum TransferSecuritySession {
             throw error
         }
 
+        var handedOff = false
+        defer { if !handedOff { removeTemporaryFile(at: tempURL) } }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard TransferAcceptancePolicy.isAcceptableHTTPStatus(status) else {
-            removeTemporaryFile(at: tempURL)
             throw ArchitectureDomainError.httpError(statusCode: status)
         }
 
         let fileSize = (try FileManager.default.attributesOfItem(atPath: tempURL.path)[.size] as? NSNumber)?.int64Value ?? 0
         guard fileSize > 0 else {
-            removeTemporaryFile(at: tempURL)
             throw ArchitectureDomainError.emptyDownloadPayload
         }
 
         if let maximumBytes, fileSize > maximumBytes {
-            removeTemporaryFile(at: tempURL)
             throw ArchitectureDomainError.transferSizeExceeded(limitBytes: maximumBytes)
         }
 
+        try Task.checkCancellation()
+        handedOff = true
         return tempURL
     }
 

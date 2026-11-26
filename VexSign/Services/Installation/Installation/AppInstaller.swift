@@ -650,7 +650,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 			return
 		}
 
-		FileLogger.log("opening \(link)", category: "install")
+		FileLogger.log("opening OTA installation handoff", category: "install")
 
 		if _useNovaDNSDynamic {
 			// rewriting resolution is a visible act, so it is logged once per install, with

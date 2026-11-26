@@ -67,6 +67,9 @@ final class DirectPackageInstallUseCase {
         let downloadedURL = try await transferService.downloadValidatedPackage(
             from: targetURL, workLabel: "DirectInstall", maximumBytes: maximumPackageBytes
         )
+        // The importer owns its own copy. Keep the transfer alive until that
+        // reader returns, including cooperative cancellation, then release it.
+        defer { transferService.releaseValidatedPackage(downloadedURL) }
         try checkAdmission()
         onStatus(NSLocalizedString("Importing…", comment: ""))
         try checkAdmission()

@@ -61,6 +61,24 @@ final class DownloadAdmissionTests: XCTestCase {
     }
 
     @MainActor
+    func testFailedImportLeavesNoCompletedActivityEntry() {
+        let manager = DownloadManager(configureServices: false)
+        let failed = Download(id: "failed-import", url: url(98))
+        let remaining = Download(id: "remaining", url: url(97))
+        remaining.isActive = true
+        manager.downloads = [failed, remaining]
+        manager.allActivityDownloads[failed.id] = (failed.fileName, 10, 10)
+        manager.finishedDownloadingIDs.insert(failed.id)
+
+        manager.finishImport(of: failed, succeeded: false)
+
+        XCTAssertNil(manager.allActivityDownloads[failed.id])
+        XCTAssertFalse(manager.finishedDownloadingIDs.contains(failed.id))
+        XCTAssertFalse(manager.completedDownloadNames.contains(failed.fileName))
+        XCTAssertTrue(manager.downloads.contains { $0 === remaining })
+    }
+
+    @MainActor
     func testPolicyTransitionHoldsRunningTaskWithoutUndoingManualPause() {
         withManager { manager in
             let running = manager.startDownload(from: url(90))
@@ -140,6 +158,88 @@ final class DownloadAdmissionTests: XCTestCase {
             XCTAssertEqual(first.originURL, repositoryURL, "A duplicate must not replace the first known origin")
             _ = manager.startDownload(from: url(70))
             XCTAssertEqual(first.originURL, repositoryURL, "A duplicate without provenance must not erase it")
+        }
+    }
+
+    @MainActor
+    func testLateCancelledTransferCallbacksCannotRestoreRecoveryOrImport() throws {
+        try withManager { manager in
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown
+            manager.recoveryJournal = DownloadRecoveryJournal(root: root)
+            let download = manager.startDownload(from: url(74))
+            let task = try XCTUnwrap(download.task)
+            let session = try XCTUnwrap(manager._foregroundSession)
+            manager.cancelDownload(download)
+
+            let data = try PropertyListSerialization.data(fromPropertyList: ["NSURLSessionDownloadInfoURL": download.url.absoluteString], format: .binary, options: 0)
+            let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled,
+                                userInfo: [NSURLSessionDownloadTaskResumeData: data])
+            manager.urlSession(session, task: task, didCompleteWithError: error)
+            XCTAssertNil(download.resumeData)
+            XCTAssertTrue(try XCTUnwrap(manager.recoveryJournal).load().isEmpty)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(download.recoveryID.uuidString + ".resume").path))
+
+            let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try Data("cancelled".utf8).write(to: temporary)
+            manager.urlSession(session, downloadTask: task, didFinishDownloadingTo: temporary)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: temporary.path))
+            XCTAssertFalse(download.isVerifying)
+            XCTAssertFalse(download.isImporting)
+        }
+    }
+
+    @MainActor
+    func testDuplicateCannotWeakenExistingIntegrityPromise() throws {
+        try withManager { manager in
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown
+            manager.recoveryJournal = DownloadRecoveryJournal(root: root)
+            let first = manager.startDownload(from: url(71), integrity: .init(byteCount: 500, sha256: "abc"))
+            let duplicate = manager.startDownload(from: url(71), integrity: .init())
+            XCTAssertTrue(first === duplicate)
+            XCTAssertEqual(first.integrity, .init(byteCount: 500, sha256: "abc"))
+            _ = manager.startDownload(from: url(71), integrity: .init(byteCount: 999))
+            XCTAssertEqual(first.integrity, .init(byteCount: 500, sha256: "abc"))
+            XCTAssertEqual(try manager.recoveryJournal?.load().first?.expectedBytes, 500)
+        }
+    }
+
+    @MainActor
+    func testDuplicateNewIntegrityIsCheckpointedForRecovery() throws {
+        try withManager { manager in
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown
+            manager.recoveryJournal = DownloadRecoveryJournal(root: root)
+            let download = manager.startDownload(from: url(72))
+            _ = manager.startDownload(from: url(72), integrity: .init(byteCount: 123))
+            XCTAssertEqual(download.integrity?.byteCount, 123)
+            XCTAssertEqual(try manager.recoveryJournal?.load().first?.expectedBytes, 123)
+        }
+    }
+
+    @MainActor
+    func testFreshRetryPreservesCommitAndRetainedFileRecord() throws {
+        try withManager { manager in
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown
+            let journal = DownloadRecoveryJournal(root: root)
+            manager.recoveryJournal = journal
+            let record = DownloadRecoveryJournal.Record(id: UUID(), name: "Previous", sourceURL: url(73),
+                expectedBytes: 100, expectedHash: nil, stage: .committed, stagedName: "retained.ipa",
+                updatedAt: Date(), libraryUUID: UUID().uuidString)
+            try journal.save(record)
+            manager.interruptedDownloads = [record]
+
+            manager.retryRecoveryDownload(record)
+
+            let newDownload = try XCTUnwrap(manager.downloads.first)
+            XCTAssertNotEqual(newDownload.recoveryID, record.id)
+            let records = try journal.load()
+            XCTAssertEqual(records.first { $0.id == record.id }?.stage, .committed)
+            XCTAssertEqual(records.first { $0.id == record.id }?.stagedName, "retained.ipa")
+            XCTAssertEqual(records.first { $0.id == newDownload.recoveryID }?.stage, .downloading)
+            XCTAssertTrue(manager.interruptedDownloads.contains { $0.id == record.id })
         }
     }
 

@@ -368,11 +368,19 @@ enum SigningResolutionSession {
             let handle = try FileHandle(forReadingFrom: url)
             defer { try? handle.close() } // try? ok: read/hash errors throw; close is cleanup only.
             var read: UInt64 = 0
-            while let block = try handle.read(upToCount: 1024 * 1024), !block.isEmpty {
+            while true {
                 try Task.checkCancellation()
-                read += UInt64(block.count)
-                guard read <= UInt64(size) else { throw changedSinceReview(.sourceBundle) }
-                digest.update(data: block)
+                // FileHandle buffers can be autoreleased on detached workers. Drain
+                // each chunk so reviewing a multi-gigabyte bundle stays bounded.
+                let finished = try autoreleasepool { () throws -> Bool in
+                    let block = try handle.read(upToCount: 1024 * 1024) ?? Data()
+                    guard !block.isEmpty else { return true }
+                    read += UInt64(block.count)
+                    guard read <= UInt64(size) else { throw changedSinceReview(.sourceBundle) }
+                    digest.update(data: block)
+                    return false
+                }
+                if finished { break }
             }
             guard read == UInt64(size) else { throw changedSinceReview(.sourceBundle) }
         }

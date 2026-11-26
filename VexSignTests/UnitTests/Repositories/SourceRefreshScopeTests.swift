@@ -76,6 +76,9 @@ final class SourceRefreshScopeTests: XCTestCase {
             RepositorySnapshotCache.remove(identifier: id)
             SourcePreferences.removeAllData(for: id)
         }
+        let sourceURL = try XCTUnwrap(source.sourceURL)
+        SourceProvenanceStore.record(.verified(publisher: "Previous"), for: sourceURL)
+        defer { SourceProvenanceStore.record(.unsigned, for: sourceURL) }
         let started = expectation(description: "network request started")
         let gate = RefreshGate()
         let model = SourceCatalogStore(fetcher: { _, _ in await gate.wait(started: started) }, retainSnapshots: { _ in })
@@ -89,6 +92,7 @@ final class SourceRefreshScopeTests: XCTestCase {
         XCTAssertNil(model.sources[source])
         XCTAssertNil(RepositorySnapshotCache.load(identifier: id))
         XCTAssertNil(SourcePreferences.lastFetch(for: id))
+        XCTAssertEqual(SourceProvenanceStore.provenance(for: sourceURL), .verified(publisher: "Previous"))
     }
 
     @MainActor

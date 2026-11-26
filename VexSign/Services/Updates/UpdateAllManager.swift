@@ -172,9 +172,11 @@ final class UpdateAllManager: ObservableObject {
 			switch await _update(at: index, automatic: automatic) {
 			case .success:
 				succeeded += 1
-			case .failure(let error):
-				failed += 1
-				tasks[index].state = .failed(error.localizedDescription)
+            case .failure(let error) where error is CancellationError:
+                tasks[index].state = .skipped
+            case .failure(let error):
+                failed += 1
+                tasks[index].state = .failed(error.localizedDescription)
 			}
 		}
 
@@ -210,6 +212,11 @@ final class UpdateAllManager: ObservableObject {
 			return .failure(error)
 		}
 
+        // This directory is uniquely created for this update. Remove it after
+        // every terminal path, not just the file inside it.
+        defer { try? FileManager.default.removeItem(at: ipaURL.deletingLastPathComponent()) } // try? ok: best-effort temporary cleanup
+        guard !_cancelled, !Task.isCancelled else { return .failure(CancellationError()) }
+
 		tasks[index].state = .importing
 		let imported: AppInfoPresentable
 		do {
@@ -218,7 +225,9 @@ final class UpdateAllManager: ObservableObject {
 			try? FileManager.default.removeItem(at: ipaURL)
 			return .failure(error)
 		}
-		try? FileManager.default.removeItem(at: ipaURL)
+        // An import already committed is kept in the Library, but cancellation
+        // must not silently proceed to signing or enqueue an installation.
+        guard !_cancelled, !Task.isCancelled else { return .failure(CancellationError()) }
 
 		tasks[index].state = .signing
         do {
@@ -275,6 +284,7 @@ final class UpdateAllManager: ObservableObject {
 			if redirectDelegate.didExceedLimit { throw PackageDownloadURLPolicy.Failure.packageTooLarge }
 			throw error
 		}
+        defer { try? FileManager.default.removeItem(at: tempURL) } // try? ok: URLSession temporary file may already have been moved
 		let status = (response as? HTTPURLResponse)?.statusCode ?? 0
 		guard (200..<300).contains(status) else {
 			try? FileManager.default.removeItem(at: tempURL)
@@ -282,6 +292,10 @@ final class UpdateAllManager: ObservableObject {
 		}
 
 		let dir = try DownloadStagingPath.createTemporaryDirectory(label: "UpdateAll")
+        var keepDirectory = false
+        defer {
+            if !keepDirectory { try? FileManager.default.removeItem(at: dir) } // try? ok: failed staging cleanup
+        }
 		let name = DownloadStagingPath.safeFilename(url.lastPathComponent.isEmpty ? "update.ipa" : url.lastPathComponent)
 		let file = DownloadStagingPath.destination(in: dir, suggestedFilename: name)
 		try FileManager.default.moveItem(at: tempURL, to: file)
@@ -300,6 +314,8 @@ final class UpdateAllManager: ObservableObject {
 			try? FileManager.default.removeItem(at: file) // try? ok: best-effort cleanup must not hide the integrity failure
 			throw Self.error(integrityFailure)
 		}
+        try Task.checkCancellation()
+        keepDirectory = true
 		return file
 	}
 
@@ -355,6 +371,9 @@ final class UpdateAllManager: ObservableObject {
 			// removed once the signed copy is confirmed to be in the library; the signed copy
 			// stays whatever the settings are.
 			CleanupManager.shared.finishSign(source: app, output: signed, origin: .update)
+            // Signing may finish after the user cancels. Keep the verified signed
+            // library copy, but do not queue an installation they no longer want.
+            guard !_cancelled, !Task.isCancelled else { return .failure(CancellationError()) }
 
 			if !automatic || UpdateMatchingPreferences.shared.autoInstallAfterUpdate {
 				InstallQueue.shared.enqueue(signed)

@@ -32,8 +32,15 @@ enum SourceFeedOutcome: Sendable {
 }
 
 struct SourceFeedResult: Sendable {
-	let identifier: String
-	let outcome: SourceFeedOutcome
+    let identifier: String
+    let outcome: SourceFeedOutcome
+    let provenance: SourceProvenance?
+
+    init(identifier: String, outcome: SourceFeedOutcome, provenance: SourceProvenance? = nil) {
+        self.identifier = identifier
+        self.outcome = outcome
+        self.provenance = provenance
+    }
 }
 
 // MARK: - Loader
@@ -122,7 +129,6 @@ struct SourceFeedLoader: Sendable {
 			// a source that claims a signature is checked before anything from it is
 			// published. Unsigned is the normal case and stays accepted; a broken signature is not.
 			let provenance = SourceProvenanceVerifier.evaluate(feedPayload)
-			SourceProvenanceStore.record(provenance, for: url)
 
 			if case .claimedButInvalid(let reason) = provenance {
 				Logger.misc.error(
@@ -130,18 +136,19 @@ struct SourceFeedLoader: Sendable {
 				)
 				return SourceFeedResult(
 					identifier: identifier,
-					outcome: .failed(message: reason, rateLimited: false)
+                    outcome: .failed(message: reason, rateLimited: false),
+                    provenance: provenance
 				)
 			}
 
 			do {
 				let repository = try Self.decode(feedPayload)
-				return SourceFeedResult(identifier: identifier, outcome: .decoded(repository, payload: feedPayload))
+				return SourceFeedResult(identifier: identifier, outcome: .decoded(repository, payload: feedPayload), provenance: provenance)
 			} catch {
 				Logger.misc.error(
 					"Source decode FAILED \(identifier, privacy: .public): \(error.localizedDescription, privacy: .public)"
 				)
-				return SourceFeedResult(identifier: identifier, outcome: .invalid(payload: feedPayload))
+				return SourceFeedResult(identifier: identifier, outcome: .invalid(payload: feedPayload), provenance: provenance)
 			}
 		}
 	}

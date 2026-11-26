@@ -4,7 +4,10 @@ import NimbleExtensions
 /// The real pipeline: the same steps `SigningHandler` always ran, in the same order.
 /// Both sides of its worker port are value-only so a managed row never crosses the detached task.
 struct SigningPipeline: SigningWork, Sendable {
-    let executionGate = SigningExecutionGate()
+    // Native stdout capture and zsign cache are process-wide, not pipeline-local.
+    // Independent service/pipeline instances must therefore share one permit.
+    private static let nativeExecutionGate = SigningExecutionGate()
+    let executionGate = SigningPipeline.nativeExecutionGate
 
     func run(
         _ request: SigningWorkRequest,

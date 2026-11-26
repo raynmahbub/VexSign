@@ -69,6 +69,43 @@ final class DownloadRecoveryJournalTests: XCTestCase {
         XCTAssertNotNil(manager.recoveryWarning)
     }
 
+    @MainActor
+    func testFailedCompletionPreservesCommitRecordForReview() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown
+        let manager = DownloadManager(configureServices: false)
+        let journal = DownloadRecoveryJournal(root: root)
+        manager.recoveryJournal = journal
+        let download = Download(id: "readback-failure", url: URL(string: "https://example.invalid/a.ipa")!)
+        manager.downloads.append(download)
+        manager.ownImportRecovery(download)
+        let uuid = UUID().uuidString
+        try download.importCommitCheckpoint?(uuid, false)
+        try download.importCommitCheckpoint?(uuid, true)
+
+        manager.finishImport(of: download, succeeded: false)
+
+        XCTAssertEqual(try journal.load().first?.stage, .committed)
+        XCTAssertEqual(manager.interruptedDownloads.first?.libraryUUID, uuid)
+        XCTAssertFalse(try XCTUnwrap(manager.interruptedDownloads.first).canReverify)
+    }
+
+    @MainActor
+    func testSuccessfulCompletionClearsCommitRecord() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown
+        let manager = DownloadManager(configureServices: false)
+        let journal = DownloadRecoveryJournal(root: root)
+        manager.recoveryJournal = journal
+        let download = Download(id: "success", url: URL(string: "https://example.invalid/a.ipa")!)
+        manager.downloads.append(download)
+        manager.ownImportRecovery(download)
+        try download.importCommitCheckpoint?(UUID().uuidString, false)
+        manager.finishImport(of: download, succeeded: true)
+        XCTAssertTrue(try journal.load().isEmpty)
+        XCTAssertTrue(manager.interruptedDownloads.isEmpty)
+    }
+
     func testOnlyPreCommitPhasesCanReverify() {
         for stage in [DownloadRecoveryJournal.Stage.downloading, .verifying, .awaitingDecision, .importing, .committing, .committed] {
             let record = DownloadRecoveryJournal.Record(id: UUID(), name: "a", sourceURL: nil, expectedBytes: nil, expectedHash: nil,

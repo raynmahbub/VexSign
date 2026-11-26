@@ -7,7 +7,7 @@ final class LibraryUseCase {
     init(repository: LibraryRepository, cloning: LibraryCloningProviding) { self.repository = repository; self.cloning = cloning }
     func importPackage(_ source: URL) async throws -> LibraryAppRecord {
         try Task.checkCancellation()
-        guard source.isFileURL, ["ipa", "tipa"].contains(source.pathExtension.lowercased()) else {
+        guard source.isFileURL, PackageArchiveType.pickerExtensions.contains(source.pathExtension.lowercased()) else {
             throw WorkspaceAccessError.invalidReference
         }
         return try await repository.importPackage(source)

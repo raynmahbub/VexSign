@@ -49,9 +49,17 @@ final class AutoSignManager {
 		let startedAt = Date()
         // Keep Core Data results on the main actor; Task.value carries only Void.
         var result: Result<Signed, Error>?
+        let requestID = UUID().uuidString
+        let cancellation = BackgroundWorkCompletionFlag()
         let job = Task { @MainActor in
             await previous.value
-            result = await Self._perform(app, overridingBlockingIssues: overridingBlockingIssues, repeatInstall: repeatInstall)
+            if Task.isCancelled || cancellation.isSet {
+                result = .failure(CancellationError())
+            } else {
+                result = await Self._perform(app, overridingBlockingIssues: overridingBlockingIssues,
+                                             repeatInstall: repeatInstall, requestID: requestID,
+                                             cancellation: cancellation)
+            }
 			if recordOutcome, let outcomeRecorder {
 				await outcomeRecorder(Self.outcome(
 					correlationID: correlationID,
@@ -61,7 +69,13 @@ final class AutoSignManager {
 			}
         }
         _tail = job
-        await job.value
+        await withTaskCancellationHandler {
+            await job.value
+        } onCancel: {
+            cancellation.set()
+            job.cancel()
+            Task { @MainActor in SigningService.shared.cancel(requestID) }
+        }
         return result ?? .failure(CancellationError())
 	}
 
@@ -97,9 +111,11 @@ final class AutoSignManager {
 		)
 	}
 
-	private static func _perform(_ app: AppInfoPresentable, overridingBlockingIssues: Bool, repeatInstall: Bool) async -> Result<Signed, Error> {
+	private static func _perform(_ app: AppInfoPresentable, overridingBlockingIssues: Bool, repeatInstall: Bool,
+                                 requestID: String, cancellation: BackgroundWorkCompletionFlag) async -> Result<Signed, Error> {
 		let stored = SigningProfileStore.shared.profile(forBundleID: app.identifier)
-		let options = (stored?.options ?? Options.batchBase).resolved(for: app)
+		let options = Self.optionsForRun((stored?.options ?? Options.batchBase).resolved(for: app),
+                                         repeatInstall: repeatInstall)
 		let certificate = SigningProfileStore.shared.certificate(for: stored) ?? _certificate()
 
 		// Check after waiting for earlier jobs: the saved identity may have been removed.
@@ -108,7 +124,7 @@ final class AutoSignManager {
 			      options.signingOption == .default, (options.appIdentifier ?? id) == id,
 			      let pinned = stored?.certificateUUID, !pinned.isEmpty,
 			      certificate?.uuid?.lowercased() == pinned.lowercased(),
-			      certificate?.revoked == false, let expiry = certificate?.expiration, expiry > Date()
+			      certificate?.revoked == false
 			else { return .failure(AutoSignError.repeatInputsUnavailable) }
 		}
 
@@ -137,13 +153,18 @@ final class AutoSignManager {
 				icon: nil,
 				certificate: certificate,
 				overridesBlockingPreflightIssues: overridingBlockingIssues,
-				notices: notices
+				notices: notices,
+                requestID: requestID,
+                isCancellationRequested: { cancellation.isSet }
 			) {
 				continuation.resume(returning: $0)
 			}
 		}
 
 		guard case .success(let signed) = result else { return result }
+        // A registered artifact remains in the library, but a cancelled caller must not
+        // delete its source or submit a new install after signing has committed.
+        guard !Task.isCancelled, !cancellation.isSet else { return .failure(CancellationError()) }
 
 		// The run succeeded, so `signed` stays in the library whatever the settings are. This
 		// used to delete `app` and then let Auto Cleanup delete `signed` whenever the saved
@@ -162,6 +183,16 @@ final class AutoSignManager {
 
 		return result
 	}
+
+    // Repeat-install promises the saved identity, not the resolver's best alternative.
+    // Profile and leaf validity are established from authenticated assets by the
+    // coordinator and rechecked under the native signing gate.
+    nonisolated static func optionsForRun(_ options: Options, repeatInstall: Bool) -> Options {
+        guard repeatInstall else { return options }
+        var pinned = options
+        pinned.automaticallyResolveSigningIdentity = false
+        return pinned
+    }
 
 	nonisolated private static func _certificate() -> CertificatePair? {
 		Storage.shared.getCertificate(for: UserDefaults.standard.integer(forKey: "vexsign.selectedCert"))

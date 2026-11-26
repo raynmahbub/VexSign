@@ -31,10 +31,17 @@ enum CertificateCallbackPolicy {
 
 protocol SecureTransferProviding {
     func downloadValidatedPackage(from url: URL, workLabel: String, maximumBytes: Int64) async throws -> URL
+    /// Release an owned temporary package only after its consumer has finished reading it.
+    func releaseValidatedPackage(_ url: URL)
     func downloadValidatedFirmware(from url: URL, to destination: URL) async throws -> URL
     func fetchFirmwareDevices() async throws -> [FirmwareDeviceRecord]
     func fetchFirmwareBuilds(deviceIdentifier: String) async throws -> [FirmwareBuildRecord]
     func currentHardwareModelIdentifier() -> String?
+}
+
+extension SecureTransferProviding {
+    // Providers without owned temporary storage need no cleanup.
+    func releaseValidatedPackage(_ url: URL) {}
 }
 
 // MARK: - Workspace & Storage Boundaries
