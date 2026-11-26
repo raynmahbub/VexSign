@@ -55,7 +55,7 @@
           "path": "Sources/IDeviceSwift/InstallationProxy/InstallationAppProxy.swift",
           "description": "Explicit-request positive-only CoreDevice inventory adaptation; mutation gate retained pending native binary/physical acceptance; no legacy pointer-array or private-inventory fallback.",
           "baseSHA256": "0f8b245ed3734262883fc25cc4d068edb67e3dc9892a61913f4b115979b7bdda",
-          "patchedSHA256": "93a1dca442be3d09256e03f592b5842a6f434be4e5a74ca7479489ebba2a7733"
+          "patchedSHA256": "62a01439301c27a2e8afa2ffdbf9b383d9dc77bbe626d9a667c9a8e34a19e646"
         },
         {
           "path": "Sources/IDeviceSwift/Trace/SystemLogManager.swift",

@@ -9,11 +9,11 @@ struct OnDevicePairingProgress: Sendable {
     let pin: String?
 }
 
-final class PairingHostBridge: @unchecked Sendable {
-    private let lock = NSLock()
+@MainActor
+final class PairingHostBridge {
     private var session: PairingHostSession?
 
-    static var isSupported: Bool {
+    nonisolated static var isSupported: Bool {
         #if targetEnvironment(simulator)
         return false
         #else
@@ -23,9 +23,6 @@ final class PairingHostBridge: @unchecked Sendable {
     }
 
     func cancel() {
-        lock.lock()
-        let session = session
-        lock.unlock()
         session?.cancel()
     }
 
@@ -36,8 +33,8 @@ final class PairingHostBridge: @unchecked Sendable {
     ) async throws -> PairingRecordMetadata {
         guard Self.isSupported else { throw DeviceTransportError.hostUnavailable }
         let session = PairingHostSession()
-        lock.lock(); self.session = session; lock.unlock()
-        defer { lock.lock(); self.session = nil; lock.unlock() }
+        self.session = session
+        defer { self.session = nil }
 
         reporting(OnDevicePairingProgress(stage: String.localized("Preparing pairing host…"), pin: nil))
         let name = "VexSign"
