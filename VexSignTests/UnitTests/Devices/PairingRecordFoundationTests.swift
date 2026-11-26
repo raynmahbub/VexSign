@@ -133,7 +133,7 @@ final class PairingRecordFoundationTests: XCTestCase {
         let cases: [(Int, Int, DevicePairingRoute)] = [
             (17, 3, .unsupported), (17, 4, .importedClassic), (18, 7, .importedClassic),
             (26, 3, .importedClassic), (26, 4, .importedRemoteRequired), (26, 7, .importedRemoteRequired),
-            (26, 8, .unknownOS), (26, 9, .unknownOS), (27, 0, .hostDependencyRequired), (28, 0, .hostDependencyRequired)
+            (26, 8, .unknownOS), (26, 9, .unknownOS), (27, 0, .onDeviceHostPairing), (28, 0, .onDeviceHostPairing)
         ]
         for (major, minor, route) in cases {
             XCTAssertEqual(DevicePairingRoute.resolve(.init(major: major, minor: minor)), route)
@@ -150,6 +150,15 @@ final class PairingRecordFoundationTests: XCTestCase {
                        .init(major: 26, minor: 8), .init(major: 27, minor: 0)] {
                 XCTAssertThrowsError(try DeviceTransportPolicy.requireClassicRoute(format: format, version: os))
             }
+        }
+    }
+
+    func testOnDeviceHostPairingRoutePolicy() throws {
+        XCTAssertNoThrow(try DeviceTransportPolicy.requireOnDeviceHostPairingRoute(version: .init(major: 27, minor: 0)))
+        XCTAssertNoThrow(try DeviceTransportPolicy.requireOnDeviceHostPairingRoute(version: .init(major: 28, minor: 0)))
+        for os in [DeviceOSVersion(major: 17, minor: 3), .init(major: 17, minor: 4), .init(major: 26, minor: 3),
+                   .init(major: 26, minor: 4), .init(major: 26, minor: 8)] {
+            XCTAssertThrowsError(try DeviceTransportPolicy.requireOnDeviceHostPairingRoute(version: os))
         }
     }
 

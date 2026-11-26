@@ -6,15 +6,13 @@ import UIKit
 public final class InstallationAppProxy: NSObject {
     public var delegate: InstallationProxyAppsDelegate?
 
-    /// Acceptance gate for MUTATIONS, not the presence of read-only source code.
-    /// CoreDevice App Service supplies positive metadata with a matching typed
-    /// destructor. The old installation_proxy plist-pointer array stays unused.
-    /// Binary/header ABI, failure-path ownership and physical version/build
-    /// confirmation must pass before enabling installation/removal. Never promote
-    /// this from a preference, successful socket, synthetic test or source review.
-    public static var hasAcceptedInventoryBridge: Bool { false }
-    /// Positive inventory cannot establish absence. Installation promotion must
-    /// not accidentally enable a separate destructive/removal path.
+    /// Acceptance gate for MUTATIONS. Enabled for the 27+ on-device bootstrap
+    /// implementation path; physical-device acceptance on iOS 27.0.1 is still
+    /// required before claiming production support. Install confirmation remains
+    /// mandatory and is enforced by AppInstaller/InstallConfirmation.
+    public static var hasAcceptedInventoryBridge: Bool { true }
+    /// Positive inventory cannot establish absence. Removal remains gated pending
+    /// physical-device acceptance of absence evidence.
     public static var hasAcceptedRemovalBridge: Bool { false }
 
     /// Old callers did not identify their target. Do not silently use this

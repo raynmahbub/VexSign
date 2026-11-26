@@ -29,9 +29,9 @@
       "localPatches": [
         {
           "path": "Sources/IDeviceSwift/Heartbeat/Heartbeat.swift",
-          "description": "Sole off-main serial admission for local lifecycle and native sessions; bounded format-aware inspection/import/delete/export with reviewed digests.",
+          "description": "Sole off-main serial admission for local lifecycle and native sessions; bounded format-aware inspection/import/delete/export/install with reviewed digests.",
           "baseSHA256": "cfbb7681e245ea8114e02c0d276e47a39b7fe7d2829562275d6858a6212bd310",
-          "patchedSHA256": "3a434aab9a7883a10654e0699112cb4d0c51e50aed95c4d9d36192bdb699f524"
+          "patchedSHA256": "5187350f46df58aff37cc53cb789a404f128964272dbdd3cb5634c02a55d4b80"
         },
         {
           "path": "Sources/IDeviceSwift/Heartbeat/Heartbeat+start.swift",
@@ -49,13 +49,13 @@
           "path": "Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift",
           "description": "No-follow bounded, rehashed AFC upload; exact target/expiry/OS checks and atomic Stop/command boundary; attempt-owned cleanup without deleting a possibly accepted payload; mutation gate retained.",
           "baseSHA256": "5497ecda8c7ceeb769dbb39d29787025e6da96fa29640d6ab10605ef3b08a5d4",
-          "patchedSHA256": "70c39df891d000706c8ec16c12b8bdd77a3718cb19a44ead274e962d750dd1e2"
+          "patchedSHA256": "3b83cdb5d9ba899323e5814e3fe2a7d27fc44b38878c6b42cde2bc54c94bfc7f"
         },
         {
           "path": "Sources/IDeviceSwift/InstallationProxy/InstallationAppProxy.swift",
           "description": "Explicit-request positive-only CoreDevice inventory adaptation; mutation gate retained pending native binary/physical acceptance; no legacy pointer-array or private-inventory fallback.",
           "baseSHA256": "0f8b245ed3734262883fc25cc4d068edb67e3dc9892a61913f4b115979b7bdda",
-          "patchedSHA256": "a4601a57b0fee7a36c1485083610e4493eb89cc1a1f05e11a642f6776f123213"
+          "patchedSHA256": "93a1dca442be3d09256e03f592b5842a6f434be4e5a74ca7479489ebba2a7733"
         },
         {
           "path": "Sources/IDeviceSwift/Trace/SystemLogManager.swift",
@@ -88,10 +88,10 @@
         },
         {
           "path": "Sources/IDeviceSwift/Heartbeat/DeviceTransportPolicy.swift",
-          "description": "Conservative OS/format restrictions, sanitized typed errors and point-in-time device-query values.",
+          "description": "Conservative OS/format restrictions, sanitized typed errors and point-in-time device-query values; iOS 27+ on-device host pairing route added.",
           "upstreamPathAbsent": true,
           "license": "MIT",
-          "patchedSHA256": "bfc54b5687e2e35196d86a005ab4372957f4f909295830362bd65e31dea41afe"
+          "patchedSHA256": "2268c5840b676e39de66c4ff352993f3bdc9eaefda26a1827b053d71da8def89"
         },
         {
           "path": "Sources/IDeviceSwift/Heartbeat/DeviceOperationExecutor.swift",
@@ -102,10 +102,10 @@
         },
         {
           "path": "Sources/IDeviceSwift/Heartbeat/DeviceServiceSession.swift",
-          "description": "Scoped pinned-FFI client adapter for an explicitly consented classic-route identity/service query; modern remote and host routes blocked.",
+          "description": "Scoped pinned-FFI client adapter for classic and iOS 27+ on-device RPPairing verified identity/service queries; simulator and unsupported routes blocked.",
           "upstreamPathAbsent": true,
           "license": "MIT",
-          "patchedSHA256": "a118b86b8b04f7b2043a5b9799650466124d7da926d9e898f19b4c8129406837"
+          "patchedSHA256": "0fcaaa0f08ee5258d87b8c56cabe037491cf56992fdca9586e604caa85916054"
         },
         {
           "path": "Sources/IDeviceSwift/Heartbeat/DeviceServiceSession+Applications.swift",
@@ -127,6 +127,13 @@
           "upstreamPathAbsent": true,
           "license": "MIT",
           "patchedSHA256": "68cdf98902ccbe948e4285bf5488f6ba34fa90b6427a624c7eb41af6f5f534e8"
+        },
+        {
+          "path": "Sources/IDeviceSwift/Heartbeat/PairingHostSession.swift",
+          "description": "On-device RPPairing host session wrapper: prepare/advertise/accept with explicit PIN callback, bounded timeout/cancellation, and no persistent trust writes.",
+          "upstreamPathAbsent": true,
+          "license": "MIT",
+          "patchedSHA256": "062d175e67840bd52c382164f1b26b153089241f9d8fdd3c94ad99a077626c90"
         }
       ],
       "licenseSHA256": "d629cb986812f6ae413ac4fa2a7841a7174b61d58feff97da5deb6b7cbcc92d5",

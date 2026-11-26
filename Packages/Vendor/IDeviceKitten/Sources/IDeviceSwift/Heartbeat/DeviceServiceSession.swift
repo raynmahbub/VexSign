@@ -21,6 +21,11 @@ final class DeviceServiceSession {
         #if targetEnvironment(simulator)
         throw DeviceTransportError.simulator
         #else
+        let route = DevicePairingRoute.resolve(.current)
+        if route == .onDeviceHostPairing {
+            try openOnDeviceHostPairing(request, recordBytes: recordBytes, metadata: metadata, cancellation: cancellation, reporting: reporting)
+            return
+        }
         try DeviceTransportPolicy.requireClassicRoute(format: metadata.format, version: .current)
         guard PairingRecordDocument.isDeviceIdentifier(request.expectedDeviceIdentifier) else {
             throw DeviceTransportError.expectedDeviceRequired
@@ -83,6 +88,70 @@ final class DeviceServiceSession {
         #endif
     }
 
+    private func openOnDeviceHostPairing(_ request: DeviceConnectionRequest, recordBytes: Data, metadata: PairingRecordMetadata,
+                                         cancellation: Progress, reporting: (DeviceConnectionStage) -> Void) throws {
+        try DeviceTransportPolicy.requireOnDeviceHostPairingRoute(version: .current)
+        guard metadata.format.containsRemotePairing else { throw DeviceTransportError.remoteRecordRequired }
+        guard PairingRecordDocument.isDeviceIdentifier(request.expectedDeviceIdentifier) else {
+            throw DeviceTransportError.expectedDeviceRequired
+        }
+        if let recordDevice = metadata.deviceIdentifier, recordDevice != request.expectedDeviceIdentifier {
+            throw DeviceTransportError.wrongDevice
+        }
+        try Self.check(cancellation)
+        reporting(.checkingTransport)
+        try Self.probePeer(request.peerAddress, timeout: 2)
+        try Self.check(cancellation)
+        reporting(.openingTunnel)
+        let cancelHandle = vexsign_device_cancel_new()
+        let cancelWatcher = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
+        cancelWatcher.schedule(deadline: .now(), repeating: .milliseconds(100))
+        cancelWatcher.setEventHandler { [weak cancellation] in
+            if cancellation?.isCancelled == true { vexsign_device_cancel_signal(cancelHandle) }
+        }
+        cancelWatcher.resume()
+        defer {
+            cancelWatcher.cancel()
+            if let cancelHandle { vexsign_device_cancel_free(cancelHandle) }
+        }
+        let peer = try Self.validatedPeerHost(request.peerAddress)
+        var outAdapter: OpaquePointer?
+        var outHandshake: OpaquePointer?
+        let error = recordBytes.withUnsafeBytes { bytes -> UnsafeMutablePointer<IdeviceFfiError>? in
+            guard let base = bytes.bindMemory(to: UInt8.self).baseAddress else { return nil }
+            return peer.withCString { cPeer in
+                vexsign_tunnel_rppairing_verified(base, bytes.count, cPeer, 62078, cancelHandle, 30_000, &outAdapter, &outHandshake)
+            }
+        }
+        if let error {
+            if let outAdapter { adapter_free(outAdapter) }
+            if let outHandshake { rsd_handshake_free(outHandshake) }
+            try checked(error, stage: .openingTunnel)
+        }
+        guard let outAdapter, let outHandshake else { throw DeviceTransportError.invalidDeviceResponse }
+        adapter = outAdapter
+        handshake = outHandshake
+        try Self.check(cancellation)
+        reporting(.discoveringServices)
+        try checked(lockdownd_connect_rsd(adapter, handshake, &lockdown), stage: .discoveringServices)
+        guard lockdown != nil else { throw DeviceTransportError.serviceUnavailable("Lockdown") }
+        reporting(.queryingDevice)
+        let identifier = PairingRecordDocument.normalizeDeviceIdentifier(try readString("UniqueDeviceID"))
+        guard PairingRecordDocument.isDeviceIdentifier(identifier), identifier == request.expectedDeviceIdentifier else {
+            throw DeviceTransportError.wrongDevice
+        }
+        let version = try readString("ProductVersion")
+        guard DeviceOSVersion.parse(version) != nil else { throw DeviceTransportError.invalidDeviceResponse }
+        let name = try readString("DeviceName")
+        let product = try readString("ProductType")
+        let build = try readString("BuildVersion")
+        try Self.check(cancellation)
+        snapshot = AuthorizedDeviceSnapshot(deviceIdentifier: identifier, name: name,
+            productType: product, productVersion: version, buildVersion: build,
+            services: ["Lockdown", "RSD"], observedAt: Date(), pairingSHA256: metadata.sha256)
+        reporting(.authorized)
+    }
+
     func close() {
         snapshot = nil
         if let lockdown { lockdownd_client_free(lockdown) }
@@ -125,6 +194,34 @@ final class DeviceServiceSession {
             throw DeviceTransportError.invalidDeviceResponse
         }
         return string
+    }
+
+    static func validatedPeerHost(_ raw: String) throws -> String {
+        let parts = raw.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 1 || (parts.count == 2 && parts[1] == "32") else { throw DeviceTransportError.invalidPeer }
+        let host = String(parts[0])
+        let octets = host.split(separator: ".", omittingEmptySubsequences: false)
+        guard octets.count == 4,
+              octets.allSatisfy({ !$0.isEmpty && $0.utf8.allSatisfy({ (48...57).contains($0) }) && Int($0).map({ (0...255).contains($0) }) == true }),
+              let first = Int(octets[0]), let second = Int(octets[1]),
+              first == 10 || (first == 172 && (16...31).contains(second)) || (first == 192 && second == 168) || (first == 169 && second == 254),
+              host != "10.7.1.1" else { throw DeviceTransportError.invalidPeer }
+        var probe = sockaddr_in()
+        probe.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        probe.sin_family = sa_family_t(AF_INET)
+        guard inet_pton(AF_INET, host, &probe.sin_addr) == 1 else { throw DeviceTransportError.invalidPeer }
+        var interfaces: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&interfaces) == 0 else { throw DeviceTransportError.transportUnavailable }
+        defer { freeifaddrs(interfaces) }
+        var cursor = interfaces
+        while let current = cursor {
+            if let candidate = current.pointee.ifa_addr, candidate.pointee.sa_family == sa_family_t(AF_INET) {
+                let own = UnsafeRawPointer(candidate).assumingMemoryBound(to: sockaddr_in.self).pointee
+                if own.sin_addr.s_addr == probe.sin_addr.s_addr { throw DeviceTransportError.invalidPeer }
+            }
+            cursor = current.pointee.ifa_next
+        }
+        return host
     }
 
     static func peer(_ raw: String, port: UInt16) throws -> sockaddr_in {

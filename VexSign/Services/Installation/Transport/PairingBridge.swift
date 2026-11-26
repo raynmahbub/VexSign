@@ -64,6 +64,7 @@ enum PairingBridge {
         case .importedClassic: return .localized("Classic pairing candidate — device testing pending")
         case .importedRemoteRequired: return .localized("Remote Pairing import — companion required")
         case .hostDependencyRequired: return .localized("On-device RPPairing host unavailable")
+        case .onDeviceHostPairing: return .localized("On-device pairing available")
         case .unknownOS: return .localized("OS compatibility unknown")
         }
     }
@@ -77,6 +78,8 @@ enum PairingBridge {
             return .localized("iOS 26.4–26.7: a compatible Remote Pairing file is required; a lockdown record is not equivalent. A computer may be necessary to generate it. This build can inspect and preserve the file, but its pinned native library has no accepted modern loopback bridge.")
         case .hostDependencyRequired:
             return .localized("iOS 27+: the pinned library exposes no accepted RPPairing host. VexSign cannot advertise a host, invent a PIN, enable Developer Mode, or create trust through a public iOS API established by this review. Use a compatible companion; importing a remote record alone does not unlock transport.")
+        case .onDeviceHostPairing:
+            return .localized("iOS 27+: VexSign can start an on-device RPPairing host session. You must explicitly start pairing, confirm the PIN in Settings, and keep LocalDevVPN active. VexSign does not enable Developer Mode, invent trust, or accept unverified peers.")
         case .unknownOS:
             return .localized("This OS falls outside the reviewed compatibility matrix. No pairing route is enabled. Use an eligible external installer or export a signed IPA.")
         }
@@ -129,8 +132,16 @@ enum PairingBridge {
         #if targetEnvironment(simulator)
         return false
         #else
-        return route == .importedClassic && state.format?.containsLockdown == true
-            && PairingRecordDocument.isDeviceIdentifier(PairingRecordDocument.normalizeDeviceIdentifier(expectedIdentifier))
+        let expected = PairingRecordDocument.isDeviceIdentifier(PairingRecordDocument.normalizeDeviceIdentifier(expectedIdentifier))
+        guard expected else { return false }
+        switch route {
+        case .importedClassic:
+            return state.format?.containsLockdown == true
+        case .onDeviceHostPairing:
+            return state.format?.containsRemotePairing == true
+        default:
+            return false
+        }
         #endif
     }
 

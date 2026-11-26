@@ -126,7 +126,10 @@ public final class InstallationProxy: Identifiable, ObservableObject {
             commandStarted = true
             onSubmission(submittedAt)
             self.status(.installing)
-            try session.checked(installation_proxy_install_with_callback(installation, remotePath, nil,
+            var options = plist_new_dict()
+            plist_dict_set_item(options, "PackageType", plist_new_string("Developer"))
+            defer { if let options { plist_free(options) } }
+            try session.checked(installation_proxy_install_with_callback(installation, remotePath, options,
                 Self.installationProgress, context), stage: .discoveringServices)
             commandFinished = true
             let acknowledgedAt = Date()
