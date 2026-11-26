@@ -11,7 +11,7 @@
     "start": "node dist/API/main.js",
     "worker": "node dist/Signing/Worker/worker.js",
     "migrate": "node dist/Storage/migrate.js",
-    "test": "tsx --test VexSignTests/*.test.ts",
+    "test": "tsx --test Tests/*.test.ts",
     "check": "tsc --noEmit",
     "contracts": "tsx API/openapi.ts"
   },

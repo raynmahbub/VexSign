@@ -9,6 +9,7 @@ try {
   const migrations: [number, string][] = [
     [1, '001_initial.sql'],
     [2, '002_indexes_and_retention.sql'],
+    [3, '003_input_cleanup.sql'],
   ];
   for (const [version, filename] of migrations) {
     const applied = await client.query('SELECT version FROM schema_migrations WHERE version=$1', [version]);

@@ -9,7 +9,7 @@ import { Upload } from '@aws-sdk/lib-storage';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import QRCode from 'qrcode';
 import { z } from 'zod';
-import type { Config } from '../../Config/config.js';
+import type { Config } from '../../Configuration/config.js';
 import type { Infrastructure } from '../../Storage/infrastructure.js';
 import { artifactMetadata, batchRequest, checkRequest, jobView, queueCounts, signRequest, uuid } from '../DTOs/contracts.js';
 import { APIError, submitJobs, type Submission } from '../../Signing/JobQueue/jobs.js';
@@ -151,7 +151,7 @@ export async function buildApp(config: Config, infra: Infrastructure) {
   });
   app.get('/api/jobs/:id', { onRequest: authenticate }, async request => {
     const { id } = z.object({ id: uuid }).parse(request.params);
-    const data = await infra.pool.query('SELECT id,kind,state,result,error_code,output_sha256,created_at,finished_at FROM jobs WHERE id=$1 AND owner=$2', [id, subject(request)]);
+    const data = await infra.pool.query('SELECT id,kind,state,result,error_code,output_sha256,output_key,created_at,finished_at FROM jobs WHERE id=$1 AND owner=$2', [id, subject(request)]);
     const row = data.rows[0]; if (!row) throw new APIError(404, 'Job not found');
     // Validated, not merely returned: the client decodes this shape, so a column that is
     // renamed or dropped fails here instead of in an app nobody can debug.
@@ -160,7 +160,7 @@ export async function buildApp(config: Config, infra: Infrastructure) {
       error_code: row.error_code, output_sha256: row.output_sha256,
       created_at: new Date(row.created_at).toISOString(),
       finished_at: row.finished_at ? new Date(row.finished_at).toISOString() : null,
-      ...(row.state === 'completed' && row.kind === 'sign'
+      ...(row.state === 'completed' && row.kind === 'sign' && row.output_key
         ? { installURL: `${config.PUBLIC_ORIGIN}/install/${id}?token=${capability(id, Math.floor(Date.now() / 1000) + 86_400, key)}` }
         : {}),
     }, request);

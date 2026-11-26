@@ -2,8 +2,8 @@
   "name": "VexSign",
   "subtitle": "On-device IPA signer — sign, tweak, install. No PC needed.",
   "description": "VexSign is an on-device iOS signer built on Feather (GPL-3.0). Sign & install IPAs with .p12/.mobileprovision, inject tweaks (.dylib/.deb/.framework), browse and edit IPAs (IPA Explorer), transfer files over HTTPS/WebDAV, track downloads with Live Activities & Dynamic Island, auto-cleanup leftovers, batch sign, update all, and back up/restore. Open source. No ads, no tracking.",
-  "iconURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
-  "headerURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
+  "iconURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/icon.png",
+  "headerURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/icon.png",
   "website": "https://github.com/raynmahbub/VexSign",
   "tintColor": "C96FAD",
   "sourceURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json",
@@ -14,7 +14,7 @@
       "developerName": "raynmahbub",
       "subtitle": "On-device signer built on Feather",
       "localizedDescription": "VexSign is the most powerful on-device iOS signer. Built on Feather by @claration.\n\nFeatures: sign & install IPAs with .p12/.mobileprovision; tweak injection (.dylib/.deb/.framework/.bundle/.appex) via ElleKit; IPA Explorer (edit Info.plist, files, images inside any IPA); File Transfer Server (HTTPS + WebDAV); Live Activities & Dynamic Island for downloads; Auto Cleanup; Batch Signing; Update All; Backup & Restore (.vexbackup); Anti-Revoke (DoH); Logs & File Manager; Game Mode.\n\nCredits: Feather (@claration) — base signing engine and UI; Zsign (zhlynn) — on-device signing; idevice (jkcoxson) — AFC/installd pairing; ElleKit (tealbathingsuit) — tweak injection; Vapor — local HTTPS server; Nuke, ZIPFoundation, SWCompression.",
-      "iconURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
+      "iconURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/icon.png",
       "tintColor": "C96FAD",
       "category": "utilities",
       "version": "1.2.1",
@@ -66,7 +66,7 @@
       "title": "VexSign 1.2.1",
       "caption": "Commit: e930ceb · Install and platform limits",
       "tintColor": "C96FAD",
-      "imageURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
+      "imageURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/icon.png",
       "notify": true,
       "url": "https://github.com/raynmahbub/VexSign/releases/tag/v1.2.1"
     },
@@ -76,7 +76,7 @@
       "title": "VexSign 1.2.0",
       "caption": "![VexSign app icon](https://raw.githubusercontent.com/raynmahbub/VexSign/496cb02b01116d3aae768a349b6941fac4b5d33a/icon.png)",
       "tintColor": "C96FAD",
-      "imageURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
+      "imageURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/icon.png",
       "notify": true,
       "url": "https://github.com/raynmahbub/VexSign/releases/tag/v1.2.0"
     },
@@ -86,7 +86,7 @@
       "title": "VexSign 1.1.0",
       "caption": "![VexSign app icon](https://raw.githubusercontent.com/raynmahbub/VexSign/b7c6a5a066ca35880d9b60ef9a92ac8e3c5a6b4e/icon.png)",
       "tintColor": "C96FAD",
-      "imageURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
+      "imageURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/icon.png",
       "notify": true,
       "url": "https://github.com/raynmahbub/VexSign/releases/tag/v1.1.0"
     },
@@ -96,7 +96,7 @@
       "title": "VexSign initial release",
       "caption": "The most powerful on-device signer is here. Built on Feather by @claration.",
       "tintColor": "C96FAD",
-      "imageURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
+      "imageURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/icon.png",
       "notify": true,
       "url": "https://github.com/raynmahbub/VexSign/releases"
     }

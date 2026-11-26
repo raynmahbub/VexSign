@@ -3,12 +3,14 @@ import { Redis } from 'ioredis';
 import { Queue } from 'bullmq';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { Config } from '../Config/config.js';
+import type { Config } from '../Configuration/config.js';
 
-export function infrastructure(config: Config) {
+export function infrastructure(config: Config, role: 'api' | 'worker' = 'api') {
   const pool = new pg.Pool({ connectionString: config.DATABASE_URL, max: 12, statement_timeout: 30_000 });
   pool.on('error', () => { /* Idle client errors are handled on next checkout. */ });
-  const redis = new Redis(config.REDIS_URL, { maxRetriesPerRequest: null });
+  const redis = new Redis(config.REDIS_URL, role === 'worker'
+    ? { maxRetriesPerRequest: null }
+    : { maxRetriesPerRequest: 1, commandTimeout: 5000, connectTimeout: 5000, enableOfflineQueue: false });
   redis.on('error', () => { /* Reconnection is managed by ioredis; avoid unhandled error crash. */ });
   const queue = new Queue('vexsign-signing-v1', { connection: redis });
   const s3 = new S3Client({ endpoint: config.S3_ENDPOINT, region: config.S3_REGION, forcePathStyle: true });

@@ -58,7 +58,6 @@ def main() -> int:
     standard = digest(appearances[None])
     for relative in (
         "VexSign/Resources/icon.png",
-        "icon.png",
         "VexSign/Resources/Assets.xcassets/AppLogo.imageset/AppLogo.png",
         "VexSign/Resources/Assets.xcassets/Glyph.imageset/vexsign.png",
     ):

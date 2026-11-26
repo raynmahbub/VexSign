@@ -236,6 +236,9 @@ This repository also contains optional services and experimental tooling beyond 
 
 **Cloud signing is not a turnkey feature:** no signing engine/sandbox launcher is bundled. The native client bridge and settings do not by themselves provide a deployed signing service. It requires infrastructure, a signer integration and end-to-end validation. Discovery rankings are local, not global popularity statistics; background schedules are controlled by iOS.
 
+See the [Cloud deployment and signer integration guide](Services/Cloud/README.md)
+for environment configuration, migrations, sandbox requirements, tests and retention.
+
 For feature boundaries, security caveats and remaining device testing, read
 [`Packages/Vendor/manifest.json`](Packages/Vendor/manifest.json), which pins every
 vendored dependency and its licence.
@@ -438,11 +441,14 @@ VexSign/
 └── Makefile                 Supported build and verification commands
 ```
 
-**Why a few assets remain at the root:** `app-repo.json`, `repos.json`, `icon.png`,
-`license_plist.yml` and `render.yaml` are published compatibility aliases used by
-feeds and external tools. Edit their canonical files, not the root copies;
-`python3 Tools/Validation/repository-validation/sync_repo_aliases.py --check`
-verifies they stay in sync.
+**Root feed alias:** `app-repo.json` remains published at the root. Edit its
+canonical file at `VexSign/Resources/Templates/app-repo.json` and run
+`python3 Tools/Validation/repository-validation/sync_repo_aliases.py --write`.
+The icon lives at `VexSign/Resources/icon.png`, the repository list at
+`VexSign/Resources/Templates/repos.json`, LicensePlist configuration at
+`Config/Signing/license_plist.yml`, and the Render blueprint at
+`Services/WebManager/Configuration/render.yaml`. Configure external tools to use
+these paths rather than root-level copies.
 
 Feature use cases and shared workspace contracts use injected ports. Legacy
 UI-to-storage/service coupling is still tracked, not claimed to be fully removed.

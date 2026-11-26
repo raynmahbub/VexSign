@@ -8,7 +8,7 @@ import { createHash, createHmac, hkdfSync } from 'node:crypto';
 import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import type { Job } from 'bullmq';
-import type { Config } from '../../Config/config.js';
+import type { Config } from '../../Configuration/config.js';
 import type { Infrastructure } from '../../Storage/infrastructure.js';
 import { unseal, permittedWebhook } from '../../Security/security.js';
 import { invokeSigner as defaultInvokeSigner, type SignerInput } from '../CloudSigningCoordinator/signer.js';
@@ -98,27 +98,66 @@ export async function purgeUnreferencedJobInputs(deps: WorkerDeps, owner: string
   const uniqueIds = [...new Set(assetIds.filter(Boolean))];
   if (!uniqueIds.length || !deps.infra.s3) return;
   try {
-    const candidates = await deps.infra.pool.query<{ id: string; object_key: string }>(
-      `SELECT a.id, a.object_key
-         FROM assets a
-        WHERE a.owner = $1
-          AND a.purged_at IS NULL
-          AND a.id = ANY($2::uuid[])
-          AND NOT EXISTS (
-            SELECT 1
-              FROM jobs j
-             WHERE j.owner = $1
-               AND j.state IN ('queued', 'running')
-               AND (j.ipa_id = a.id OR j.p12_id = a.id OR j.provision_id = a.id)
-          )`,
-      [owner, uniqueIds],
-    );
+    const client = await deps.infra.pool.connect();
+    let candidates: { rows: { id: string; object_key: string }[] };
+    try {
+      await client.query('BEGIN');
+      // Same tenant lock as submitJobs: references and deletion intent are serialized.
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [owner]);
+      candidates = await client.query<{ id: string; object_key: string }>(
+        `UPDATE assets SET deletion_requested_at=COALESCE(deletion_requested_at,now())
+         WHERE id IN (
+           SELECT a.id FROM assets a
+           WHERE a.owner=$1 AND a.purged_at IS NULL AND a.id=ANY($2::uuid[])
+             AND NOT EXISTS (
+               SELECT 1 FROM jobs j WHERE j.owner=$1 AND j.state IN ('queued','running')
+                 AND (j.ipa_id=a.id OR j.p12_id=a.id OR j.provision_id=a.id)
+             )
+         ) RETURNING id,object_key`,
+        [owner, uniqueIds],
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
     for (const asset of candidates.rows) {
       await deps.infra.s3.send(new DeleteObjectCommand({ Bucket: deps.config.S3_BUCKET, Key: asset.object_key }));
       await deps.infra.pool.query('UPDATE assets SET purged_at=now() WHERE id=$1 AND owner=$2', [asset.id, owner]);
     }
   } catch {
-    // Best-effort S3 input purge; never fail an already-recorded terminal job transition.
+    console.error("Input cleanup deferred; periodic sweep will retry");
+    // Durable deletion intent survives S3 failures; never undo a terminal job.
+  }
+}
+
+/** Bounded retry sweep, including uploaded inputs never attached to a job. */
+export async function sweepInputs(deps: WorkerDeps): Promise<void> {
+  const candidates = await deps.infra.pool.query<{ id: string; owner: string }>(
+    `SELECT a.id,a.owner FROM assets a
+     WHERE a.purged_at IS NULL
+       AND (a.deletion_requested_at IS NOT NULL OR a.created_at < now() - interval '24 hours')
+       AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.owner=a.owner AND j.state IN ('queued','running')
+         AND (j.ipa_id=a.id OR j.p12_id=a.id OR j.provision_id=a.id))
+     ORDER BY a.deletion_requested_at NULLS LAST,a.created_at LIMIT 100`,
+  );
+  const owners = new Map<string, string[]>();
+  for (const asset of candidates.rows) owners.set(asset.owner, [...(owners.get(asset.owner) ?? []), asset.id]);
+  for (const [owner, ids] of owners) await purgeUnreferencedJobInputs(deps, owner, ids);
+}
+
+/** Outputs expire seven days after completion; failed deletes remain eligible. */
+export async function sweepOutputs(deps: WorkerDeps): Promise<void> {
+  const outputs = await deps.infra.pool.query<{ id: string; output_key: string }>(
+    `SELECT id,output_key FROM jobs WHERE state IN ('completed','failed')
+       AND output_key IS NOT NULL AND finished_at < now() - interval '7 days'
+     ORDER BY finished_at LIMIT 100`,
+  );
+  for (const output of outputs.rows) {
+    try {
+      await deps.infra.s3.send(new DeleteObjectCommand({ Bucket: deps.config.S3_BUCKET, Key: output.output_key }));
+      await deps.infra.pool.query('UPDATE jobs SET output_key=NULL WHERE id=$1 AND output_key=$2', [output.id, output.output_key]);
+    } catch { console.error('Output cleanup deferred; periodic sweep will retry'); }
   }
 }
 

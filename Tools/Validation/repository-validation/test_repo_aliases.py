@@ -18,7 +18,9 @@ ALL_PAIRS = module.ALIASES + module.MIRRORED
 
 class RepositoryAliasTests(unittest.TestCase):
     def test_alias_table_is_stable_and_canonical_first(self):
-        self.assertEqual(len(module.ALIASES), 5)
+        self.assertEqual(module.ALIASES, (
+            ("VexSign/Resources/Templates/app-repo.json", "app-repo.json"),
+        ))
         for canonical, alias in module.ALIASES:
             self.assertIn("/", canonical)
             self.assertNotIn("/", alias)

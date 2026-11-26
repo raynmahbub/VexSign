@@ -28,18 +28,13 @@ ROOT_LAYERS = {
 APP_LAYERS = {"Navigation", "Composition", "Bootstrap"}
 SKIP = {".git", "node_modules", "dist", "__pycache__", ".pytest_cache", ".venv", ".build", ".swiftpm"}
 ALIASES = (
-    ("VexSign/Resources/icon.png", "icon.png"),
     ("VexSign/Resources/Templates/app-repo.json", "app-repo.json"),
-    ("VexSign/Resources/Templates/repos.json", "repos.json"),
-    ("Config/Signing/license_plist.yml", "license_plist.yml"),
-    ("Services/WebManager/Configuration/render.yaml", "render.yaml"),
 )
 # The root is an entry surface, not a place to grow data files. Dotfiles are allowed
 # as tool configuration; every other root file must be on this reviewed list.
 ROOT_FILES = {
     ".editorconfig", ".gitattributes", ".gitignore", ".swiftformat", ".swiftlint.yml",
-    "LICENSE", "Makefile", "README.md", "app-repo.json", "icon.png",
-    "license_plist.yml", "render.yaml", "repos.json",
+    "LICENSE", "Makefile", "README.md", "app-repo.json",
 }
 # Paths explicitly rejected by the adopted root contract. A synchronized-root move is
 # a build change, so these must fail at the portable gate rather than at a macOS-only build.
@@ -78,7 +73,7 @@ def code(path: Path) -> str:
 
 class RepositoryLayoutTests(unittest.TestCase):
     def test_requested_root_tree_is_the_repository_root(self):
-        self.assertEqual({p.name for p in ROOT.iterdir() if p.is_dir()} - {".git", ".githooks", ".github", ".arena", ".cache", "__pycache__", ".build", ".swiftpm", ".vite", "build", "dist", "node_modules"},
+        self.assertEqual({p.name for p in ROOT.iterdir() if p.is_dir()} - SKIP - {".git", ".githooks", ".github", ".arena", ".cache", "__pycache__", ".build", ".swiftpm", ".vite", "build", "dist", "node_modules"},
                          ROOT_LAYERS | {"VexSign.xcodeproj", "VexSign.xcworkspace"})
         for legacy in ("App", "Apple", "DesignSystem", "Networking", "Shared", "Storage", "Resources",
                        "VexSign/App/iOS", "VexSign/Packages", "VexSign/Tests", "VexSign/Tools",
@@ -246,7 +241,7 @@ class RepositoryLayoutTests(unittest.TestCase):
             self.assertTrue((web / name).is_file(), name)
         self.assertEqual(json.loads((cloud / "package.json").read_text())["scripts"]["start"],
                          "node dist/API/main.js")
-        for blueprint in (ROOT / "render.yaml", web / "Configuration/render.yaml"):
+        for blueprint in (web / "Configuration/render.yaml",):
             self.assertIn("rootDir: Services/WebManager", blueprint.read_text())
 
     def test_domain_is_foundation_only_and_has_no_concrete_io_or_globals(self):

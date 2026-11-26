@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Keep canonical repository assets and their published root aliases identical.
 
-The clean root owns canonical files under Resources/ and Services/WebManager/, while a
-few stable root paths remain because remote feeds, README images, Render and the
-LicensePlist Xcode plugin discover them there. Copies — not symlinks — are used
-so raw.githubusercontent.com and macOS checkouts see the actual bytes.
+The app feed retains its published root alias; other assets and configuration
+live only in their canonical folders. Copies, not symlinks, let raw GitHub URLs
+serve the feed bytes directly.
 
 `MIRRORED` covers a different kind of duplicate: files Xcode writes in two places
 for two entry points (`VexSign.xcodeproj` and `VexSign.xcworkspace`). Neither is
@@ -22,11 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 ALIASES = (
-    ("VexSign/Resources/icon.png", "icon.png"),
     ("VexSign/Resources/Templates/app-repo.json", "app-repo.json"),
-    ("VexSign/Resources/Templates/repos.json", "repos.json"),
-    ("Config/Signing/license_plist.yml", "license_plist.yml"),
-    ("Services/WebManager/Configuration/render.yaml", "render.yaml"),
 )
 
 

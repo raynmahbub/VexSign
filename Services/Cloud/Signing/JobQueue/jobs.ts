@@ -31,7 +31,7 @@ export async function submitJobs(infra: Infrastructure, key: Buffer, owner: stri
         result.push({ id: prior.rows[0].id, state: prior.rows[0].state }); continue;
       }
       if (++activeCount > 100) throw new APIError(429, 'Active job quota exceeded');
-      const assets = await client.query('SELECT id, kind FROM assets WHERE owner=$1 AND purged_at IS NULL AND id=ANY($2::uuid[])', [owner, [request.ipaId, request.p12Id, request.provisionId].filter(Boolean)]);
+      const assets = await client.query('SELECT id, kind FROM assets WHERE owner=$1 AND purged_at IS NULL AND deletion_requested_at IS NULL AND id=ANY($2::uuid[])', [owner, [request.ipaId, request.p12Id, request.provisionId].filter(Boolean)]);
       const matches = (id: string | undefined, expected: string) => assets.rows.some(row => row.id === id && row.kind === expected);
       if (!matches(request.p12Id, 'p12') || !matches(request.provisionId, 'provision') || (kind === 'sign' && !matches(request.ipaId, 'ipa'))) throw new APIError(404, 'Signing assets not found');
       const id = randomUUID();

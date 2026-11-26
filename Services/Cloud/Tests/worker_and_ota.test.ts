@@ -7,7 +7,7 @@ import type { Job } from 'bullmq';
 import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { buildApp } from '../API/Routes/app.js';
 import { artifactMetadata } from '../API/DTOs/contracts.js';
-import type { Config } from '../Config/config.js';
+import type { Config } from '../Configuration/config.js';
 import type { Infrastructure } from '../Storage/infrastructure.js';
 import { capability, seal } from '../Security/security.js';
 import { submitJobs, type Submission } from '../Signing/JobQueue/jobs.js';

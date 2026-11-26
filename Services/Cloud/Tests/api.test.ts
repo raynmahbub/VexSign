@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, createSign, randomBytes } from 'node:crypto';
 import { buildApp } from '../API/Routes/app.js';
-import type { Config } from '../Config/config.js';
+import type { Config } from '../Configuration/config.js';
 import type { Infrastructure } from '../Storage/infrastructure.js';
 import { capability } from '../Security/security.js';
 
@@ -74,7 +74,7 @@ test('job status returns the documented view, not the raw row', async () => {
   }) as unknown as Infrastructure;
 
   const completed = await buildApp(config, rowsFor({
-    id, kind: 'sign', state: 'completed',
+    id, kind: 'sign', state: 'completed', output_key: 'outputs/test.ipa',
     result: { name: 'App', bundleIdentifier: 'com.example.app', version: '1.0', changelog: '', screenshotURLs: [] },
     error_code: null, output_sha256: 'a'.repeat(64), created_at: createdAt, finished_at: finishedAt,
   }));
@@ -114,5 +114,20 @@ test('a job row that drifts from the contract fails instead of reaching the clie
     // Fails closed: the schema rejects it rather than leaking an unexpected field or shape.
     assert.equal(response.statusCode, 500);
     assert.equal(response.json().error, 'Service unavailable');
+  } finally { await app.close(); }
+});
+
+test('expired artifact has no install link even though signing completed', async () => {
+  const id = '01234567-89ab-4def-8123-456789abcdef';
+  const app = await buildApp(config, {
+    redis: { defineCommand() {}, rateLimit(...args: unknown[]) { (args.at(-1) as Function)(null, [1, 60_000]); }, eval: async () => 1 },
+    pool: { query: async () => ({ rows: [{ id, kind: 'sign', state: 'completed', result: {},
+      output_key: null, output_sha256: 'a'.repeat(64), error_code: null,
+      created_at: new Date(), finished_at: new Date() }] }) },
+  } as unknown as Infrastructure);
+  try {
+    const response = await app.inject({ method: 'GET', url: `/api/jobs/${id}`, headers: { authorization: `Bearer ${token('owner-a')}` } });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.json().installURL, undefined);
   } finally { await app.close(); }
 });

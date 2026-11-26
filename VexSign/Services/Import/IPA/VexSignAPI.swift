@@ -68,7 +68,7 @@ enum VexSignAPI {
 	// MARK: - Repos
 
 	static let reposListURL: URL = {
-		guard let url = URL(string: "https://raw.githubusercontent.com/raynmahbub/VexSign/refs/heads/main/repos.json") else {
+		guard let url = URL(string: "https://raw.githubusercontent.com/raynmahbub/VexSign/refs/heads/main/VexSign/Resources/Templates/repos.json") else {
 			return URL(string: "about:blank")!
 		}
 		return url

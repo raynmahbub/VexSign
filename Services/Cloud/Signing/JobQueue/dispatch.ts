@@ -16,25 +16,27 @@ export class PendingJobDispatcher {
     );
     for (const row of pending.rows) {
       const existing = await infra.queue.getJob(row.id);
-      if (!existing) {
-        // A `running` row with no Redis job means the attempt that held it is gone — the worker
-        // died after claiming and nothing will ever finish it. The worker only claims from
-        // `queued` (see `processJob`), so re-publishing without this reset would leave the job
-        // permanently unclaimable. The age check keeps a genuinely slow signing run safe: its
-        // claim is recent, so it is left alone.
+      const redisState = existing ? await existing.getState() : null;
+      if (!existing || redisState === 'completed') {
+        // Never publish an unclaimable running row. A fresh claim may still belong
+        // to a live worker after Redis loss; only recover after its safety window.
         if (row.state === 'running') {
-          await infra.pool.query(
+          const reset = await infra.pool.query(
             "UPDATE jobs SET state='queued' WHERE id=$1 AND state='running' AND (started_at IS NULL OR started_at < now() - interval '30 minutes')",
             [row.id],
           );
+          if (!reset.rowCount) continue;
         }
+        // A stalled redelivery can finish in Redis without claiming the DB row.
+        // Remove that terminal delivery so the stable ID can be published again.
+        if (existing) await existing.remove();
         // Publish before marking: the stable BullMQ ID deduplicates retries.
         await infra.queue.add('sign', { id: row.id }, {
           jobId: row.id, attempts: 3, backoff: { type: 'exponential', delay: 5000 },
           removeOnComplete: { age: 7 * 86400 }, removeOnFail: { age: 7 * 86400 },
         });
         await infra.pool.query('UPDATE jobs SET published_at=now() WHERE id=$1', [row.id]);
-      } else if (await existing.getState() === 'failed') {
+      } else if (redisState === 'failed') {
         await onFailed(row.id);
       }
     }

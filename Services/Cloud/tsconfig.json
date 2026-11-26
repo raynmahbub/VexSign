@@ -13,10 +13,10 @@
   },
   "include": [
     "API/**/*.ts",
-    "Config/**/*.ts",
+    "Configuration/**/*.ts",
     "Storage/**/*.ts",
     "Security/**/*.ts",
     "Signing/**/*.ts",
-    "VexSignTests/**/*.ts"
+    "Tests/**/*.ts"
   ]
 }
