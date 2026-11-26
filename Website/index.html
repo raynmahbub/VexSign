@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VexSign — Computer-Free iOS App Signing & Installation</title>
+  <meta name="description" content="VexSign lets you sign and install apps directly on your iPhone. No Mac, no PC, no cable required.">
+  <meta name="theme-color" content="#0b0f1a">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="assets/icon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg-orb bg-orb-a"></div>
+  <div class="bg-orb bg-orb-b"></div>
+  <div class="bg-grid"></div>
+
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="#">
+        <img src="assets/icon.png" alt="VexSign icon" class="brand-icon">
+        <span>VexSign</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#compatibility">Compatibility</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/raynmahbub/VexSign" class="nav-gh" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.33-1.76-1.33-1.76-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.25 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.62-5.49 5.92.43.37.82 1.1.82 2.22v3.29c0 .32.21.7.82.58A12 12 0 0 0 12 .5Z"/></svg>
+          GitHub
+        </a>
+      </div>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <div class="eyebrow">
+          <span class="eyebrow-dot"></span>
+          Computer-free bootstrap for iPhone
+        </div>
+        <h1>Sign and install apps.<br><span class="gradient-text">No computer required.</span></h1>
+        <p class="hero-lead">
+          VexSign brings on-device signing, pairing, and installation into one native iOS experience.
+          Set up your device, authenticate with your Apple Account, sign VexSign, and install it directly on the same iPhone.
+        </p>
+        <div class="hero-actions">
+          <a href="#how-it-works" class="btn btn-primary">See how it works</a>
+          <a href="https://github.com/raynmahbub/VexSign" class="btn btn-ghost" target="_blank" rel="noopener">View source</a>
+        </div>
+        <div class="hero-meta">
+          <div class="meta-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+            On-device signing
+          </div>
+          <div class="meta-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+            Native pairing
+          </div>
+          <div class="meta-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+            Open source
+          </div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="phone-frame">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="screen-status">
+              <span>9:41</span>
+              <span class="screen-status-icons">
+                <svg width="16" height="12" viewBox="0 0 24 18" fill="currentColor"><rect x="1" y="14" width="3" height="4" rx="1"/><rect x="6" y="10" width="3" height="8" rx="1"/><rect x="11" y="6" width="3" height="12" rx="1"/><rect x="16" y="2" width="3" height="16" rx="1" opacity=".35"/></svg>
+                <svg width="22" height="12" viewBox="0 0 28 14" fill="none"><rect x="0.5" y="0.5" width="23" height="13" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="17" height="10" rx="2" fill="currentColor"/><path d="M25 4.5v5a2.5 2.5 0 0 0 0-5Z" fill="currentColor" opacity=".4"/></svg>
+              </span>
+            </div>
+            <div class="screen-app">
+              <div class="screen-app-icon"><img src="assets/icon.png" alt=""></div>
+              <div class="screen-app-name">VexSign</div>
+              <div class="screen-app-sub">Computer-Free Bootstrap</div>
+            </div>
+            <div class="screen-card">
+              <div class="screen-step done">
+                <div class="screen-step-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+                <div><div class="screen-step-title">Environment ready</div><div class="screen-step-desc">iOS 27.0.1 · Developer Mode</div></div>
+              </div>
+              <div class="screen-step done">
+                <div class="screen-step-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+                <div><div class="screen-step-title">Device paired</div><div class="screen-step-desc">Secure local pairing verified</div></div>
+              </div>
+              <div class="screen-step active">
+                <div class="screen-step-icon"><div class="spinner"></div></div>
+                <div><div class="screen-step-title">Signing VexSign</div><div class="screen-step-desc">Provisioning profile applied</div></div>
+              </div>
+              <div class="screen-step">
+                <div class="screen-step-icon dim">4</div>
+                <div><div class="screen-step-title">Install on device</div><div class="screen-step-desc">Waiting for signature</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="float-card float-card-left">
+          <div class="float-icon green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <div><div class="float-title">Local signing</div><div class="float-desc">Keys stay on device</div></div>
+        </div>
+        <div class="float-card float-card-right">
+          <div class="float-icon blue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg></div>
+          <div><div class="float-title">No cable</div><div class="float-desc">Wireless pairing flow</div></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">Why VexSign</div>
+        <h2>Everything you need, <span class="gradient-text">right on device</span></h2>
+        <p>VexSign combines signing, provisioning, pairing, and installation into a single workflow designed for real iPhone use.</p>
+      </div>
+      <div class="features-grid">
+        <article class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
+          <h3>Computer-Free Bootstrap</h3>
+          <p>Start from a compatible iPhone and complete the bootstrap flow without a Mac, Windows PC, cable, or computer-generated pairing file on supported versions.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <h3>Secure Pairing</h3>
+          <p>Pairing uses explicit user initiation, validated protocol state, and verified device identity. Unverified peers and invalid records are rejected.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg></div>
+          <h3>Apple Account Provisioning</h3>
+          <p>Authenticate, handle two-factor verification, register devices, and provision development certificates using VexSign's existing account and signing infrastructure.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+          <h3>Local Signing</h3>
+          <p>IPAs are validated, signed, and verified locally. VexSign checks bundle identity, entitlements, provisioning compatibility, and signature integrity before installation.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></div>
+          <h3>Verified Installation</h3>
+          <p>Installation is tracked through explicit states: submitted, confirmed, and launch-verified. VexSign never reports success just because a request was sent.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+          <h3>Open & Auditable</h3>
+          <p>Built in the open on GitHub. The bootstrap, device bridge, signing, and installation logic live in the repository for inspection and contribution.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-alt" id="how-it-works">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">How it works</div>
+        <h2>From bootstrap to <span class="gradient-text">installed app</span></h2>
+        <p>The on-device flow is designed as a clear sequence of verified steps, with recovery and cancellation at every stage.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <div class="step-body">
+            <h3>Prepare the environment</h3>
+            <p>VexSign checks iOS version, device capabilities, Developer Mode, LocalDevVPN connectivity, and required bootstrap dependencies before starting.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-body">
+            <h3>Pair the device</h3>
+            <p>On supported versions, VexSign establishes a secure local pairing session with explicit user initiation and verifies the resulting pairing record.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div class="step-body">
+            <h3>Authenticate and provision</h3>
+            <p>Sign in with your Apple Account, complete two-factor authentication, select a team, and provision a development signing identity for the target device.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <div class="step-body">
+            <h3>Sign locally</h3>
+            <p>VexSign validates the IPA, signs it with the provisioned identity, and verifies the signature, entitlements, bundle identifiers, and checksums.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">05</div>
+          <div class="step-body">
+            <h3>Install and verify</h3>
+            <p>The signed app is installed through the supported device installation mechanism. VexSign confirms the installed bundle and version before reporting success.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="compatibility">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">Compatibility</div>
+        <h2>Built for <span class="gradient-text">modern iOS</span></h2>
+        <p>The computer-free bootstrap targets the supported on-device pairing path. Older supported versions keep existing pairing-file workflows where available.</p>
+      </div>
+      <div class="compat-grid">
+        <div class="compat-card compat-primary">
+          <div class="compat-badge">Primary target</div>
+          <h3>iOS 27+</h3>
+          <p>On-device bootstrap with supported self-pairing flow, local signing, and same-device installation. Designed for the computer-free experience.</p>
+          <ul class="compat-list">
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>On-device pairing</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>No computer-generated pairing file</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Local signing and install</li>
+          </ul>
+        </div>
+        <div class="compat-card">
+          <div class="compat-badge muted">Legacy support</div>
+          <h3>iOS 17.4 – 26.x</h3>
+          <p>Existing pairing-file and companion-assisted flows remain available where supported by the current VexSign implementation and device capabilities.</p>
+          <ul class="compat-list">
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Classic/imported pairing records</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Existing signing pipelines</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Capability-gated features</li>
+          </ul>
+        </div>
+      </div>
+      <p class="compat-note">Feature availability depends on device, iOS version, Developer Mode, network environment, and Apple provisioning rules. VexSign does not claim unsupported capabilities.</p>
+    </div>
+  </section>
+
+  <section class="section section-alt" id="faq">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">FAQ</div>
+        <h2>Common <span class="gradient-text">questions</span></h2>
+      </div>
+      <div class="faq-list">
+        <details class="faq-item">
+          <summary><span>Do I need a Mac or PC?</span><svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="faq-answer"><p>On supported iOS 27+ devices, the bootstrap flow is designed to work on-device without a Mac, Windows PC, cable, or computer-generated pairing file. Older versions may still require a compatible pairing record or companion flow depending on the available route.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary><span>Does VexSign send my Apple Account to a remote VexSign service?</span><svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="faq-answer"><p>No. Apple Account credentials and private signing keys are not sent to a remote VexSign service. Sensitive credentials are stored using protected storage mechanisms such as Keychain where applicable.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary><span>Is this a permanent signing solution?</span><svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="faq-answer"><p>No. VexSign uses development provisioning and signing. Free Apple Developer accounts have provisioning limits and app expiration rules. VexSign does not claim permanent signing.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary><span>What does "verified installation" mean?</span><svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="faq-answer"><p>VexSign distinguishes between signing completed, signature verified, installation submitted, installation confirmed, and launch verified. A submitted install request is not reported as a successful installation.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary><span>Is VexSign open source?</span><svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="faq-answer"><p>Yes. The VexSign source code is available on GitHub. You can inspect the implementation, review security-sensitive paths, and contribute improvements.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <a class="brand" href="#">
+          <img src="assets/icon.png" alt="VexSign icon" class="brand-icon">
+          <span>VexSign</span>
+        </a>
+        <p>Computer-free iOS signing and installation, built in the open.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col">
+          <h4>Project</h4>
+          <a href="https://github.com/raynmahbub/VexSign" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/raynmahbub/VexSign/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/raynmahbub/VexSign/issues" target="_blank" rel="noopener">Issues</a>
+        </div>
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <a href="#how-it-works">How it works</a>
+          <a href="#compatibility">Compatibility</a>
+          <a href="#faq">FAQ</a>
+        </div>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <span>© 2026 VexSign. Open source project.</span>
+      <span>Not affiliated with Apple Inc.</span>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

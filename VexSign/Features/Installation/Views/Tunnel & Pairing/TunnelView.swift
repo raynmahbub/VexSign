@@ -34,6 +34,24 @@ struct TunnelView: View {
                 LabeledContent(.localized("Record"), value: model.pairing.title)
                 Text(model.formatTitle).font(.caption).foregroundStyle(.secondary)
                 Text(model.pairing.detail).font(.footnote).foregroundStyle(.secondary)
+                if model.supportsOnDeviceHostPairing {
+                    Button(.localized("Start on-device pairing"), systemImage: "antenna.radiowaves.left.and.right") {
+                        model.startOnDevicePairing()
+                    }
+                    .disabled(!model.canStartOnDevicePairing)
+                    if model.isHostPairing {
+                        if let pin = model.hostPairingPIN {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(.localized("Pairing PIN")).font(.caption).foregroundStyle(.secondary)
+                                Text(pin).font(.system(.title2, design: .monospaced)).fontWeight(.semibold)
+                                Text(.localized("Open Settings > Privacy & Security > Developer Mode and enter this PIN. The PIN is shown only for this active session."))
+                                    .font(.footnote).foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        Button(.localized("Cancel pairing"), role: .cancel) { model.cancelOnDevicePairing() }
+                    }
+                }
                 Button(model.hasReviewedRecord ? String.localized("Replace pairing record…") : String.localized("Import pairing record…"), systemImage: "square.and.arrow.down") {
                     reviewedFingerprint = model.fingerprint
                     if model.hasReviewedRecord { confirmReplacement = true }
@@ -43,9 +61,9 @@ struct TunnelView: View {
                 Button(.localized("Refresh record"), systemImage: "arrow.clockwise") { Task { await model.refresh() } }
                     .disabled(model.isWorking)
             } header: {
-                Text(.localized("3 · Review a compatible record"))
+                Text(.localized("3 · Pair or review a compatible record"))
             } footer: {
-                Text(.localized("Only bounded flat pairing plists are accepted. The remote identifier is the host's identity, not this iPhone's UDID. Import preserves original bytes and never converts one format into another. Replacing a record requires confirmation and an unchanged reviewed fingerprint."))
+                Text(.localized("On supported iOS 27+ devices, VexSign can start an on-device pairing host. You must explicitly start pairing and confirm the PIN in Settings. Only bounded flat pairing plists are accepted. The remote identifier is the host's identity, not this iPhone's UDID. Import preserves original bytes and never converts one format into another. Replacing a record requires confirmation and an unchanged reviewed fingerprint."))
               }
 
             Section {

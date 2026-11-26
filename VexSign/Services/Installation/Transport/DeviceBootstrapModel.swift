@@ -12,6 +12,8 @@ final class DeviceBootstrapModel: ObservableObject {
     @Published private(set) var formatTitle = ""
     @Published private(set) var isWorking = false
     @Published private(set) var isQuerying = false
+    @Published private(set) var isHostPairing = false
+    @Published private(set) var hostPairingPIN: String?
     @Published private(set) var message: String?
     @Published private(set) var stageTitle: String?
     @Published private(set) var verifiedDeviceSummary: String?
@@ -37,6 +39,7 @@ final class DeviceBootstrapModel: ObservableObject {
     private var operation: Task<Void, Never>?
     private var taskRecord: UnifiedTask?
     private var format: PairingRecordFormat?
+    private var hostPairingBridge: PairingHostBridge?
 
     var routeTitle: String { PairingBridge.routeTitle }
     var routeDetail: String { PairingBridge.routeDetail }
@@ -47,7 +50,15 @@ final class DeviceBootstrapModel: ObservableObject {
         !isWorking && consent && PairingBridge.canQuery(pairing, expectedIdentifier: expectedIdentifier)
     }
     var canReadApplication: Bool { canVerify && fingerprint != nil && DeviceApplicationInventory.isBundleIdentifier(inventoryBundleIdentifier) }
-    var mayQueryThisRoute: Bool { PairingBridge.route == .importedClassic && format?.containsLockdown == true }
+    var mayQueryThisRoute: Bool {
+        switch PairingBridge.route {
+        case .importedClassic: return format?.containsLockdown == true
+        case .onDeviceHostPairing: return format?.containsRemotePairing == true
+        default: return false
+        }
+    }
+    var supportsOnDeviceHostPairing: Bool { PairingHostBridge.isSupported }
+    var canStartOnDevicePairing: Bool { supportsOnDeviceHostPairing && !isWorking }
     var isTransportRetiring: Bool { !isWorking && PairingBridge.isBusy }
 
     func refresh() async {
@@ -168,6 +179,59 @@ final class DeviceBootstrapModel: ObservableObject {
         }
     }
 
+    func startOnDevicePairing() {
+        guard canStartOnDevicePairing else { return }
+        let reviewedFingerprint = fingerprint
+        let center = UnifiedTaskCenter.shared
+        guard TaskSubmissionPolicy.inFlight(kind: .deviceSetup, subjectID: "device-bootstrap", in: center.tasks) == nil else { return }
+        let record = center.begin(kind: .deviceSetup, title: .localized("On-device pairing"), progress: -1, subjectID: "device-bootstrap")
+        taskRecord = record
+        isWorking = true
+        isHostPairing = true
+        hostPairingPIN = nil
+        verifiedDeviceSummary = nil
+        inventorySummary = nil
+        message = nil
+        stageTitle = UnifiedTaskPhase.inspectingPairing.title
+        center.transition(record, to: .inspectingPairing, progress: -1)
+        let bridge = PairingHostBridge()
+        hostPairingBridge = bridge
+        operation = Task {
+            defer {
+                self.operation = nil
+                self.isWorking = false
+                self.isHostPairing = false
+                self.hostPairingBridge = nil
+                self.stageTitle = nil
+            }
+            do {
+                let metadata = try await bridge.startOnDevicePairing(replacing: reviewedFingerprint) { progress in
+                    Task { @MainActor [weak self] in
+                        self?.stageTitle = progress.stage
+                        self?.hostPairingPIN = progress.pin
+                    }
+                }
+                try Task.checkCancellation()
+                try await self.reloadRecord()
+                self.hostPairingPIN = nil
+                record.context?.confirmationReason = "on-device-pairing-record-stored"
+                self.message = .localized("Pairing record stored securely (%@). Verify the device and transport before trusting any device operation. No installation was started.", arguments: metadata.format.rawValue)
+                center.transition(record, to: .completed)
+            } catch {
+                self.hostPairingPIN = nil
+                let cancelled = error is CancellationError || (error as? DeviceTransportError) == .operationCancelled || (error as? PairingHostSessionError) == .cancelled
+                self.message = self.safeDescription(error)
+                record.context?.recordFailure(error)
+                center.transition(record, to: cancelled ? .cancelled : .failed, error: self.message)
+            }
+        }
+    }
+
+    func cancelOnDevicePairing() {
+        hostPairingBridge?.cancel()
+        operation?.cancel()
+    }
+
     func cancelQuery() {
         guard isQuerying else { return }
         operation?.cancel()
@@ -175,7 +239,7 @@ final class DeviceBootstrapModel: ObservableObject {
         inventorySummary = nil
     }
 
-    func leaveScreen() { cancelQuery(); verifiedDeviceSummary = nil; inventorySummary = nil }
+    func leaveScreen() { cancelOnDevicePairing(); cancelQuery(); verifiedDeviceSummary = nil; inventorySummary = nil }
 
     private func perform(title: String, reason: String, querying: Bool = false,
                          work: @escaping () async throws -> Void) {
@@ -252,6 +316,7 @@ final class DeviceBootstrapModel: ObservableObject {
     private func safeDescription(_ error: Error) -> String {
         if let error = error as? DeviceTransportError { return error.localizedDescription }
         if let error = error as? PairingRecordError { return error.localizedDescription }
+        if let error = error as? PairingHostSessionError { return error.localizedDescription }
         if error is CancellationError { return DeviceTransportError.operationCancelled.localizedDescription }
         return .localized("Pairing storage could not complete this action. Unlock the device and review the current record before retrying. No device success is claimed.")
     }

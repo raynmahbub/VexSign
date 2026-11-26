@@ -110,6 +110,14 @@ public final class HeartbeatManager {
         }
     }
 
+    @discardableResult
+    public func installPairingRecordData(_ data: Data, replacing expectedSHA256: String? = nil) async throws -> PairingRecordMetadata {
+        try await serialized { cancellation in
+            try DeviceServiceSession.check(cancellation)
+            return try PairingFileStorage.install(data, at: URL(fileURLWithPath: Self.pairingFile()), replacing: expectedSHA256)
+        }
+    }
+
     public func deletePairingRecord(expectedSHA256: String) async throws {
         try await serialized { _ in
             try PairingFileStorage.remove(at: URL(fileURLWithPath: Self.pairingFile()), expectedSHA256: expectedSHA256)

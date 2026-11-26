@@ -7,12 +7,14 @@ on:
     paths:
       - 'Packages/DeviceBridge/**'
       - 'Packages/Vendor/IDeviceKitten/**'
+      - 'Tools/Bootstrap/**'
       - '.github/workflows/device-bridge.yml'
   pull_request:
     branches: [main]
     paths:
       - 'Packages/DeviceBridge/**'
       - 'Packages/Vendor/IDeviceKitten/**'
+      - 'Tools/Bootstrap/**'
       - '.github/workflows/device-bridge.yml'
   workflow_dispatch:
 
@@ -37,6 +39,8 @@ jobs:
           persist-credentials: false
       - name: Offline source-boundary regressions
         run: python3 Packages/DeviceBridge/test_prepare.py
+      - name: Bootstrap validation tests
+        run: python3 -m unittest discover -s Tools/Bootstrap/tests -p 'test_*.py'
       - name: Pinned Rust toolchain
         run: rustup toolchain install 1.94.0 --profile minimal
       - name: Restore locked native downloads

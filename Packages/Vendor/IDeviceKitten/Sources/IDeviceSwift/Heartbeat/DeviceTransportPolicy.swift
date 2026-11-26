@@ -30,10 +30,10 @@ public struct DeviceOSVersion: Equatable, Comparable, Sendable {
 }
 
 public enum DevicePairingRoute: String, Equatable, Sendable {
-    case unsupported, importedClassic, importedRemoteRequired, hostDependencyRequired, unknownOS
+    case unsupported, importedClassic, importedRemoteRequired, hostDependencyRequired, onDeviceHostPairing, unknownOS
     public static func resolve(_ version: DeviceOSVersion) -> Self {
         guard version >= .init(major: 17, minor: 4) else { return .unsupported }
-        if version >= .init(major: 27, minor: 0) { return .hostDependencyRequired }
+        if version >= .init(major: 27, minor: 0) { return .onDeviceHostPairing }
         if version >= .init(major: 26, minor: 8) { return .unknownOS }
         if version >= .init(major: 26, minor: 4) { return .importedRemoteRequired }
         return .importedClassic
@@ -49,7 +49,7 @@ public enum DeviceConnectionStage: String, Equatable, Sendable {
 /// protocol errors can embed plists, pairing identifiers or authentication material.
 public enum DeviceTransportError: Error, Equatable, LocalizedError {
     case consentRequired, unsupportedOS, unknownOS, simulator, remoteRecordRequired
-    case remoteBridgeUnavailable, hostUnavailable, expectedDeviceRequired, wrongDevice
+    case remoteBridgeUnavailable, hostUnavailable, onDeviceHostPairingRequired, expectedDeviceRequired, wrongDevice
     case invalidPeer, permissionDenied, connectionRefused, transportTimeout, transportUnavailable
     case nativeFailure(stage: DeviceConnectionStage, code: Int32)
     case invalidDeviceResponse, serviceUnavailable(String), operationCancelled, operationBusy, operationTimedOut
@@ -64,6 +64,7 @@ public enum DeviceTransportError: Error, Equatable, LocalizedError {
         case .remoteRecordRequired: return "iOS 26.4 and later require a compatible Remote Pairing record for this loopback route. A classic lockdown record is not equivalent. A computer may be required to generate the remote record."
         case .remoteBridgeUnavailable: return "The record is Remote Pairing, but the pinned device library has no accepted modern on-device loopback bridge. The record is preserved; use a compatible companion. Do not repeatedly re-pair to fix this dependency limitation."
         case .hostUnavailable: return "On-device RPPairing hosting is unavailable in the pinned library. No service or PIN was advertised. Import a compatible remote record and use an eligible companion."
+        case .onDeviceHostPairingRequired: return "This iOS version requires the on-device RPPairing host bootstrap flow. Start pairing from the bootstrap guide; a classic lockdown session cannot be used for this route."
         case .expectedDeviceRequired: return "Select the intended device UDID before connecting. A remote host identifier is not a device UDID."
         case .wrongDevice: return "The device did not match the selected identity. No device operation was authorized. Select the correct device or import its pairing record."
         case .invalidPeer: return "Use the VPN peer's Device IP, not this iPhone's interface, Wi-Fi, or localhost address. The usual LocalDevVPN peer is 10.7.0.1, not 10.7.1.1."
@@ -120,11 +121,25 @@ public enum DeviceTransportPolicy {
         case .unsupported: throw DeviceTransportError.unsupportedOS
         case .unknownOS: throw DeviceTransportError.unknownOS
         case .hostDependencyRequired: throw DeviceTransportError.hostUnavailable
+        case .onDeviceHostPairing: throw DeviceTransportError.onDeviceHostPairingRequired
         case .importedRemoteRequired:
             guard format.containsRemotePairing else { throw DeviceTransportError.remoteRecordRequired }
             throw DeviceTransportError.remoteBridgeUnavailable
         case .importedClassic:
             guard format.containsLockdown else { throw DeviceTransportError.remoteBridgeUnavailable }
+        }
+    }
+
+    /// iOS 27+ on-device bootstrap: the device pairs through a local RPPairing host.
+    /// This route is for creating a new pairing; it does not silently trust imported records.
+    public static func requireOnDeviceHostPairingRoute(version: DeviceOSVersion) throws {
+        switch DevicePairingRoute.resolve(version) {
+        case .unsupported: throw DeviceTransportError.unsupportedOS
+        case .unknownOS: throw DeviceTransportError.unknownOS
+        case .onDeviceHostPairing: return
+        case .hostDependencyRequired: throw DeviceTransportError.hostUnavailable
+        case .importedClassic, .importedRemoteRequired:
+            throw DeviceTransportError.hostUnavailable
         }
     }
 }

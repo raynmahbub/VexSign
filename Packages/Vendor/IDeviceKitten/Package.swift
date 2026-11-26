@@ -1,5 +1,18 @@
 // swift-tools-version: 5.9
+import Foundation
 import PackageDescription
+
+let packageRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
+let localXCFrameworkPath = packageRoot + "/.build/ModernDevice/IDevice.xcframework"
+let localXCFrameworkExists = FileManager.default.fileExists(atPath: localXCFrameworkPath)
+
+let ideviceTarget: Target = localXCFrameworkExists
+	? .binaryTarget(name: "IDevice", path: ".build/ModernDevice/IDevice.xcframework")
+	: .binaryTarget(
+		name: "IDevice",
+		url: "https://github.com/jkcoxson/idevice/releases/download/v0.1.57/IDevice.xcframework.zip",
+		checksum: "40cd5c769b60d1879a96c9caa27666037f9d5321844addec40ae99727b142d10"
+	)
 
 let package = Package(
 	name: "IDeviceKit",
@@ -18,11 +31,7 @@ let package = Package(
 		),
 	],
 	targets: [
-		.binaryTarget(
-			name: "IDevice",
-			url: "https://github.com/jkcoxson/idevice/releases/download/v0.1.57/IDevice.xcframework.zip",
-			checksum: "40cd5c769b60d1879a96c9caa27666037f9d5321844addec40ae99727b142d10"
-		),
+		ideviceTarget,
 		.target(
 			name: "IDeviceSwift",
 			dependencies: ["IDevice"]
