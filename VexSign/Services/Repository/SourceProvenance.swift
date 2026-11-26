@@ -113,20 +113,21 @@ enum SourceProvenanceVerifier {
 		)
 	}
 
-	/// Does the document even mention the member? A byte search is enough, and it keeps the common
-	/// case — every unsigned repository in existence — from parsing a multi-megabyte feed just to
-	/// find out there is nothing to verify. That matters because this runs on every refresh, on the
-	/// thread moved the decode to.
-	static func claimsSignature(_ document: Data) -> Bool {
-		document.range(of: Data("\"\(fieldName)\"".utf8)) != nil
-	}
+	/// Inspect the parsed root object, rather than searching raw bytes: JSON keys
+    /// may contain Unicode escapes, and a nested or string occurrence is not a claim.
+    static func claimsSignature(_ document: Data) -> Bool {
+        guard let object = try? JSONSerialization.jsonObject(with: document), // try? ok: non-JSON has no root signature member
+              let root = object as? [String: Any] else { return false }
+        return root.keys.contains(fieldName)
+    }
 
-	static func evaluate(_ document: Data) -> SourceProvenance {
-		guard claimsSignature(document), let claimed = signature(in: document) else {
-			return .unsigned
-		}
-		return verify(claimed, in: document)
-	}
+    static func evaluate(_ document: Data) -> SourceProvenance {
+        guard claimsSignature(document) else { return .unsigned }
+        guard let claimed = signature(in: document) else {
+            return .claimedButInvalid(reason: .localized("This source has a malformed signature declaration."))
+        }
+        return verify(claimed, in: document)
+    }
 
 	static func verify(_ claimed: SourceSignature, in document: Data) -> SourceProvenance {
 		guard claimed.algorithm.lowercased() == "ed25519" else {
@@ -170,12 +171,17 @@ enum SourceProvenanceVerifier {
 /// on every refresh, and a stale label can only ever be too generous for one refresh.
 enum SourceProvenanceStore {
 	private static let key = "VexSign.sourceProvenance"
+    // Refreshes run concurrently. Serialize the entire read-modify-write, not
+    // just UserDefaults access, so one source cannot erase another's verdict.
+    private static let lock = NSLock()
 
 	private static func load() -> [String: String] {
 		UserDefaults.standard.dictionary(forKey: key) as? [String: String] ?? [:]
 	}
 
 	static func record(_ provenance: SourceProvenance, for url: URL) {
+        lock.lock()
+        defer { lock.unlock() }
 		var stored = load()
 		let previous = stored[url.absoluteString]
 
@@ -194,6 +200,8 @@ enum SourceProvenanceStore {
 	}
 
 	static func provenance(for url: URL) -> SourceProvenance? {
+        lock.lock()
+        defer { lock.unlock() }
 		switch load()[url.absoluteString] {
 		case .none:
 			return nil
@@ -209,6 +217,8 @@ enum SourceProvenanceStore {
 	}
 
 	static func clear() {
+        lock.lock()
+        defer { lock.unlock() }
 		UserDefaults.standard.removeObject(forKey: key)
 	}
 }

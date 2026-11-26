@@ -324,12 +324,14 @@ extension DownloadManager {
 			return
 		}
 
-		let completedNames = completedDownloadNames.isEmpty
-			? activity.content.state.appNames
-			: completedDownloadNames.map { truncateAppName($0) }
-
-		// Keep the original total so the banner reads X/X.
-		let totalCount = activity.content.state.totalDownloads
+        // A finished transfer is not necessarily a successful import. Never
+        // manufacture a completion banner from names of failed or cancelled rows.
+        guard !completedDownloadNames.isEmpty else {
+            dismissLiveActivityImmediately()
+            return
+        }
+        let completedNames = completedDownloadNames.map { truncateAppName($0) }
+        let totalCount = completedNames.count
 
 		let completionState = DownloadActivityAttributes.ContentState(
 			currentDownload: totalCount,

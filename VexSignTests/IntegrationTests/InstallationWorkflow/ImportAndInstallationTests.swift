@@ -4,6 +4,33 @@ import IDeviceSwift
 @testable import VexSign
 
 final class ImportAndInstallationTests: XCTestCase {
+    func testOTAOnlyFinishesDeliveryAfterAllSuccessfulRanges() {
+        var coverage = OTAPayloadCoverage()
+        XCTAssertFalse(coverage.recordSuccessfulResponse(rangeHeader: "bytes=50-99", fileSize: 100))
+        XCTAssertEqual(coverage.fractionDelivered, 0.5, accuracy: 0.0001)
+        XCTAssertFalse(coverage.recordSuccessfulResponse(rangeHeader: "bytes=50-99", fileSize: 100))
+        XCTAssertEqual(coverage.fractionDelivered, 0.5, accuracy: 0.0001)
+        XCTAssertFalse(coverage.recordSuccessfulResponse(rangeHeader: "bytes=0-24", fileSize: 100))
+        XCTAssertEqual(coverage.fractionDelivered, 0.75, accuracy: 0.0001)
+        XCTAssertTrue(coverage.recordSuccessfulResponse(rangeHeader: "bytes=20-49", fileSize: 100))
+        XCTAssertEqual(coverage.fractionDelivered, 1, accuracy: 0.0001)
+        XCTAssertFalse(coverage.recordSuccessfulResponse(rangeHeader: nil, fileSize: 100))
+    }
+
+    func testOTAFullAndSuffixRangesAndInvalidHeaders() {
+        var full = OTAPayloadCoverage()
+        XCTAssertTrue(full.recordSuccessfulResponse(rangeHeader: nil, fileSize: 100))
+        var ranges = OTAPayloadCoverage()
+        for header in ["bytes=0-100", "bytes=0-1,3-4", "bytes=-0", "bytes=99-2", "bytes=9223372036854775807-", "items=0-99"] {
+            XCTAssertFalse(ranges.recordSuccessfulResponse(rangeHeader: header, fileSize: 100), header)
+        }
+        XCTAssertFalse(ranges.recordSuccessfulResponse(rangeHeader: "bytes=-40", fileSize: 100))
+        XCTAssertFalse(ranges.recordSuccessfulResponse(rangeHeader: "bytes=0-59", fileSize: 101))
+        XCTAssertTrue(ranges.recordSuccessfulResponse(rangeHeader: "bytes=0-59", fileSize: 100))
+        var openEnded = OTAPayloadCoverage()
+        XCTAssertTrue(openEnded.recordSuccessfulResponse(rangeHeader: "bytes=0-", fileSize: 100))
+    }
+
     func testRealIPAWithExplicitPayloadDirectoryEntries() throws {
         let manager = FileManager.default
         let root = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)

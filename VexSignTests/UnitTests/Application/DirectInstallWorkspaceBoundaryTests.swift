@@ -20,6 +20,8 @@ final class DirectInstallWorkspaceBoundaryTests: XCTestCase {
     @MainActor
     private final class Transfers: SecureTransferProviding {
         var packages: [URL] = []
+        var releasedPackages: [URL] = []
+        func releaseValidatedPackage(_ url: URL) { releasedPackages.append(url) }
         func downloadValidatedPackage(from url: URL, workLabel: String, maximumBytes: Int64) async throws -> URL {
             packages.append(url)
             return URL(fileURLWithPath: "/fixture/package.ipa")
@@ -132,6 +134,17 @@ final class DirectInstallWorkspaceBoundaryTests: XCTestCase {
         }
     }
 
+    func testTransferReleaseCannotDeleteAnUnownedFile() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) } // try? ok: test teardown
+        let file = directory.appendingPathComponent("unowned.ipa")
+        try Data("keep".utf8).write(to: file)
+        let adapter = NetworkTransferAdapter(securityPolicy: Policy())
+        adapter.releaseValidatedPackage(file)
+        XCTAssertEqual(try Data(contentsOf: file), Data("keep".utf8))
+    }
+
     func testConcurrentExecuteCannotRetireTheFirstWorkerOrReleaseItsLease() async throws {
         let fixture = Fixture()
         fixture.installation.suspendsImport = true
@@ -147,8 +160,10 @@ final class DirectInstallWorkspaceBoundaryTests: XCTestCase {
         XCTAssertEqual(fixture.installation.leases, 1)
         XCTAssertNotNil(fixture.installation.activeLease)
         XCTAssertTrue(fixture.installation.released.isEmpty)
+        XCTAssertTrue(fixture.transfers.releasedPackages.isEmpty, "The importer still owns the downloaded file")
         fixture.installation.completeImport()
         let result = try await first.value
+        XCTAssertEqual(fixture.transfers.releasedPackages, [URL(fileURLWithPath: "/fixture/package.ipa")])
         XCTAssertEqual(result, .needsIssueConfirmation(["Fixture warning"]))
         XCTAssertNil(fixture.installation.activeLease)
         XCTAssertEqual(try fixture.useCase.confirmPendingInstall(), .submittedForInstallation)
@@ -240,6 +255,7 @@ final class DirectInstallWorkspaceBoundaryTests: XCTestCase {
             } catch { XCTAssertTrue(error is CancellationError) }
             XCTAssertTrue(fixture.installation.submitted.isEmpty)
             XCTAssertEqual(fixture.transfers.packages.count, cancelledStatus == 1 ? 0 : 1)
+            XCTAssertEqual(fixture.transfers.releasedPackages.count, cancelledStatus == 1 ? 0 : 1)
             XCTAssertEqual(fixture.installation.imported.count, cancelledStatus == 3 ? 1 : 0)
             XCTAssertEqual(fixture.installation.released, fixture.installation.imported)
             XCTAssertNil(fixture.installation.activeLease)

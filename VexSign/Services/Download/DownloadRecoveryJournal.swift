@@ -18,6 +18,9 @@ struct DownloadRecoveryJournal {
         var libraryUUID: String? = nil
 
         var canReverify: Bool { stage == .verifying || stage == .awaitingDecision }
+        // An explicit fresh download must not overwrite evidence of an earlier
+        // commit or orphan a separately retained package.
+        var preservesRecordOnRetry: Bool { stage != .downloading || stagedName != nil || libraryUUID != nil }
     }
     let root: URL
 

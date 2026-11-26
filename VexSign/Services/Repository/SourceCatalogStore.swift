@@ -200,6 +200,7 @@ final class SourceCatalogStore: ObservableObject {
 		struct FetchItem {
 			let source: AltSource
 			let identifier: String
+            let configuredURL: URL
 			let url: URL
 			let headers: [String: String]
 			let isPremium: Bool
@@ -230,6 +231,7 @@ final class SourceCatalogStore: ObservableObject {
 			items.append(FetchItem(
 				source: source,
 				identifier: Self._id(for: source, fallbackURL: url),
+                configuredURL: url,
 				url: isGitHubReleaseSource ? url : VexSignAPI.catalogURL(for: url),
 				headers: headers,
 				isPremium: !isGitHubReleaseSource && VexSignAPI.isPremiumSource(url)
@@ -324,14 +326,20 @@ final class SourceCatalogStore: ObservableObject {
 			defer { SourceFeedSignposts.publish.endInterval("publish", signpost) }
 
 			let outcomes = Dictionary(
-				loaded.map { ($0.identifier, $0.outcome) },
+                loaded.map { ($0.identifier, $0) },
 				uniquingKeysWith: { _, latest in latest }
 			)
 
 			for item in batch {
-				guard !item.source.isDeleted, let outcome = outcomes[item.identifier] else { continue }
+                guard !item.source.isDeleted, item.source.sourceURL == item.configuredURL,
+                      let result = outcomes[item.identifier] else { continue }
+                // Only the winning generation may update the persistent badge.
+                // The worker itself must not publish a stale or deleted source.
+                if let provenance = result.provenance {
+                    SourceProvenanceStore.record(provenance, for: item.configuredURL)
+                }
 
-				switch outcome {
+                switch result.outcome {
 				case let .decoded(repository, payload):
 					successes += 1
 					var decoded = repository

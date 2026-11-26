@@ -4,7 +4,6 @@ import Foundation
 /// so deep-link handlers, direct installers, firmware browsers, and source flows
 /// enforce one uniform set of transport, scheme, and extension rules.
 struct SecurityPolicyGateway: SecurityPolicyValidating, Sendable {
-    private static let allowedPackageExtensions: Set<String> = ["ipa", "tipa"]
     private static let allowedTweakExtensions: Set<String> = ["dylib", "deb", "framework", "bundle", "zip"]
     /// Characters accepted in a callback scheme: RFC 3986's `ALPHA *( ALPHA / DIGIT / "+" / "-" /
     /// "." )` plus `_`.
@@ -62,7 +61,7 @@ struct SecurityPolicyGateway: SecurityPolicyValidating, Sendable {
     }
 
     func isAllowedPackageExtension(_ ext: String) -> Bool {
-        Self.allowedPackageExtensions.contains(ext.lowercased())
+        PackageArchiveType.pickerExtensions.contains(ext.lowercased())
     }
 
     func isAllowedTweakExtension(_ ext: String) -> Bool {

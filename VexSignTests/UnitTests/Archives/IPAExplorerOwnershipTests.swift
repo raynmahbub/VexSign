@@ -106,6 +106,30 @@ final class IPAExplorerOwnershipTests: XCTestCase {
         return try IPAWorkspace.open(recent: record)
     }
 
+    func testRecentArchiveRejectsAmbiguousApplicationBundles() throws {
+        let workspace = try archiveWorkspace(blockUndoStorage: false)
+        let journal = try XCTUnwrap(workspace.journal)
+        defer { try? FileManager.default.removeItem(at: journal.root) } // try? ok: test teardown only
+        let second = workspace.appURL.deletingLastPathComponent().appendingPathComponent("Other.app", isDirectory: true)
+        try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
+        let record = IPAWorkspaceRecord(id: workspace.id, name: "Fixture", date: Date(), isLibraryApp: false)
+        XCTAssertThrowsError(try IPAWorkspace.open(recent: record)) { error in
+            XCTAssertEqual(error as? IPAImportPayload.ValidationError, .multipleApps)
+        }
+    }
+
+    func testRecentArchiveDoesNotSearchOutsideAnEmptyPayload() throws {
+        let workspace = try archiveWorkspace(blockUndoStorage: false)
+        let journal = try XCTUnwrap(workspace.journal)
+        defer { try? FileManager.default.removeItem(at: journal.root) } // try? ok: test teardown only
+        try FileManager.default.removeItem(at: workspace.appURL)
+        try FileManager.default.createDirectory(at: workspace.containerURL.appendingPathComponent("Sideways.app"), withIntermediateDirectories: true)
+        let record = IPAWorkspaceRecord(id: workspace.id, name: "Fixture", date: Date(), isLibraryApp: false)
+        XCTAssertThrowsError(try IPAWorkspace.open(recent: record)) { error in
+            XCTAssertEqual(error as? IPAImportPayload.ValidationError, .missingApp)
+        }
+    }
+
     func testArchiveEditsAbortWhenUndoBackupCannotBeCreated() throws {
         let workspace = try archiveWorkspace(blockUndoStorage: true)
         let journal = try XCTUnwrap(workspace.journal)

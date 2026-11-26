@@ -60,11 +60,13 @@ final class InstallPreflightTests: XCTestCase {
 
 	// MARK: - idevice
 
-	func testPairingFilePresenceDoesNotProveDeviceConnectivity() {
-		guard case .unavailable = readiness(.idevice, pairing: true) else {
-			return XCTFail("A file cannot enable an unaccepted native inventory bridge")
-		}
-	}
+    func testPairingFileWithoutAcceptedInventoryIsUnavailable() {
+        let inputs = InstallPreflightInputs(pairing: .readable(udid: "00008120-001A2B3C4D5E6F70"),
+            osVersion: .init(major: 17, minor: 4), pairedInventoryAccepted: false)
+        guard case .unavailable = InstallPreflight.readiness(for: .idevice, inputs) else {
+            return XCTFail("A file cannot enable an unaccepted native inventory bridge")
+        }
+    }
 
     func testAcceptedInventoryFixtureStillDoesNotTurnAFileIntoTrust() {
         let inputs = InstallPreflightInputs(pairing: .readable(udid: "00008120-001A2B3C4D5E6F70"),
@@ -79,7 +81,58 @@ final class InstallPreflightTests: XCTestCase {
 			return XCTFail("expected a missing prerequisite")
 		}
 		XCTAssertTrue(message.localizedCaseInsensitiveContains("pairing"), message)
+        XCTAssertTrue(message.localizedCaseInsensitiveContains("classic"), message)
+        XCTAssertTrue(message.localizedCaseInsensitiveContains("verify"), message)
 	}
+
+    func testMissingPairingGuidanceUsesActualRouteAndDependencies() {
+        for version in [DeviceOSVersion(major: 17, minor: 3), .init(major: 26, minor: 4), .init(major: 26, minor: 8)] {
+            guard case .unavailable = InstallPreflight.readiness(for: .idevice, .init(osVersion: version)) else {
+                XCTFail("Unsupported route must not promise pairing: \(version)"); continue
+            }
+        }
+        let version = DeviceOSVersion(major: 27, minor: 0)
+        guard case .unavailable = InstallPreflight.readiness(for: .idevice,
+            .init(osVersion: version, pairedInventoryAccepted: true, onDeviceHostAvailable: false)) else {
+            return XCTFail("OS alone does not establish host availability")
+        }
+        guard case .unavailable = InstallPreflight.readiness(for: .idevice,
+            .init(osVersion: version, pairedInventoryAccepted: false, onDeviceHostAvailable: true)) else {
+            return XCTFail("Host alone does not establish an accepted installation bridge")
+        }
+        guard case .missing(let guidance) = InstallPreflight.readiness(for: .idevice,
+            .init(osVersion: version, pairedInventoryAccepted: true, onDeviceHostAvailable: true)) else {
+            return XCTFail("Expected setup guidance, not readiness")
+        }
+        for term in ["on-device", "PIN", "VPN", "consent", "verify"] {
+            XCTAssertTrue(guidance.localizedCaseInsensitiveContains(term), guidance)
+        }
+    }
+
+    func testOnDeviceRecordDoesNotBecomeTrustedOrBypassGates() {
+        let remote = DevicePairingState.validated(format: .remotePairing, deviceIdentifier: nil)
+        let version = DeviceOSVersion(major: 27, minor: 0)
+        let supported = InstallPreflightInputs(pairing: remote, osVersion: version,
+            pairedInventoryAccepted: true, onDeviceHostAvailable: true)
+        guard case .unknown = InstallPreflight.readiness(for: .idevice, supported) else {
+            return XCTFail("Remote record only permits a fresh session attempt")
+        }
+        var unavailable = supported
+        unavailable.onDeviceHostAvailable = false
+        guard case .unavailable = InstallPreflight.readiness(for: .idevice, unavailable) else {
+            return XCTFail("Missing host must remain unavailable")
+        }
+        unavailable = supported
+        unavailable.pairedInventoryAccepted = false
+        guard case .unavailable = InstallPreflight.readiness(for: .idevice, unavailable) else {
+            return XCTFail("Missing inventory bridge must remain unavailable")
+        }
+        unavailable = supported
+        unavailable.pairing = .readable(udid: "00008120-001A2B3C4D5E6F70")
+        guard case .unavailable = InstallPreflight.readiness(for: .idevice, unavailable) else {
+            return XCTFail("Classic record cannot open the on-device host route")
+        }
+    }
 
 	func testGuestRequiresProcessLocalRuntime() {
 		guard case .unavailable = readiness(.liveContainer) else {

@@ -92,7 +92,7 @@ final class HomeActionCoordinator {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     guard self.securityPolicy.isAllowedPackageExtension(url.pathExtension) else {
-                        self.platform.notifyError(.localized("Please drop an IPA or TIPA file."), sticky: true)
+                        self.platform.notifyError(.localized("Please drop an IPA, TIPA or ZIP file."), sticky: true)
                         return
                     }
                     self.enqueuePackage(url)

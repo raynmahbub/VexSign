@@ -71,6 +71,29 @@ final class SourceProvenanceTests: XCTestCase {
 		XCTAssertEqual(SourceProvenanceVerifier.evaluate(Data("not json".utf8)), .unsigned)
 	}
 
+    func testMalformedRootSignatureClaimsAreRejected() throws {
+        for value in [NSNull(), "signature", [String: String](), ["algorithm": "ed25519"]] as [Any] {
+            var object = document()
+            object["vexsign"] = value
+            let provenance = SourceProvenanceVerifier.evaluate(try data(object))
+            guard case .claimedButInvalid = provenance else { return XCTFail("Malformed claim must not be unsigned") }
+            XCTAssertFalse(provenance.isAcceptable)
+        }
+    }
+
+    func testEscapedRootSignatureKeyIsStillAClaim() {
+        let payload = Data(#"{"name":"Repo","vex\u0073ign":null}"#.utf8)
+        guard case .claimedButInvalid = SourceProvenanceVerifier.evaluate(payload) else {
+            return XCTFail("Escaped key must not bypass claim validation")
+        }
+    }
+
+    func testNestedSignatureKeyIsNotARootClaim() throws {
+        var object = document()
+        object["metadata"] = ["vexsign": "unrelated"]
+        XCTAssertEqual(SourceProvenanceVerifier.evaluate(try data(object)), .unsigned)
+    }
+
 	// MARK: - Verified
 
 	func testASignedDocumentVerifies() throws {

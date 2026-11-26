@@ -14,8 +14,12 @@ final class PairingHostBridge: @unchecked Sendable {
     private var session: PairingHostSession?
 
     static var isSupported: Bool {
+        #if targetEnvironment(simulator)
+        return false
+        #else
         if #available(iOS 27, *) { return DevicePairingRoute.resolve(.current) == .onDeviceHostPairing }
         return false
+        #endif
     }
 
     func cancel() {

@@ -38,8 +38,8 @@ extension DownloadManager {
 
     /// Only pre-commit phases can reuse input, and every reuse repeats integrity verification.
     func reverifyRecovery(_ record: DownloadRecoveryJournal.Record) {
-        guard record.canReverify, let recoveryJournal,
-              interruptedDownloads.contains(where: { $0.id == record.id }),
+        guard let record = interruptedDownloads.first(where: { $0.id == record.id }),
+              record.canReverify, let recoveryJournal,
               !downloads.contains(where: { $0.recoveryID == record.id }),
               let file = recoveryJournal.stagedFile(for: record, in: FileManager.default.downloadStaging) else { return }
         let download = Download(id: "VexSignManualDownload_" + UUID().uuidString,
@@ -63,6 +63,27 @@ extension DownloadManager {
         catch { recoveryWarning = error.localizedDescription }
     }
 
+    /// A failure after commit intent may include a successful database save followed by a
+    /// readback failure. Keep the durable record for review instead of implying rollback.
+    @discardableResult
+    func retainCommitRecoveryIfPresent(_ download: Download) -> Bool {
+        guard download.importLibraryUUID != nil, let recoveryJournal else { return false }
+        do {
+            guard let record = try recoveryJournal.load().first(where: {
+                $0.id == download.recoveryID && $0.libraryUUID != nil &&
+                    ($0.stage == .committing || $0.stage == .committed)
+            }) else { return false }
+            interruptedDownloads.removeAll { $0.id == record.id }
+            interruptedDownloads.append(record)
+            interruptedDownloads.sort { $0.updatedAt > $1.updatedAt }
+            return true
+        } catch {
+            // A journal read failure is not permission to erase the evidence.
+            recoveryWarning = error.localizedDescription
+            return true
+        }
+    }
+
     /// Forgetting never removes the retained IPA or claims that an interrupted import rolled back.
     func forgetRecovery(_ record: DownloadRecoveryJournal.Record) {
         guard let recoveryJournal else { return }
@@ -73,15 +94,18 @@ extension DownloadManager {
     }
 
     func retryRecoveryDownload(_ record: DownloadRecoveryJournal.Record) {
-        guard let url = record.sourceURL, interruptedDownloads.contains(where: { $0.id == record.id }) else { return }
+        guard let record = interruptedDownloads.first(where: { $0.id == record.id }),
+              let url = record.sourceURL,
+              !downloads.contains(where: { $0.url == url }) else { return }
         let resumeData: Data?
         do { resumeData = record.stage == .downloading ? try recoveryJournal?.resumeData(id: record.id, source: url) : nil }
         catch { recoveryWarning = error.localizedDescription; return }
+        let retryID = record.preservesRecordOnRetry ? UUID() : record.id
         let download = startDownload(from: url, appName: record.name, originURL: record.originURL,
                                      integrity: DownloadIntegrity.Expectation(byteCount: record.expectedBytes, sha256: record.expectedHash),
-                                     recoveryID: record.id, recoveredResumeData: resumeData)
+                                     recoveryID: retryID, recoveredResumeData: resumeData)
         // A policy block or a different live owner keeps the old recovery entry for explicit review.
-        guard downloads.contains(where: { $0 === download }), download.recoveryID == record.id else { return }
-        interruptedDownloads.removeAll { $0.id == record.id }
+        guard downloads.contains(where: { $0 === download }), download.recoveryID == retryID else { return }
+        if !record.preservesRecordOnRetry { interruptedDownloads.removeAll { $0.id == record.id } }
     }
 }

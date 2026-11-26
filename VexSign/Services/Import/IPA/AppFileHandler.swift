@@ -83,7 +83,10 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			// Preflight storage: fail clearly instead of mid-write on a huge IPA.
 			try _checkDiskSpace()
 
-			try _fileManager.copyItem(at: _ipa, to: destinationURL)
+            try Self.copyArchive(from: _ipa, to: destinationURL) {
+                try Task.checkCancellation()
+                try self._download?.importControl.checkpoint()
+            }
             _ipa = destinationURL
             try _download?.importControl.checkpoint()
             try Task.checkCancellation()
@@ -97,6 +100,32 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			throw _error(.copy, reason: error.localizedDescription, underlying: error)
 		}
 	}
+
+    /// The initial copy can be several gigabytes. Check the same controls as
+    /// extraction between bounded chunks; a cancelled worker is joined before
+    /// its owning import removes the temporary workspace.
+    static func copyArchive(from source: URL, to destination: URL, checkpoint: () throws -> Void) throws {
+        try checkpoint()
+        let input = try FileHandle(forReadingFrom: source)
+        defer { try? input.close() } // try? ok: preserve the copy error during read-only cleanup
+        guard FileManager.default.createFile(atPath: destination.path, contents: nil) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        let output = try FileHandle(forWritingTo: destination)
+        defer { try? output.close() } // try? ok: preserve the copy error during cleanup
+        while true {
+            try checkpoint()
+            let finished = try autoreleasepool { () throws -> Bool in
+                let chunk = try input.read(upToCount: 1024 * 1024) ?? Data()
+                guard !chunk.isEmpty else { return true }
+                try output.write(contentsOf: chunk)
+                return false
+            }
+            if finished { break }
+        }
+        try checkpoint()
+        try output.close()
+    }
 
 	/// Rejects a container this app cannot unpack, before copying it into the
 	/// workspace and before extraction fails with an unrelated message.

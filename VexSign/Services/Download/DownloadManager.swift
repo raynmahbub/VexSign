@@ -560,15 +560,20 @@ class DownloadManager: NSObject, ObservableObject {
 		}
 
         if let existingDownload = downloads.first(where: { $0.url == url }) {
-            // Same URL: keep the row, but take the promise this call was given (a later source
-            // fetch may know a size the first one did not).
-            if let integrity, !existingDownload.isVerifying, !existingDownload.isImporting, !existingDownload.isSigning {
+            // A duplicate must not erase or replace an active transfer's
+            // existing integrity promise. It may fill in an entirely missing one.
+            let canUpdate = !existingDownload.isVerifying && !existingDownload.isImporting && !existingDownload.isSigning
+            var changed = false
+            if canUpdate, let integrity, !integrity.isEmpty,
+               existingDownload.integrity?.isEmpty != false {
                 existingDownload.integrity = integrity
+                changed = true
             }
-            if existingDownload.originURL == nil, let originURL,
-               !existingDownload.isVerifying, !existingDownload.isImporting, !existingDownload.isSigning {
+            if canUpdate, existingDownload.originURL == nil, let originURL {
                 existingDownload.originURL = originURL
+                changed = true
             }
+            if changed { checkpointRecovery(existingDownload, stage: .downloading) }
             resumeDownload(existingDownload)
             return existingDownload
         }
@@ -628,14 +633,18 @@ class DownloadManager: NSObject, ObservableObject {
         ownImportRecovery(download)
 		download.isActive = true
 
-		DispatchQueue.main.async {
-			self.objectWillChange.send()
-			self.downloads.append(download)
-			self.beginImport(for: download)
-		}
+        // Register the row before launching its worker and acquire document-provider
+        // access while the caller still owns the picker URL. importPackage itself
+        // starts a detached worker; dispatching this call first loses that scope.
+        let register = {
+            self.objectWillChange.send()
+            self.downloads.append(download)
+            self.beginImport(for: download)
+        }
+        if Thread.isMainThread { register() }
+        else { DispatchQueue.main.sync(execute: register) }
 
-		DispatchQueue.global().async {
-			PackageImportService.importPackage(url, download: download) { result in
+        PackageImportService.importPackage(url, download: download) { result in
 				switch result {
                 case .failure(let error):
                     if error is CancellationError {
@@ -679,8 +688,7 @@ class DownloadManager: NSObject, ObservableObject {
                         }
 					}
 				}
-			}
-		}
+        }
 
 		return download
 	}

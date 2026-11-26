@@ -52,6 +52,15 @@ final class LibraryWorkspaceBoundaryTests: XCTestCase {
         XCTAssertEqual(repository.deleted.first?.map(\.isSigned), [false, true])
     }
 
+    func testHomeDropPolicyMatchesPackagePickerExtensions() {
+        let policy = SecurityPolicyGateway()
+        for ext in PackageArchiveType.pickerExtensions {
+            XCTAssertTrue(policy.isAllowedPackageExtension(ext.uppercased()))
+        }
+        XCTAssertFalse(policy.isAllowedPackageExtension("p12"))
+        XCTAssertFalse(policy.isAllowedPackageExtension("tgz"))
+    }
+
     func testImportRejectsNetworkURLsAndNonPackagesBeforeStartingTheOwner() async throws {
         let repository = Repository()
         let useCase = LibraryUseCase(repository: repository, cloning: Cloner())
@@ -60,8 +69,8 @@ final class LibraryWorkspaceBoundaryTests: XCTestCase {
             catch { XCTAssertEqual(error as? WorkspaceAccessError, .invalidReference) }
         }
         XCTAssertTrue(repository.imports.isEmpty)
-        let url = URL(fileURLWithPath: "/fixture/App.TIPA")
-        _ = try await useCase.importPackage(url)
-        XCTAssertEqual(repository.imports, [url])
+        let urls = ["App.ipa", "App.TIPA", "App.ZIP"].map { URL(fileURLWithPath: "/fixture/" + $0) }
+        for url in urls { _ = try await useCase.importPackage(url) }
+        XCTAssertEqual(repository.imports, urls)
     }
 }

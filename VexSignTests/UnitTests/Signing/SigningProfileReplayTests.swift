@@ -39,6 +39,17 @@ final class SigningProfileReplayTests: XCTestCase {
 		)
 	}
 
+    func testRepeatInstallPinsIdentityWithoutChangingOrdinaryReplay() {
+        var options = Options.defaultOptions
+        options.automaticallyResolveSigningIdentity = true
+        XCTAssertEqual(AutoSignManager.optionsForRun(options, repeatInstall: false), options)
+        let repeatOptions = AutoSignManager.optionsForRun(options, repeatInstall: true)
+        XCTAssertEqual(repeatOptions.automaticallyResolveSigningIdentity, false)
+        var expected = options
+        expected.automaticallyResolveSigningIdentity = false
+        XCTAssertEqual(repeatOptions, expected)
+    }
+
 	// MARK: - Replay
 
 	func testAProfileWithoutOneShotFilesIsReplayedUnchanged() {

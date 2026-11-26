@@ -68,10 +68,15 @@ enum InstallationSessionProjection {
                       taskPhase: UnifiedTaskPhase? = nil) throws -> InstallationSessionState {
         let presentation = InstallPresentation.resolve(status: installer.viewModel.status, phase: installer.installationPhase,
             taskPhase: taskPhase, isExport: installer.isExport)
+        // OTA delivery is one phase of the operation, never the installation
+        // verdict. Export and guest routes retain their existing presentation.
+        let overall = installer.installationMethodCode == "OTA"
+            ? (installer.viewModel.packageProgress + installer.viewModel.uploadProgress + installer.viewModel.installProgress) / 3
+            : installer.viewModel.overallProgress
         return InstallationSessionState(app: try repository.appRecord(installer.app), presentation: presentation,
-            overallProgress: installer.viewModel.overallProgress,
+            overallProgress: overall,
             displayedPercentage: InstallerStatusViewModel.displayedPercentage(phase: installer.installationPhase,
-                overall: installer.viewModel.overallProgress, isCompleted: presentation == .installed || presentation == .operationCompleted),
+                overall: overall, isCompleted: presentation == .installed || presentation == .operationCompleted),
             verificationAttempt: installer.verificationAttempt, hasHandedOffInstall: installer.hasHandedOffInstall,
             isExport: installer.isExport, fallbackPageURL: installer.fallbackPageURL,
             isPresentingFallbackPage: installer.isPresentingFallbackPage)

@@ -41,7 +41,7 @@ enum IPAExtractor {
             }
         }
         try check()
-        try ArchiveSafetyValidator.validate(source, destination: root)
+        try ArchiveSafetyValidator.validate(source, destination: root, checkpoint: check)
         let archive = try Archive(url: source, accessMode: .read)
         let manager = FileManager.default
         try manager.createDirectory(at: root, withIntermediateDirectories: true)

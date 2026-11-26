@@ -82,7 +82,7 @@ enum DevicePresence: Equatable, Sendable {
 	var detail: String {
 		switch self {
 		case .disconnected:
-			.localized("No pairing record and no session. Connect the device, trust this computer, and import the pairing file in Settings → Installation.")
+			.localized("No session is confirmed. Open the Tunnel screen to set up a compatible pairing record and verify the selected device.")
 		case .discovering:
 			.localized("VexSign can see a pairing record naming this device. It cannot observe the cable from inside the sandbox, so this is not proof the device is reachable right now.")
 		case .discovered:
@@ -154,7 +154,7 @@ enum DevicePairingState: Equatable, Sendable {
 	var detail: String {
 		switch self {
 		case .absent:
-			.localized("Import a .mobiledevicepairing file in Settings → Installation → Pairing file, and keep the pairing VPN running.")
+			.localized("Open the Tunnel screen to import a compatible pairing record or start on-device pairing on supported devices. Configure the VPN and verify the selected device.")
 		case .unreadable:
 			.localized("The pairing file cannot be parsed as a property list. It may be truncated or the wrong file; import the pairing plist again.")
 		case .oversized:
@@ -380,6 +380,22 @@ struct DeviceCapabilityContext: Equatable, Sendable {
 	var companionAvailable = false
     var osVersion: DeviceOSVersion = .current
     var inventoryBridgeAvailable = InstallationAppProxy.hasAcceptedInventoryBridge
+    var onDeviceHostAvailable = PairingHostBridge.isSupported
+}
+
+/// Mirrors the routes that DeviceServiceSession.open can actually attempt.
+/// Passing this check never establishes consent, reachability or device trust.
+enum PairingRouteAdmission {
+    static func requireSessionRoute(format: PairingRecordFormat, version: DeviceOSVersion,
+                                    onDeviceHostAvailable: Bool) throws {
+        if DevicePairingRoute.resolve(version) == .onDeviceHostPairing {
+            try DeviceTransportPolicy.requireOnDeviceHostPairingRoute(version: version)
+            guard onDeviceHostAvailable else { throw DeviceTransportError.hostUnavailable }
+            guard format.containsRemotePairing else { throw DeviceTransportError.remoteRecordRequired }
+        } else {
+            try DeviceTransportPolicy.requireClassicRoute(format: format, version: version)
+        }
+    }
 }
 
 enum DeviceCapabilityResolver {
@@ -396,12 +412,17 @@ enum DeviceCapabilityResolver {
 	/// rides on.
 	private static func pairedInstall(in context: DeviceCapabilityContext) -> DeviceCapability {
 		switch context.pairing {
-		case .absent:
-			return .init(
-				operation: .pairedInstall,
-				status: .requiresUserAction,
-				detail: .localized("Import a pairing file in Settings → Installation. Without one there is no session to install over.")
-			)
+        case .absent:
+            let readiness = InstallPreflight.readiness(for: .idevice,
+                .init(pairing: .absent, osVersion: context.osVersion,
+                      pairedInventoryAccepted: context.inventoryBridgeAvailable,
+                      onDeviceHostAvailable: context.onDeviceHostAvailable))
+            switch readiness {
+            case .missing(let detail): return .init(operation: .pairedInstall, status: .requiresUserAction, detail: detail)
+            case .unavailable(let detail): return .init(operation: .pairedInstall, status: .unsupported, detail: detail)
+            case .ready, .unknown:
+                return .init(operation: .pairedInstall, status: .unknown, detail: context.pairing.detail)
+            }
 		case .unreadable, .oversized:
 			return .init(
 				operation: .pairedInstall,
@@ -419,7 +440,7 @@ enum DeviceCapabilityResolver {
 		}
 
         if let format = context.pairing.format {
-            do { try DeviceTransportPolicy.requireClassicRoute(format: format, version: context.osVersion) }
+            do { try PairingRouteAdmission.requireSessionRoute(format: format, version: context.osVersion, onDeviceHostAvailable: context.onDeviceHostAvailable) }
             catch { return .init(operation: .pairedInstall, status: .unsupported, detail: error.localizedDescription) }
         }
         guard context.inventoryBridgeAvailable else {

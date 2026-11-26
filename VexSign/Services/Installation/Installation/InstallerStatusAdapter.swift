@@ -41,6 +41,12 @@ extension InstallerStatusViewModel {
     @MainActor
     func updateTransportStatus(_ status: InstallerStatus) {
         guard !isCompleted else { return }
+        if case .installing = self.status {
+            switch status {
+            case .ready, .sendingManifest, .sendingPayload, .none: return
+            default: break
+            }
+        }
         self.status = status
     }
 

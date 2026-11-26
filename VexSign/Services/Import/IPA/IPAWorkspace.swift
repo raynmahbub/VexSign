@@ -185,10 +185,9 @@ final class IPAWorkspace: ObservableObject, Identifiable {
             try Task.checkCancellation()
 			try? fileManager.removeItem(at: localCopy) // try? ok: best-effort workspace cleanup
 
-			guard let appURL = findApp(in: destination) else {
-				try? fileManager.removeItem(at: workspaceRoot) // try? ok: best-effort workspace cleanup
-				throw IPAWorkspaceError.appNotFound
-			}
+            // Match the library importer's payload selection. A multi-app archive
+            // must not choose whichever directory enumeration happens to return first.
+            let appURL = try findApp(in: destination)
 
 			let workspace = IPAWorkspace(
 				id: id,
@@ -215,9 +214,8 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 	/// Opens a workspace that is already on disk (a recent one).
 	static func open(recent record: IPAWorkspaceRecord) throws -> IPAWorkspace {
 		let container = record.url.appendingPathComponent("Extracted", isDirectory: true)
-		guard let appURL = findApp(in: container), let metadata = metadata(at: record.url) else {
-			throw IPAWorkspaceError.appNotFound
-		}
+        guard let metadata = metadata(at: record.url) else { throw IPAWorkspaceError.appNotFound }
+        let appURL = try findApp(in: container)
 
 		return IPAWorkspace(
 			id: record.id,
@@ -576,31 +574,13 @@ final class IPAWorkspace: ObservableObject, Identifiable {
         if FileManager.default.fileExists(atPath: root.path) { try FileManager.default.removeItem(at: root) }
 	}
 
-	private static func findApp(in directory: URL) -> URL? {
-		let fileManager = FileManager.default
-
-		func firstApp(_ url: URL) -> URL? {
-			let contents = (try? fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])) ?? [] // try? ok: best-effort app-bundle discovery
-			return contents.first { $0.pathExtension.lowercased() == "app" && (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true } // try? ok: best-effort app-bundle discovery
-		}
-
-		let payload = directory.appendingPathComponent("Payload", isDirectory: true)
-		if let app = firstApp(payload) { return app }
-		if let app = firstApp(directory) { return app }
-
-		// Fall back to a shallow search — some archives nest the payload a level down.
-		guard let enumerator = fileManager.enumerator(at: directory, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else {
-			return nil
-		}
-
-		for case let url as URL in enumerator where url.pathExtension.lowercased() == "app" {
-			if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true { // try? ok: best-effort directory probe
-				return url
-			}
-		}
-
-		return nil
-	}
+	private static func findApp(in directory: URL) throws -> URL {
+        let payload = directory.appendingPathComponent("Payload", isDirectory: true)
+        // Existing Payload is authoritative, including when empty. This is the
+        // same selection policy used before a library import moves an app.
+        let searchRoot = FileManager.default.fileExists(atPath: payload.path) ? payload : directory
+        return try IPAImportPayload.application(in: searchRoot)
+    }
 
 	private static func unzip(_ archive: URL, to destination: URL) async throws {
         let worker = Task.detached(priority: .userInitiated) {

@@ -129,7 +129,7 @@ struct TunnelView: View {
             } header: {
                 Text(.localized("5 · Fresh read-only authorization check"))
             } footer: {
-                Text(.localized("The 30-second deadline bounds this screen's wait, not the native FFI call. A blocked worker keeps exclusive ownership until it actually retires. New operations are refused, not run concurrently. Modern remote routes and simulators remain blocked."))
+                Text(.localized("The 30-second deadline bounds this screen's wait, not the native FFI call. A blocked worker keeps exclusive ownership until it actually retires. New operations are refused, not run concurrently. Unsupported remote routes and simulators remain blocked; on-device host pairing requires a supported device and a fresh verification."))
               }
 
             Section {
