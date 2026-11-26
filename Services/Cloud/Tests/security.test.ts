@@ -53,3 +53,14 @@ test('contracts reject shell arguments, arbitrary signing paths, oversized batch
 test('missing signer fails instead of returning a simulated artifact', async () => {
   await assert.rejects(invokeSigner('/nonexistent-vexsign-test-engine', { protocolVersion: 1, kind: 'sign', directory: '/tmp', p12Path: '/tmp/a', provisionPath: '/tmp/b', outputPath: '/tmp/c', password: 'not-logged' }), /SIGNER_FAILED/);
 });
+
+test('mock signer speaks check-cert protocol but refuses signing', async () => {
+  const { fileURLToPath } = await import('node:url');
+  const executable = fileURLToPath(new URL('../Examples/mock-signer.mjs', import.meta.url));
+  const input = { protocolVersion: 1 as const, kind: 'check-cert' as const,
+    directory: process.cwd(), p12Path: 'unused', provisionPath: 'unused', outputPath: 'unused', password: 'test' };
+  const result = await invokeSigner(executable, input);
+  assert.equal(result.kind, 'check-cert');
+  if (result.kind === 'check-cert') assert.equal(result.certificate.status, 'unknown');
+  await assert.rejects(invokeSigner(executable, { ...input, kind: 'sign' }), /SIGNER_FAILED/);
+});

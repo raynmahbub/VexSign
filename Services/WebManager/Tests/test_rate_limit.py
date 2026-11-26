@@ -307,3 +307,18 @@ def test_public_source_is_never_throttled(client):
 
     assert client.get("/repo/source.json").status_code == 200
     assert client.get("/api/health").status_code == 200
+
+
+def test_expired_clients_release_capacity_without_resetting_active_budgets():
+    limiter = rate_limit.SlidingWindowLimiter(limit=1, window=10, max_clients=2)
+    assert limiter.retry_after("old", now=0) is None
+    assert limiter.retry_after("active", now=5) is None
+    # At the next sweep only the old bucket has fully expired.
+    assert limiter.retry_after("new", now=11) is None
+    assert "old" not in limiter._events
+    assert limiter.retry_after("active", now=11) == 4
+    assert limiter.retry_after("another", now=11) is None
+    assert limiter.retry_after("overflow-peer", now=11) == 10
+    # Once all budgets expire, clients get independent buckets again.
+    assert limiter.retry_after("next", now=22) is None
+    assert limiter.retry_after("next-two", now=22) is None

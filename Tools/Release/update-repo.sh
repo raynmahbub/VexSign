@@ -243,7 +243,7 @@ jq --arg tag "$tag" \
           title: ("VexSign " + $version),
           caption: $caption,
           tintColor: "C96FAD",
-          imageURL: "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
+          imageURL: "https://raw.githubusercontent.com/raynmahbub/VexSign/main/VexSign/Resources/icon.png",
           notify: true,
           url: $url } ]
       + [ (.news // [])[] | select(.identifier != ("vexsign-" + $version)) ]

@@ -100,6 +100,7 @@ class SlidingWindowLimiter:
         self.max_clients = max(1, int(max_clients))
         self._events: dict[str, deque[float]] = {}
         self._lock = threading.Lock()
+        self._next_prune = 0.0
 
     def retry_after(self, key: str, now: float | None = None) -> float | None:
         """None when the event is allowed (and recorded), else seconds to wait."""
@@ -108,6 +109,12 @@ class SlidingWindowLimiter:
         moment = time.monotonic() if now is None else now
         cutoff = moment - self.window
         with self._lock:
+            # Reclaim only fully expired budgets, never an active caller's history.
+            # Bound sweep frequency so a full table cannot force O(n) per request.
+            if moment >= self._next_prune:
+                self._events = {client: history for client, history in self._events.items()
+                                if history and history[-1] > cutoff}
+                self._next_prune = moment + self.window
             events = self._events.get(key)
             if events is None:
                 if len(self._events) >= self.max_clients:
@@ -130,6 +137,7 @@ class SlidingWindowLimiter:
     def reset(self) -> None:
         with self._lock:
             self._events.clear()
+            self._next_prune = 0.0
 
 
 def _trust_forwarded() -> bool:

@@ -6,10 +6,11 @@ import type { Infrastructure } from '../Storage/infrastructure.js';
 function id(index: number) { return `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`; }
 function fixture(count: number) {
   const ids = Array.from({ length: count }, (_, index) => id(index + 1));
-  const queue = new Map<string, 'waiting' | 'failed'>();
+  const queue = new Map<string, 'waiting' | 'failed' | 'completed'>();
   const added: string[] = []; const marked: string[] = []; const cursors: (string | null)[] = [];
   const resets: string[] = [];
   const running = new Set<string>();
+  const fresh = new Set<string>();
   let failNextAdd = false;
   const infra = {
     pool: { async query(sql: string, params: unknown[] = []) {
@@ -20,6 +21,7 @@ function fixture(count: number) {
           .map(value => ({ id: value, state: running.has(value) ? 'running' : 'queued' })) };
       }
       if (sql.startsWith('UPDATE jobs SET state=\'queued\'')) {
+        if (fresh.has(params[0] as string)) return { rows: [], rowCount: 0 };
         resets.push(params[0] as string); running.delete(params[0] as string);
         return { rows: [], rowCount: 1 };
       }
@@ -29,7 +31,7 @@ function fixture(count: number) {
     queue: {
       async getJob(key: string) {
         const state = queue.get(key);
-        return state ? { getState: async () => state } : undefined;
+        return state ? { getState: async () => state, remove: async () => { queue.delete(key); } } : undefined;
       },
       async add(_name: string, body: { id: string }, options: { jobId: string }) {
         if (failNextAdd) { failNextAdd = false; throw new Error('redis unavailable'); }
@@ -38,7 +40,7 @@ function fixture(count: number) {
       },
     },
   } as unknown as Infrastructure;
-  return { infra, ids, queue, added, marked, cursors, resets, running,
+  return { infra, ids, queue, added, marked, cursors, resets, running, fresh,
     failAdd: () => { failNextAdd = true; } };
 }
 
@@ -94,4 +96,19 @@ test('a queued job is never rewritten by the dispatcher', async () => {
   const f = fixture(2); const dispatcher = new PendingJobDispatcher();
   await dispatcher.dispatch(f.infra, async () => {});
   assert.deepEqual(f.resets, []);
+});
+
+test('fresh running claims are not republished even when Redis lost the delivery', async () => {
+  const f = fixture(1); f.running.add(f.ids[0]!); f.fresh.add(f.ids[0]!);
+  await new PendingJobDispatcher().dispatch(f.infra, async () => {});
+  assert.deepEqual(f.added, []);
+});
+test('completed no-op Redis delivery is replaced after the abandoned claim expires', async () => {
+  const f = fixture(1); f.running.add(f.ids[0]!); f.queue.set(f.ids[0]!, 'completed');
+  const dispatcher = new PendingJobDispatcher(); f.fresh.add(f.ids[0]!);
+  await dispatcher.dispatch(f.infra, async () => {});
+  assert.equal(f.queue.get(f.ids[0]!), 'completed');
+  f.fresh.clear(); await dispatcher.dispatch(f.infra, async () => {});
+  assert.equal(f.queue.get(f.ids[0]!), 'waiting');
+  assert.deepEqual(f.added, [f.ids[0]]);
 });

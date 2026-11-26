@@ -64,10 +64,6 @@ on:
 
       # Published root compatibility aliases: changes must run the alias gate.
       - 'app-repo.json'
-      - 'repos.json'
-      - 'icon.png'
-      - 'license_plist.yml'
-      - 'render.yaml'
       - 'Tools/Audit/**'
       - 'Tools/**'
       - 'VexSign/App/**'
@@ -116,10 +112,6 @@ on:
 
       # Published root compatibility aliases: changes must run the alias gate.
       - 'app-repo.json'
-      - 'repos.json'
-      - 'icon.png'
-      - 'license_plist.yml'
-      - 'render.yaml'
       - 'Tools/Audit/**'
       - 'Tools/**'
       - 'VexSign/App/**'

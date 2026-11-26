@@ -1,8 +1,8 @@
 import { Worker } from 'bullmq';
-import { loadConfig } from '../../Config/config.js';
+import { loadConfig } from '../../Configuration/config.js';
 import { infrastructure } from '../../Storage/infrastructure.js';
 import { PendingJobDispatcher } from '../JobQueue/dispatch.js';
-import { deliverWebhooks, failureCode, finish, processJob, pruneWebhooks, type WorkerDeps } from './processor.js';
+import { deliverWebhooks, failureCode, finish, processJob, pruneWebhooks, sweepInputs, sweepOutputs, type WorkerDeps } from './processor.js';
 
 /**
  * Process entrypoint only: build the dependencies, start the worker and the repair poll, shut down
@@ -14,7 +14,7 @@ import { deliverWebhooks, failureCode, finish, processJob, pruneWebhooks, type W
  * `Tools/Validation/architecture-rules/test_repository_layout.py`.
  */
 const config = loadConfig();
-const infra = infrastructure(config);
+const infra = infrastructure(config, 'worker');
 const deps: WorkerDeps = { config, infra, key: Buffer.from(config.ENCRYPTION_KEY, 'hex') };
 
 const worker = new Worker<{ id: string }>('vexsign-signing-v1', job => processJob(deps, job), {
@@ -37,6 +37,8 @@ async function dispatch() {
     await pendingDispatcher.dispatch(infra, id => finish(deps, id, 'failed', null, null, null));
     await deliverWebhooks(deps);
     await pruneWebhooks(deps);
+    await sweepInputs(deps);
+    await sweepOutputs(deps);
   } catch (error) {
     console.error(`Dispatch unavailable; retrying on next interval: ${failureCode(error)}`);
   } finally {
