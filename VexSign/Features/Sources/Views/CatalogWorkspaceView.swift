@@ -99,7 +99,7 @@ struct CatalogWorkspaceView: View {
                     editingSource = source
                 }
             }) { source in
-                CatalogSourceDetailView(source: source, model: model, onEdit: { pendingEditSource = $0 })
+                CatalogSourceDetailView(source: source, onEdit: { pendingEditSource = $0 }, model: model)
             }
             .sheet(item: $editingSource) { source in
                 CatalogSourceEditView(source: source, model: model)
