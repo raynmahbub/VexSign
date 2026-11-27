@@ -93,7 +93,7 @@ public final class PairingHostSession: @unchecked Sendable {
         }
         var host: OpaquePointer?
         var txtPtr: UnsafeMutablePointer<UInt8>?
-        var txtLen: Int = 0
+        var txtLen: UInt = 0
         let error = name.withCString { cName in
             vexsign_pairable_host_prepare(cName, &host, &txtPtr, &txtLen)
         }
@@ -107,7 +107,7 @@ public final class PairingHostSession: @unchecked Sendable {
             if let host { vexsign_pairable_host_free(host) }
             throw PairingHostSessionError.unsupported
         }
-        let txtData = Data(bytes: txtPtr, count: txtLen)
+        let txtData = Data(bytes: txtPtr, count: Int(txtLen))
         vexsign_device_bytes_free(txtPtr, txtLen)
         lock.lock()
         self.host = host
@@ -263,7 +263,7 @@ public final class PairingHostSession: @unchecked Sendable {
         defer { Unmanaged<PairingHostPINBox>.fromOpaque(context).release() }
 
         var outRecord: UnsafeMutablePointer<UInt8>?
-        var outLength: Int = 0
+        var outLength: UInt = 0
         let error = vexsign_pairable_host_accept_fd(host, fd, pairingHostPINTrampoline, context, cancelHandle, timeoutMilliseconds, &outRecord, &outLength)
         if let error {
             let code = error.pointee.code
@@ -272,7 +272,7 @@ public final class PairingHostSession: @unchecked Sendable {
             throw PairingHostSessionError.nativeFailure(code)
         }
         guard let outRecord, outLength > 0 else { throw PairingHostSessionError.invalidRecord }
-        let data = Data(bytes: outRecord, count: outLength)
+        let data = Data(bytes: outRecord, count: Int(outLength))
         vexsign_device_bytes_free(outRecord, outLength)
         return data
     }
