@@ -389,7 +389,7 @@ enum AppBundleInspector {
     }
 
     private static func iconFiles(in plist: [String: Any]) -> [String] {
-        var files = strings("CFBundleIconFiles")
+        var files = strings("CFBundleIconFiles", in: plist)
         if let single = string("CFBundleIconFile", in: plist) { files.append(single) }
         if let icons = plist["CFBundleIcons"] as? [String: Any],
            let primary = icons["CFBundlePrimaryIcon"] as? [String: Any] {

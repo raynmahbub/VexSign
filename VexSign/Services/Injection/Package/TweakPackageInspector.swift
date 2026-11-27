@@ -138,7 +138,7 @@ enum TweakPackageInspector {
             let entries = try _listFiles(in: dataRoot, fileManager: fileManager)
             guard entries.count <= maximumInstallPaths else { throw StrictTarExtractorError.tooManyEntries }
             let installPaths = entries.map { $0.path }
-            let dylibs = installPaths.filter { $0.pathExtension.lowercased() == "dylib" }
+            let dylibs = installPaths.filter { ($0 as NSString).pathExtension.lowercased() == "dylib" }
             let frameworkExecutables = entries.filter { entry in
                 guard entry.path.contains(".framework/") else { return false }
                 let tail = String(entry.path.split(separator: "/", omittingEmptySubsequences: false).last ?? "")
@@ -148,7 +148,7 @@ enum TweakPackageInspector {
                 path.components(separatedBy: ".framework/").first.map { $0 + ".framework" } ?? path
             })).sorted()
             let bundles = installPaths.filter {
-                $0.contains(".bundle/") || $0.pathExtension.lowercased() == "bundle"
+                $0.contains(".bundle/") || ($0 as NSString).pathExtension.lowercased() == "bundle"
             }
 
             let scripts = installPaths.filter { path in
