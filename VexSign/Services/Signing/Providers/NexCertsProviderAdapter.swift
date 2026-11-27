@@ -76,7 +76,13 @@ actor NexCertsProviderAdapter: SigningProviderAdapting {
         return lastOfferings
     }
 
-    func cancel() {
+    /// Protocol requirement is synchronous; the state lives on the actor, so the
+    /// cancellation hops onto it.
+    nonisolated func cancel() {
+        Task { await self.cancelCurrentWork() }
+    }
+
+    private func cancelCurrentWork() {
         cancelled = true
         activeTask?.cancel()
     }
@@ -110,7 +116,7 @@ actor NexCertsProviderAdapter: SigningProviderAdapting {
 
     nonisolated static func translate(_ error: Error) -> SigningProviderError {
         if error is CancellationError { return .cancelled }
-        guard let nex = error as? NexCertsError else { return .networkFailure }
+        guard let nex = error as? NexCerts.NexCertsError else { return .networkFailure }
         switch nex {
         case .rateLimited(let retryAfter): return .rateLimited(retryAfterSeconds: retryAfter)
         case .invalidJSON, .invalidResponse: return .malformedResponse
