@@ -272,11 +272,11 @@ enum CatalogFeedParser {
             ))
         }
 
-        let permissions = (_array(fields, "appPermissions") ?? _array(fields, "permissions") ?? []).compactMap { value in
-            if case .string(let text) = value { return text }
+        let permissions = (_array(fields, "appPermissions") ?? _array(fields, "permissions") ?? []).flatMap { value -> [String] in
+            if case .string(let text) = value { return [text] }
             if case .object(let object) = value { return object.keys.sorted() }
-            return nil
-        }.flatMap { $0 }
+            return []
+        }
 
         var extra = fields
         for key in ["name", "bundleIdentifier", "bundleID", "version", "versionDate", "date", "downloadURL", "download",
