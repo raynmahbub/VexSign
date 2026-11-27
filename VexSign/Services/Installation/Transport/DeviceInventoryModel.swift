@@ -29,14 +29,12 @@ struct PairedDeviceInventoryQuery: DeviceInstalledAppQuerying {
         request: DeviceConnectionRequest,
         reporting: @escaping @Sendable (DeviceConnectionStage) -> Void
     ) async throws -> DeviceInstalledApplication? {
-        try await MainActor.run {
-            try await PairingBridge.queryInstalledApplication(
-                identifier,
-                expectedDevice: request.expectedDeviceIdentifier,
-                fingerprint: request.expectedPairingSHA256,
-                reporting: reporting
-            )
-        }
+        try await PairingBridge.queryInstalledApplication(
+            identifier,
+            expectedDevice: request.expectedDeviceIdentifier,
+            fingerprint: request.expectedPairingSHA256,
+            reporting: reporting
+        )
     }
 }
 

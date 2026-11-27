@@ -199,12 +199,12 @@ final class BootstrapOrchestrator: ObservableObject {
         // The returned metadata describes what the bridge installed. Re-read the
         // protected store before treating it as evidence for the next step.
         let stored = try await PairingBridge.reviewRecord()
-        guard stored.fingerprint == enrollment.metadata.sha256,
-              stored.format == enrollment.metadata.format else {
+        guard stored.fingerprint == enrollment.sha256,
+              stored.format == enrollment.format else {
             throw DeviceTransportError.invalidDeviceResponse
         }
         let result = journey.record(
-            .pairing(format: enrollment.metadata.format, fingerprint: enrollment.metadata.sha256)
+            .pairing(format: enrollment.format, fingerprint: enrollment.sha256)
         )
         if case .rejected(let reason) = result { throw BootstrapStepFailure(rejection: reason) }
         pin = nil

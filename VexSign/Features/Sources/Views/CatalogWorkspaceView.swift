@@ -11,26 +11,27 @@ import NimbleExtensions
 struct CatalogWorkspaceView: View {
     @EnvironmentObject private var container: AppContainer
     @State private var model: CatalogWorkspaceModel?
-    @State private var section: Section = .sources
+    @State private var section: CatalogSection = .sources
     @State private var isAddingSource = false
     @State private var selectedApp: CatalogAppRecord?
     @State private var selectedSource: CatalogSourceRecord?
     @State private var editingSource: CatalogSourceRecord?
+    @State private var pendingEditSource: CatalogSourceRecord?
 
-    private enum Section: String, CaseIterable, Identifiable {
+    private enum CatalogSection: String, CaseIterable, Identifiable {
         case sources, discover, updates
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .sources: .localized("Sources")
-            case .discover: .localized("Discover")
-            case .updates: .localized("Updates")
+            case .sources: String.localized("Sources")
+            case .discover: String.localized("Discover")
+            case .updates: String.localized("Updates")
             }
         }
     }
 
     var body: some View {
-        NBNavigationView(.localized("Application Sources"), displayMode: .inline) {
+        NBNavigationView(String.localized("Application Sources"), displayMode: .inline) {
             Group {
                 if let model = model { content(model: model) }
             }
@@ -44,8 +45,8 @@ struct CatalogWorkspaceView: View {
     @ViewBuilder
     private func content(model: CatalogWorkspaceModel) -> some View {
             VStack(spacing: 0) {
-                Picker(.localized("Section"), selection: $section) {
-                    ForEach(Section.allCases) { Text($0.title).tag($0) }
+                Picker(String.localized("Section"), selection: $section) {
+                    ForEach(CatalogSection.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -64,7 +65,7 @@ struct CatalogWorkspaceView: View {
             .searchable(text: Binding(
                 get: { model.query.text },
                 set: { model.query.text = $0; model.search() }
-            ), placement: .navigationBarDrawer(displayMode: .always), prompt: Text(.localized("Name, bundle ID or developer")))
+            ), placement: .navigationBarDrawer(displayMode: .always), prompt: Text(String.localized("Name, bundle ID or developer")))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -73,7 +74,7 @@ struct CatalogWorkspaceView: View {
                         Image(systemName: "arrow.triangle.2.circlepath")
                     }
                     .disabled(model.isBusy)
-                    .accessibilityLabel(Text(.localized("Refresh all sources")))
+                    .accessibilityLabel(Text(String.localized("Refresh all sources")))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -81,7 +82,7 @@ struct CatalogWorkspaceView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel(Text(.localized("Add source")))
+                    .accessibilityLabel(Text(String.localized("Add source")))
                 }
             }
             .sheet(isPresented: $isAddingSource) {
@@ -90,17 +91,24 @@ struct CatalogWorkspaceView: View {
             .sheet(item: $selectedApp) { app in
                 CatalogAppDetailView(app: app, model: model)
             }
-            .sheet(item: $selectedSource) { source in
-                CatalogSourceDetailView(source: source, model: model)
+            .sheet(item: $selectedSource, onDismiss: {
+                // Present the editor only after the detail sheet has closed; SwiftUI
+                // does not reliably stack two sheets from the same presenter.
+                if let source = pendingEditSource {
+                    pendingEditSource = nil
+                    editingSource = source
+                }
+            }) { source in
+                CatalogSourceDetailView(source: source, onEdit: { pendingEditSource = $0 }, model: model)
             }
             .sheet(item: $editingSource) { source in
                 CatalogSourceEditView(source: source, model: model)
             }
-            .alert(.localized("Catalog"), isPresented: Binding(
+            .alert(String.localized("Catalog"), isPresented: Binding(
                 get: { model.message != nil },
                 set: { if !$0 { model.message = nil } }
             )) {
-                Button(.localized("OK"), role: .cancel) { }
+                Button(String.localized("OK"), role: .cancel) { }
             } message: {
                 Text(model.message ?? "")
             }
@@ -123,7 +131,7 @@ struct CatalogWorkspaceView: View {
                         VStack(alignment: .trailing) {
                             Text("\(source.applicationCount)")
                                 .font(.caption.monospacedDigit())
-                            Text(source.enabled ? .localized("Enabled") : .localized("Disabled"))
+                            Text(source.enabled ? String.localized("Enabled") : String.localized("Disabled"))
                                 .font(.caption2).foregroundStyle(.secondary)
                         }
                     }
@@ -131,23 +139,23 @@ struct CatalogWorkspaceView: View {
                 .buttonStyle(.plain)
             }
         } header: {
-            Text(.localized("Configured Sources"))
+            Text(String.localized("Configured Sources"))
         } footer: {
-            Text(.localized("A source is only healthy after its catalog validated. HTTPS and provenance are reported separately; an unsigned feed is never called cryptographically trusted."))
+            Text(String.localized("A source is only healthy after its catalog validated. HTTPS and provenance are reported separately; an unsigned feed is never called cryptographically trusted."))
                 .font(.footnote)
         }
     }
 
     private func discoverSection(model: CatalogWorkspaceModel) -> some View {
         Section {
-            TextField(.localized("Developer"), text: Binding(
+            TextField(String.localized("Developer"), text: Binding(
                 get: { model.query.developer },
                 set: { model.query.developer = $0; model.search() }
             ))
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             if model.hits.isEmpty {
-                Text(.localized("No catalog applications match this search."))
+                Text(String.localized("No catalog applications match this search."))
                     .font(.subheadline).foregroundStyle(.secondary)
             }
             ForEach(model.hits) { hit in
@@ -177,10 +185,10 @@ struct CatalogWorkspaceView: View {
             }
         } header: {
             HStack {
-                Text(.localized("Applications"))
+                Text(String.localized("Applications"))
                 Spacer()
                 Menu {
-                    Picker(.localized("Sort"), selection: Binding(
+                    Picker(String.localized("Sort"), selection: Binding(
                         get: { model.query.sort },
                         set: { model.query.sort = $0; model.search() }
                     )) {
@@ -192,7 +200,7 @@ struct CatalogWorkspaceView: View {
                         model.query.ascending.toggle()
                         model.search()
                     } label: {
-                        Label(model.query.ascending ? .localized("Ascending") : .localized("Descending"),
+                        Label(model.query.ascending ? String.localized("Ascending") : String.localized("Descending"),
                               systemImage: model.query.ascending ? "arrow.up" : "arrow.down")
                     }
                 } label: {
@@ -220,7 +228,7 @@ struct CatalogWorkspaceView: View {
         Section {
             let available = model.updates.filter { $0.verdict == .updateAvailable }
             if available.isEmpty {
-                Text(.localized("No compatible catalog updates were found for library apps."))
+                Text(String.localized("No compatible catalog updates were found for library apps."))
                     .font(.subheadline).foregroundStyle(.secondary)
             }
             ForEach(available) { candidate in
@@ -232,16 +240,16 @@ struct CatalogWorkspaceView: View {
                     Button {
                         model.updateDownload(candidate)
                     } label: {
-                        Label(.localized("Download Update"), systemImage: "arrow.down.circle")
+                        Label(String.localized("Download Update"), systemImage: "arrow.down.circle")
                     }
                     .disabled(candidate.release.downloadURL.isEmpty)
                 }
                 .padding(.vertical, 4)
             }
         } header: {
-            Text(.localized("Available Updates"))
+            Text(String.localized("Available Updates"))
         } footer: {
-            Text(.localized("Updates are compared by bundle identifier and version. An update is not assumed compatible until its minimum iOS version, source identity and signing identity are checked."))
+            Text(String.localized("Updates are compared by bundle identifier and version. An update is not assumed compatible until its minimum iOS version, source identity and signing identity are checked."))
                 .font(.footnote)
         }
     }
@@ -254,25 +262,25 @@ private struct CatalogAddSourceView: View {
     @State private var format: CatalogSourceFormat = .altStore
 
     var body: some View {
-        NBNavigationView(.localized("Add Source"), displayMode: .inline) {
+        NBNavigationView(String.localized("Add Source"), displayMode: .inline) {
             Form {
-                Section(.localized("Repository")) {
-                    TextField(.localized("Source URL"), text: $address)
+                Section(String.localized("Repository")) {
+                    TextField(String.localized("Source URL"), text: $address)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    Picker(.localized("Format"), selection: $format) {
+                    Picker(String.localized("Format"), selection: $format) {
                         ForEach(CatalogSourceFormat.allCases) { Text($0.displayName).tag($0) }
                     }
                 }
                 Section {
-                    Text(.localized("The catalog is fetched, parsed and validated before it is saved. A reachable URL alone does not create a source."))
+                    Text(String.localized("The catalog is fetched, parsed and validated before it is saved. A reachable URL alone does not create a source."))
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .dismissableKeyboard()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(.localized("Add")) {
+                    Button(String.localized("Add")) {
                         Task {
                             await model.addSource(address: address, format: format)
                             dismiss()
@@ -280,8 +288,8 @@ private struct CatalogAddSourceView: View {
                     }
                     .disabled(address.isEmpty || model.isBusy)
                 }
-                ToolbarItem(placement: .topBarCancellation) {
-                    Button(.localized("Cancel")) { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String.localized("Cancel")) { dismiss() }
                 }
             }
         }
@@ -290,37 +298,39 @@ private struct CatalogAddSourceView: View {
 
 private struct CatalogSourceDetailView: View {
     let source: CatalogSourceRecord
+    let onEdit: (CatalogSourceRecord) -> Void
     @ObservedObject var model: CatalogWorkspaceModel
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NBNavigationView(source.name, displayMode: .inline) {
             List {
-                Section(.localized("Identity")) {
-                    LabeledContent(.localized("Address"), value: source.url)
-                    LabeledContent(.localized("Format"), value: source.format.displayName)
-                    LabeledContent(.localized("Schema"), value: source.schemaVersion.map(String.init) ?? .localized("Unknown"))
-                    LabeledContent(.localized("Applications"), value: "\(source.applicationCount)")
-                    LabeledContent(.localized("Integrity"), value: source.integrityVerified
-                                   ? .localized("Signature verified") : .localized("Unsigned / unverified"))
+                Section(String.localized("Identity")) {
+                    LabeledContent(String.localized("Address"), value: source.url)
+                    LabeledContent(String.localized("Format"), value: source.format.displayName)
+                    LabeledContent(String.localized("Schema"), value: source.schemaVersion.map(String.init) ?? String.localized("Unknown"))
+                    LabeledContent(String.localized("Applications"), value: "\(source.applicationCount)")
+                    LabeledContent(String.localized("Integrity"), value: source.integrityVerified
+                                   ? String.localized("Signature verified") : String.localized("Unsigned / unverified"))
                 }
-                Section(.localized("Health")) {
-                    LabeledContent(.localized("Status"), value: source.health.availability.rawValue.capitalized)
-                    LabeledContent(.localized("Last success"), value: source.health.lastSuccessfulRefresh?.formatted() ?? .localized("Never"))
-                    LabeledContent(.localized("Last failure"), value: source.health.lastFailedRefresh?.formatted() ?? .localized("Never"))
-                    LabeledContent(.localized("Consecutive failures"), value: "\(source.health.consecutiveFailures)")
-                    LabeledContent(.localized("HTTP failures"), value: "\(source.health.httpFailures)")
-                    LabeledContent(.localized("Parse failures"), value: "\(source.health.parseFailures)")
-                    LabeledContent(.localized("Schema failures"), value: "\(source.health.schemaFailures)")
+                Section(String.localized("Health")) {
+                    LabeledContent(String.localized("Status"), value: source.health.availability.rawValue.capitalized)
+                    LabeledContent(String.localized("Last success"), value: source.health.lastSuccessfulRefresh?.formatted() ?? String.localized("Never"))
+                    LabeledContent(String.localized("Last failure"), value: source.health.lastFailedRefresh?.formatted() ?? String.localized("Never"))
+                    LabeledContent(String.localized("Consecutive failures"), value: "\(source.health.consecutiveFailures)")
+                    LabeledContent(String.localized("HTTP failures"), value: "\(source.health.httpFailures)")
+                    LabeledContent(String.localized("Parse failures"), value: "\(source.health.parseFailures)")
+                    LabeledContent(String.localized("Schema failures"), value: "\(source.health.schemaFailures)")
                     if let error = source.health.lastError {
                         Text(error).font(.caption).foregroundStyle(.orange)
                     }
                 }
                 Section {
                     Button {
-                        editingSource = source
+                        onEdit(source)
+                        dismiss()
                     } label: {
-                        Label(.localized("Edit Metadata"), systemImage: "square.and.pencil")
+                        Label(String.localized("Edit Metadata"), systemImage: "square.and.pencil")
                     }
                     Button {
                         Task {
@@ -328,13 +338,13 @@ private struct CatalogSourceDetailView: View {
                             dismiss()
                         }
                     } label: {
-                        Label(.localized("Refresh Source"), systemImage: "arrow.triangle.2.circlepath")
+                        Label(String.localized("Refresh Source"), systemImage: "arrow.triangle.2.circlepath")
                     }
-                    Toggle(.localized("Enabled"), isOn: Binding(
+                    Toggle(String.localized("Enabled"), isOn: Binding(
                         get: { source.enabled },
                         set: { model.setEnabled(source, enabled: $0) }
                     ))
-                    Button(.localized("Remove Source"), role: .destructive) {
+                    Button(String.localized("Remove Source"), role: .destructive) {
                         model.removeSource(source)
                         dismiss()
                     }
@@ -364,27 +374,27 @@ private struct CatalogSourceEditView: View {
     }
 
     var body: some View {
-        NBNavigationView(.localized("Edit Source"), displayMode: .inline) {
+        NBNavigationView(String.localized("Edit Source"), displayMode: .inline) {
             Form {
-                Section(.localized("Metadata")) {
-                    TextField(.localized("Display Name"), text: $name)
-                    TextField(.localized("Summary"), text: $summary, axis: .vertical)
-                    TextField(.localized("Artwork URL"), text: $artworkURL)
+                Section(String.localized("Metadata")) {
+                    TextField(String.localized("Display Name"), text: $name)
+                    TextField(String.localized("Summary"), text: $summary, axis: .vertical)
+                    TextField(String.localized("Artwork URL"), text: $artworkURL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    Picker(.localized("Format"), selection: $format) {
+                    Picker(String.localized("Format"), selection: $format) {
                         ForEach(CatalogSourceFormat.allCases) { Text($0.displayName).tag($0) }
                     }
                 }
                 Section {
-                    Text(.localized("Changing the format affects the next refresh. The last validated catalog stays available until a new one passes validation."))
+                    Text(String.localized("Changing the format affects the next refresh. The last validated catalog stays available until a new one passes validation."))
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .dismissableKeyboard()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(.localized("Save")) {
+                    Button(String.localized("Save")) {
                         Task {
                             await model.updateMetadata(source, name: name,
                                                        summary: summary.isEmpty ? nil : summary,
@@ -395,8 +405,8 @@ private struct CatalogSourceEditView: View {
                     }
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                ToolbarItem(placement: .topBarCancellation) {
-                    Button(.localized("Cancel")) { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String.localized("Cancel")) { dismiss() }
                 }
             }
         }
@@ -419,17 +429,17 @@ private struct CatalogAppDetailView: View {
                         }
                         .frame(height: 120)
                     }
-                    Text(app.description ?? app.summary ?? .localized("No description supplied by this source."))
+                    Text(app.description ?? app.summary ?? String.localized("No description supplied by this source."))
                         .font(.subheadline)
-                    LabeledContent(.localized("Bundle ID"), value: app.bundleIdentifier)
-                    LabeledContent(.localized("Developer"), value: app.developer ?? .localized("Not supplied"))
-                    LabeledContent(.localized("Source"), value: app.sourceName)
-                    LabeledContent(.localized("Latest"), value: app.currentVersion ?? .localized("Unknown"))
+                    LabeledContent(String.localized("Bundle ID"), value: app.bundleIdentifier)
+                    LabeledContent(String.localized("Developer"), value: app.developer ?? String.localized("Not supplied"))
+                    LabeledContent(String.localized("Source"), value: app.sourceName)
+                    LabeledContent(String.localized("Latest"), value: app.currentVersion ?? String.localized("Unknown"))
                 } header: {
-                    Text(.localized("Application"))
+                    Text(String.localized("Application"))
                 }
                 if !app.screenshotURLs.isEmpty {
-                    Section(.localized("Screenshots")) {
+                    Section(String.localized("Screenshots")) {
                         ScrollView(.horizontal) {
                             HStack {
                                 ForEach(app.screenshotURLs, id: \.self) { url in
@@ -445,7 +455,7 @@ private struct CatalogAppDetailView: View {
                         }
                     }
                 }
-                Section(.localized("Release History")) {
+                Section(String.localized("Release History")) {
                     ForEach(app.releases) { release in
                         VStack(alignment: .leading, spacing: 3) {
                             HStack {
@@ -463,7 +473,7 @@ private struct CatalogAppDetailView: View {
                             Button {
                                 model.download(app, release: release)
                             } label: {
-                                Label(.localized("Download This Release"), systemImage: "arrow.down.circle")
+                                Label(String.localized("Download This Release"), systemImage: "arrow.down.circle")
                             }
                             .disabled(release.downloadURL.isEmpty)
                         }
@@ -471,7 +481,7 @@ private struct CatalogAppDetailView: View {
                     }
                 }
                 Section {
-                    Text(.localized("Metadata was supplied by a third-party source; it is not a cryptographic trust claim. The archive is validated by the existing download and import pipeline."))
+                    Text(String.localized("Metadata was supplied by a third-party source; it is not a cryptographic trust claim. The archive is validated by the existing download and import pipeline."))
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }

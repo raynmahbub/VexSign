@@ -30,7 +30,8 @@ enum IPAArchiveInspector {
                 largestBytes = entry.uncompressedSize
                 largestPath = entry.path
             }
-            methods.insert(String(describing: entry.compressionMethod))
+            // ZIPFoundation exposes only isCompressed on Entry; the codec name is not public.
+            methods.insert(entry.isCompressed ? "compressed" : "stored")
             let components = ArchiveSafetyValidator.normalizedComponents(entry.path).map(String.init)
             if components.first == "Payload" {
                 hasPayload = true

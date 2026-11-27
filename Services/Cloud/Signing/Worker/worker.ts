@@ -1,5 +1,5 @@
 import { Worker } from 'bullmq';
-import { loadConfig } from '../../Configuration/config.js';
+import { assertWorkerSigner, loadConfig } from '../../Configuration/config.js';
 import { infrastructure } from '../../Storage/infrastructure.js';
 import { PendingJobDispatcher } from '../JobQueue/dispatch.js';
 import { deliverWebhooks, failureCode, finish, processJob, pruneWebhooks, sweepInputs, sweepOutputs, type WorkerDeps } from './processor.js';
@@ -14,6 +14,8 @@ import { deliverWebhooks, failureCode, finish, processJob, pruneWebhooks, sweepI
  * `Tools/Validation/architecture-rules/test_repository_layout.py`.
  */
 const config = loadConfig();
+// Refuse to consume jobs with the non-signing example launcher, before any connection is opened.
+assertWorkerSigner(config);
 const infra = infrastructure(config, 'worker');
 const deps: WorkerDeps = { config, infra, key: Buffer.from(config.ENCRYPTION_KEY, 'hex') };
 

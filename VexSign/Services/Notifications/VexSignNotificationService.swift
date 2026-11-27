@@ -24,7 +24,7 @@ extension Notification.Name {
 }
 
 @MainActor
-final class VexSignNotificationService: ObservableObject {
+final class VexSignNotificationService: NSObject, ObservableObject {
     static let shared = VexSignNotificationService()
 
     @Published private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
@@ -45,6 +45,7 @@ final class VexSignNotificationService: ObservableObject {
         self.history = NotificationHistoryStore(defaults: defaults)
         self.dedupe = NotificationDedupeStore(defaults: defaults)
         self.clock = clock
+        super.init()
     }
 
     /// Idempotent. Call once from app launch, before any poster can run.
@@ -148,7 +149,7 @@ final class VexSignNotificationService: ObservableObject {
     private func deliver(_ request: UNNotificationRequest, topic: NotificationTopic,
                          key: String?, notification: VexSignNotification) async -> Bool {
         do {
-            try await withCheckedThrowingContinuation { continuation in
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 center.vxs_add(request) { error in
                     if let error { continuation.resume(throwing: error) }
                     else { continuation.resume() }

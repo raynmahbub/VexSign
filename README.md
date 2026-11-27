@@ -50,7 +50,7 @@ the source is not device acceptance — the caveats in each section still apply.
 - **Batch signing and install queues** for processing multiple apps with per-app settings.
 - **Reusable signing profiles** and named presets for repeat workflows.
 - **Signing options and entitlement management**, with preflight checks and signing logs.
-- **Local HTTPS installation** using `itms-services://`, plus paired installation through the AFC / `installd` backend.
+- **Local HTTPS installation** using `itms-services://`. Paired installation through the AFC / `installd` backend is implemented but disabled in every current build until its bridge is accepted on device; see [`Docs/DeviceTesting/paired-installation.md`](Docs/DeviceTesting/paired-installation.md).
 - **Signing Live Activities** to follow progress on supported devices.
 - **Auto-sign workflows** and **Update All** for re-signing source updates.
 - **Identity-aware unattended signing:** if Apple Account is the selected signing identity, a local download/import or Shortcut keeps the package and opens the attended provisioning review with that app preselected. Browser uploads return a review-required response. None of these paths substitutes a stored `.p12`.
@@ -467,10 +467,12 @@ VexSign/
 canonical file at `VexSign/Resources/Templates/app-repo.json` and run
 `python3 Tools/Validation/repository-validation/sync_repo_aliases.py --write`.
 The icon lives at `VexSign/Resources/icon.png`, the repository list at
-`VexSign/Resources/Templates/repos.json`, LicensePlist configuration at
-`Config/Signing/license_plist.yml`, and the Render blueprint at
+`VexSign/Resources/Templates/repos.json`, and the Render blueprint at
 `Services/WebManager/Configuration/render.yaml`. Configure external tools to use
-these paths rather than root-level copies.
+these paths rather than root-level copies. The one exception is LicensePlist:
+its build-tool plugin reads only `license_plist.yml` from the project root, so
+that file lives at the root (`license_plist.yml`), and its `packagePaths` list the
+local packages' `Package.swift` files.
 
 Feature use cases and shared workspace contracts use injected ports. Legacy
 UI-to-storage/service coupling is still tracked, not claimed to be fully removed.

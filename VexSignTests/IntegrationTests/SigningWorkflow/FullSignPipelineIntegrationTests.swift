@@ -11,6 +11,11 @@ import ZIPFoundation
 @testable import VexSign
 
 @MainActor
+/// Pipeline wiring tests: identity refusal, import, task tracking, ownership and repacking.
+///
+/// This suite does NOT run `ZsignEngine` on a bundle and verify the output. Fresh-output verification
+/// is pinned to Apple's production root, so it cannot be exercised with a generated chain. Until a
+/// test-only trust seam exists, signing acceptance is covered by device tests, not this class.
 final class FullSignPipelineIntegrationTests: XCTestCase {
     /// Exercise real import and the real pipeline's mandatory refusal without
     /// consulting ambient credentials, silently returning, swallowing a signing

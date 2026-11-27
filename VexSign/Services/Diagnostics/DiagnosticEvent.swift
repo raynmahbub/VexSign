@@ -136,8 +136,8 @@ enum DiagnosticEventSanitizer {
 
     static func sanitize(_ event: DiagnosticEvent) -> DiagnosticEvent {
         var result = event
-        result.eventID = safeIdentifier(event.eventID, fallback: UUID().uuidString.lowercased())
-        result.code = safeIdentifier(event.code, fallback: DiagnosticEventCode.appHealth)
+        result.eventID = safeIdentifier(event.eventID, fallback: nil) ?? UUID().uuidString.lowercased()
+        result.code = safeIdentifier(event.code, fallback: nil) ?? DiagnosticEventCode.appHealth
         result.schemaVersion = 1
         result.operationID = event.operationID.flatMap { safeIdentifier($0, fallback: nil) }
         result.subsystem = event.category.subsystem
@@ -224,6 +224,8 @@ enum DiagnosticRecoveryGuide {
             return "No change was made. Retry the operation when ready."
         case .unknown:
             return "Export a diagnostic bundle from Troubleshooting Center and retry the operation."
+        default:
+            return "Export a diagnostic bundle from Troubleshooting Center and retry the operation."
         }
     }
 }
@@ -248,6 +250,18 @@ extension DiagnosticEvent {
         timestamp: Date = Date()
     ) -> DiagnosticEvent {
         let code = Self.bounded(systemErrorCode, limit: 32)
+        let metadata: [String: String] = [
+            "operationType": Self.bounded(operationType, limit: 48) ?? "unknown",
+            "connectionState": Self.bounded(connectionState, limit: 48) ?? "unknown",
+            "failureCategory": Self.bounded(failureCategory, limit: 48) ?? "unknown",
+            "systemErrorCode": code ?? "unavailable",
+            "durationMs": String(max(0, durationMs)),
+            "recoveryOutcome": Self.bounded(recoveryOutcome, limit: 120) ?? "none",
+            "deviceModel": Self.bounded(deviceModel, limit: 48) ?? "unknown",
+            "osVersion": Self.bounded(osVersion, limit: 32) ?? "unknown",
+            "appVersion": VexSignBuildInfo.version,
+            "appBuild": VexSignBuildInfo.build
+        ]
         return .make(
             code: DiagnosticEventCode.deviceFailure,
             severity: .error,
@@ -260,18 +274,7 @@ extension DiagnosticEvent {
                 arguments: operationType, connectionState, failureCategory, Int64(durationMs)
             ),
             recoverySuggestion: recoveryOutcome,
-            metadata: [
-                "operationType": Self.bounded(operationType, limit: 48),
-                "connectionState": Self.bounded(connectionState, limit: 48),
-                "failureCategory": Self.bounded(failureCategory, limit: 48),
-                "systemErrorCode": code ?? "unavailable",
-                "durationMs": String(max(0, durationMs)),
-                "recoveryOutcome": Self.bounded(recoveryOutcome, limit: 120) ?? "none",
-                "deviceModel": Self.bounded(deviceModel, limit: 48) ?? "unknown",
-                "osVersion": Self.bounded(osVersion, limit: 32) ?? "unknown",
-                "appVersion": VexSignBuildInfo.version,
-                "appBuild": VexSignBuildInfo.build
-            ]
+            metadata: metadata
         )
     }
 

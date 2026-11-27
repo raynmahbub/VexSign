@@ -14,36 +14,36 @@ actor CatalogPersistence {
         self.database = database
     }
 
-    func sources() throws -> [CatalogSourceRecord] {
-        try database.read(sourcesKey, as: [CatalogSourceRecord].self) ?? []
+    func sources() async throws -> [CatalogSourceRecord] {
+        try await database.read(sourcesKey, as: [CatalogSourceRecord].self) ?? []
     }
 
-    func saveSources(_ sources: [CatalogSourceRecord]) throws {
+    func saveSources(_ sources: [CatalogSourceRecord]) async throws {
         guard sources.count <= 512 else { throw CatalogPersistenceError.limitExceeded }
-        try database.write(sources, key: sourcesKey)
+        try await database.write(sources, key: sourcesKey)
     }
 
-    func snapshot(sourceID: String) throws -> CatalogSnapshot? {
-        try database.read("catalog.snapshot.v1.\(sourceID)", as: CatalogSnapshot.self)
+    func snapshot(sourceID: String) async throws -> CatalogSnapshot? {
+        try await database.read("catalog.snapshot.v1.\(sourceID)", as: CatalogSnapshot.self)
     }
 
-    func saveSnapshot(_ snapshot: CatalogSnapshot) throws {
+    func saveSnapshot(_ snapshot: CatalogSnapshot) async throws {
         // Validate shard shape before committing: a parse result from a failed
         // refresh must never reach the offline cache.
         guard !snapshot.apps.isEmpty || snapshot.diagnostics.isEmpty else {
             throw CatalogPersistenceError.invalidSnapshot
         }
-        try database.write(snapshot, key: "catalog.snapshot.v1.\(snapshot.sourceID)")
+        try await database.write(snapshot, key: "catalog.snapshot.v1.\(snapshot.sourceID)")
     }
 
-    func removeSnapshot(sourceID: String) throws {
-        try database.delete("catalog.snapshot.v1.\(sourceID)")
+    func removeSnapshot(sourceID: String) async throws {
+        try await database.delete("catalog.snapshot.v1.\(sourceID)")
     }
 
-    func allSnapshots(sourceIDs: [String]) throws -> [String: CatalogSnapshot] {
+    func allSnapshots(sourceIDs: [String]) async throws -> [String: CatalogSnapshot] {
         var result: [String: CatalogSnapshot] = [:]
         for id in sourceIDs {
-            if let snapshot = try snapshot(sourceID: id), !snapshot.apps.isEmpty { result[id] = snapshot }
+            if let snapshot = try await snapshot(sourceID: id), !snapshot.apps.isEmpty { result[id] = snapshot }
         }
         return result
     }

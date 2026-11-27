@@ -19,7 +19,7 @@ struct TweakModificationWorkspaceView: View {
     @State private var expandedPackage: String?
 
     var body: some View {
-        NBNavigationView(.localized("Modify App with Tweaks"), displayMode: .inline) {
+        NBNavigationView(String.localized("Modify App with Tweaks"), displayMode: .inline) {
             List {
                 _packagesSection
                 _applicationSection
@@ -32,7 +32,7 @@ struct TweakModificationWorkspaceView: View {
             .overlay { if model.isBusy { ProgressView().padding(.bottom, 24) } }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(.localized("Stop")) {
+                    Button(String.localized("Stop")) {
                         services.signing.cancel(model.activeRequestIDForCancellation ?? "")
                         model.cancel()
                     }
@@ -50,11 +50,11 @@ struct TweakModificationWorkspaceView: View {
                 case .failure(let error): model.message = error.localizedDescription
                 }
             }
-            .alert(.localized("Modification"), isPresented: Binding(
+            .alert(String.localized("Modification"), isPresented: Binding(
                 get: { model.message != nil },
                 set: { if !$0 { model.message = nil } }
             )) {
-                Button(.localized("OK"), role: .cancel) { }
+                Button(String.localized("OK"), role: .cancel) { }
             } message: {
                 Text(model.message ?? "")
             }
@@ -78,12 +78,12 @@ struct TweakModificationWorkspaceView: View {
             Button {
                 isImportingPackage = true
             } label: {
-                Label(.localized("Import .deb Package"), systemImage: "shippingbox.badge.plus")
+                Label(String.localized("Import .deb Package"), systemImage: "shippingbox.badge.plus")
             }
             Button {
                 Task { await model.inspect(tweaks: services.tweaks.tweaks, using: services.tweaks) }
             } label: {
-                Label(.localized("Inspect Selected Tweaks"), systemImage: "doc.text.magnifyingglass")
+                Label(String.localized("Inspect Selected Tweaks"), systemImage: "doc.text.magnifyingglass")
             }
             ForEach(model.inspections, id: \.fileName) { inspection in
                 DisclosureGroup(
@@ -118,29 +118,29 @@ struct TweakModificationWorkspaceView: View {
                 .font(.subheadline)
             }
         } header: {
-            Text(.localized("Packages & Tweak Library"))
+            Text(String.localized("Packages & Tweak Library"))
         } footer: {
-            Text(.localized("Packages are inspected without executing scripts or binaries. Unsupported archives are refused."))
+            Text(String.localized("Packages are inspected without executing scripts or binaries. Unsupported archives are refused."))
                 .font(.footnote)
         }
     }
 
     @ViewBuilder
     private func _packageDetails(_ inspection: TweakPackageInspection) -> some View {
-        LabeledContent(.localized("Identifier"), value: inspection.packageID ?? "—")
-        LabeledContent(.localized("Architecture"), value: inspection.architecture ?? "—")
-        LabeledContent(.localized("Maintainer"), value: inspection.maintainer ?? "—")
-        LabeledContent(.localized("Layout"), value: inspection.layout.title)
-        LabeledContent(.localized("Depends"), value: inspection.depends.map(\.name).joined(separator: ", "))
-        LabeledContent(.localized("Conflicts"), value: inspection.conflicts.map(\.name).joined(separator: ", "))
-        LabeledContent(.localized("Dylibs"), value: "\(inspection.dylibs.count)")
-        LabeledContent(.localized("Frameworks"), value: "\(inspection.frameworks.count)")
-        LabeledContent(.localized("Scripts ignored"), value: inspection.ignoredScripts.joined(separator: ", "))
+        LabeledContent(String.localized("Identifier"), value: inspection.packageID ?? "—")
+        LabeledContent(String.localized("Architecture"), value: inspection.architecture ?? "—")
+        LabeledContent(String.localized("Maintainer"), value: inspection.maintainer ?? "—")
+        LabeledContent(String.localized("Layout"), value: inspection.layout.title)
+        LabeledContent(String.localized("Depends"), value: inspection.depends.map(\.name).joined(separator: ", "))
+        LabeledContent(String.localized("Conflicts"), value: inspection.conflicts.map(\.name).joined(separator: ", "))
+        LabeledContent(String.localized("Dylibs"), value: "\(inspection.dylibs.count)")
+        LabeledContent(String.localized("Frameworks"), value: "\(inspection.frameworks.count)")
+        LabeledContent(String.localized("Scripts ignored"), value: inspection.ignoredScripts.joined(separator: ", "))
         ForEach(inspection.findings) { finding in
             Text(finding.detail).font(.caption2).foregroundStyle(.secondary)
         }
         if !inspection.installPaths.isEmpty {
-            DisclosureGroup(.localized("Install Paths")) {
+            DisclosureGroup(String.localized("Install Paths")) {
                 ForEach(inspection.installPaths.prefix(24), id: \.self) { path in
                     Text(path).font(.caption2).foregroundStyle(.secondary)
                 }
@@ -153,7 +153,7 @@ struct TweakModificationWorkspaceView: View {
 
     private var _applicationSection: some View {
         Section {
-            Picker(.localized("Application"), selection: Binding(
+            Picker(String.localized("Application"), selection: Binding(
                 get: { selectedAppID ?? _apps.first?.id ?? "" },
                 set: { selectedAppID = $0 }
             )) {
@@ -170,13 +170,13 @@ struct TweakModificationWorkspaceView: View {
                     signing: services.signing
                 )
             } label: {
-                Label(.localized("Build Modification Plan"), systemImage: "list.bullet.clipboard")
+                Label(String.localized("Build Modification Plan"), systemImage: "list.bullet.clipboard")
             }
             .disabled(_selectedApp == nil || _selectedTweaks.isEmpty)
         } header: {
-            Text(.localized("Authorized Application"))
+            Text(String.localized("Authorized Application"))
         } footer: {
-            Text(.localized("Only applications you own or are authorized to modify may be selected. The original import is never overwritten."))
+            Text(String.localized("Only applications you own or are authorized to modify may be selected. The original import is never overwritten."))
                 .font(.footnote)
         }
     }
@@ -185,9 +185,9 @@ struct TweakModificationWorkspaceView: View {
     private var _planSection: some View {
         if let plan = model.plan {
             Section {
-                LabeledContent(.localized("Outcome"), value: plan.outcome.displayName)
-                LabeledContent(.localized("Package count"), value: "\(plan.selectedPackageIDs.count)")
-                LabeledContent(.localized("Signing verification"), value: plan.requiresSignatureVerification ? .localized("Required") : .localized("Not required"))
+                LabeledContent(String.localized("Outcome"), value: plan.outcome.displayName)
+                LabeledContent(String.localized("Package count"), value: "\(plan.selectedPackageIDs.count)")
+                LabeledContent(String.localized("Signing verification"), value: plan.requiresSignatureVerification ? String.localized("Required") : String.localized("Not required"))
                 ForEach(plan.steps) { step in
                     HStack {
                         Image(systemName: _icon(for: step.kind))
@@ -207,11 +207,11 @@ struct TweakModificationWorkspaceView: View {
                         signing: services.signing
                     )
                 } label: {
-                    Label(.localized("Apply and Sign"), systemImage: "signature")
+                    Label(String.localized("Apply and Sign"), systemImage: "signature")
                 }
                 .disabled(!plan.canApply || model.isBusy)
             } header: {
-                Text(.localized("Modification Preview"))
+                Text(String.localized("Modification Preview"))
             }
         }
     }
@@ -230,24 +230,24 @@ struct TweakModificationWorkspaceView: View {
     private var _resultsSection: some View {
         if let report = model.operationReport {
             Section {
-                LabeledContent(.localized("Status"), value: report.status.rawValue)
-                LabeledContent(.localized("Plan"), value: report.planID)
-                LabeledContent(.localized("Completed steps"), value: "\(report.completedSteps.count)")
+                LabeledContent(String.localized("Status"), value: report.status.rawValue)
+                LabeledContent(String.localized("Plan"), value: report.planID)
+                LabeledContent(String.localized("Completed steps"), value: "\(report.completedSteps.count)")
                 if let failed = report.failedStep {
                     Text(failed).font(.caption).foregroundStyle(.orange)
                 }
             } header: {
-                Text(.localized("Operation Report"))
+                Text(String.localized("Operation Report"))
             }
         }
         if let verification = model.verificationReport {
             Section {
-                LabeledContent(.localized("Verification"), value: verification.verdict)
+                LabeledContent(String.localized("Verification"), value: verification.verdict)
                 Text(verification.summary).font(.caption)
-                LabeledContent(.localized("Failures"), value: "\(verification.failureCount)")
-                LabeledContent(.localized("Warnings"), value: "\(verification.warningCount)")
+                LabeledContent(String.localized("Failures"), value: "\(verification.failureCount)")
+                LabeledContent(String.localized("Warnings"), value: "\(verification.warningCount)")
             } header: {
-                Text(.localized("Signature Verification"))
+                Text(String.localized("Signature Verification"))
             }
         }
     }
@@ -255,13 +255,13 @@ struct TweakModificationWorkspaceView: View {
     @ViewBuilder
     private var _profilesSection: some View {
         Section {
-            TextField(.localized("Profile Name"), text: $profileName)
+            TextField(String.localized("Profile Name"), text: $profileName)
             Button {
                 guard let app = _selectedApp, let plan = model.plan else { return }
                 model.saveProfile(name: profileName, app: app, tweaks: _selectedTweaks, plan: plan)
                 profileName = ""
             } label: {
-                Label(.localized("Save Current Configuration"), systemImage: "square.and.arrow.down")
+                Label(String.localized("Save Current Configuration"), systemImage: "square.and.arrow.down")
             }
             .disabled(model.plan == nil || profileName.isEmpty)
             ForEach(model.profiles) { profile in
@@ -273,16 +273,16 @@ struct TweakModificationWorkspaceView: View {
                     }
                     Text(profile.appBundleIdentifier).font(.caption2).foregroundStyle(.secondary)
                     HStack {
-                        Button(.localized("Duplicate")) { model.duplicateProfile(profile) }
-                        Button(.localized("Delete"), role: .destructive) { model.deleteProfile(profile) }
+                        Button(String.localized("Duplicate")) { model.duplicateProfile(profile) }
+                        Button(String.localized("Delete"), role: .destructive) { model.deleteProfile(profile) }
                     }
                     .font(.caption)
                 }
             }
         } header: {
-            Text(.localized("Saved Modification Profiles"))
+            Text(String.localized("Saved Modification Profiles"))
         } footer: {
-            Text(.localized("Profiles reference imported tweaks and validated versions. References to removed packages are pruned automatically."))
+            Text(String.localized("Profiles reference imported tweaks and validated versions. References to removed packages are pruned automatically."))
                 .font(.footnote)
         }
     }

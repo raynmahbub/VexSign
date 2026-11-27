@@ -7,7 +7,7 @@
 import Foundation
 import NimbleExtensions
 
-struct InjectionDependencyResolution: Equatable, Sendable {
+struct InjectionDependencyResolution: Sendable {
     let outcome: InjectionOutcome
     let orderedPackageIDs: [String]
     let findings: [InjectionFinding]
@@ -164,11 +164,11 @@ enum InjectionDependencyResolver {
             visited.insert(node)
             active.insert(node)
             for next in graph[node] ?? [] where graph.keys.contains(next) {
-                visit(next, path + [node])
+                visit(next, path: path + [node])
             }
             active.remove(node)
         }
-        for node in graph.keys.sorted() { visit(node, []) }
+        for node in graph.keys.sorted() { visit(node, path: []) }
         return stacks
     }
 }

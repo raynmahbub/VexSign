@@ -25,119 +25,11 @@ struct CertificateVaultView: View {
                     Button("Recover Unreadable Inventory") { Task { await model.recoverInventory() } }
                 }
             }
-
-            Section {
-                Text("Private keys are stored in the Keychain only. Passwords and PKCS#12 files are not kept in the vault inventory.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button("Import Identity (.p12/.pfx)") { showingCertificatePicker = true }
-                Button("Import Provisioning Profile") { showingProfilePicker = true }
-                Button("Refresh Keychain Status") { Task { await model.refreshKeyStates() } }
-            } header: {
-                Text("Vault")
-            }
-
-            Section {
-                if model.snapshot.state.certificates.isEmpty {
-                    Text("No identities in the vault.").foregroundStyle(.secondary)
-                }
-                ForEach(model.snapshot.state.certificates) { certificate in
-                    NavigationLink {
-                        CertificateVaultCertificateDetail(certificate: certificate, model: model)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(certificate.displayName)
-                                Spacer()
-                                Text(certificate.keyState.rawValue)
-                                    .font(.caption)
-                                    .foregroundStyle(certificate.keyState == .accessible ? .green : .orange)
-                            }
-                            Text(certificate.shortFingerprint + " · " + certificate.fingerprintIdentifier)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                            Text(expiryText(certificate.notAfter, prefix: "Certificate"))
-                                .font(.caption)
-                                .foregroundStyle(certificate.isExpired() ? .red : .secondary)
-                        }
-                    }
-                }
-            } header: {
-                Text("Certificates")
-            }
-
-            Section {
-                if model.snapshot.state.profiles.isEmpty {
-                    Text("No provisioning profiles in the vault.").foregroundStyle(.secondary)
-                }
-                ForEach(model.snapshot.state.profiles) { profile in
-                    NavigationLink {
-                        CertificateVaultProfileDetail(profile: profile, model: model)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(profile.name.isEmpty ? profile.uuid : profile.name)
-                            Text(profile.appIdentifier ?? "No App ID recorded")
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                            Text(profile.type.capitalized + " · " + expiryText(profile.expirationDate, prefix: "Profile"))
-                                .font(.caption)
-                                .foregroundStyle(profile.isExpired() ? .red : .secondary)
-                        }
-                    }
-                }
-            } header: {
-                Text("Provisioning Profiles")
-            }
-
-            Section {
-                if model.snapshot.state.associations.isEmpty {
-                    Text("No certificate/profile pairs have been evaluated. Open a certificate to associate one.").foregroundStyle(.secondary)
-                }
-                ForEach(model.snapshot.state.associations) { association in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(association.outcome.rawValue)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(outcomeColor(association.outcome))
-                            Spacer()
-                            Text(association.evaluatedAt, style: .shortened)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        ForEach(association.reasons, id: \.self) { reason in
-                            Text(reason).font(.caption)
-                        }
-                    }
-                }
-            } header: {
-                Text("Compatibility")
-            }
-
-            Section {
-                Picker("Library App", selection: $model.selectedApp) {
-                    Text("None").tag(nil as LibraryAppRecord?)
-                    ForEach(apps) { app in
-                        Text(app.workspaceName.isEmpty ? (app.identifier ?? app.id) : app.workspaceName)
-                            .tag(Optional(app))
-                    }
-                }
-                Button("Assess Signing Readiness") { Task { await model.assessSelectedApp() } }
-                    .disabled(model.selectedApp == nil || model.busy)
-                if let readiness = model.readiness {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Readiness: " + readiness.state.rawValue).font(.headline)
-                        ForEach(readiness.explanation, id: \.self) { line in
-                            Text(line).font(.caption)
-                        }
-                        Text("This is an assessment only; it does not sign or install an app.")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } header: {
-                Text("App Readiness")
-            }
-
+            vaultSection
+            certificatesSection
+            profilesSection
+            compatibilitySection
+            appReadinessSection
             if model.busy { ProgressView("Working…") }
         }
         .navigationTitle("Certificate Vault")
@@ -183,9 +75,149 @@ struct CertificateVaultView: View {
         }
     }
 
+    @ViewBuilder
+    private var vaultSection: some View {
+        Section {
+            Text("Private keys are stored in the Keychain only. Passwords and PKCS#12 files are not kept in the vault inventory.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button("Import Identity (.p12/.pfx)") { showingCertificatePicker = true }
+            Button("Import Provisioning Profile") { showingProfilePicker = true }
+            Button("Refresh Keychain Status") { Task { await model.refreshKeyStates() } }
+        } header: {
+            Text("Vault")
+        }
+    }
+
+    @ViewBuilder
+    private var certificatesSection: some View {
+        Section {
+            if model.snapshot.state.certificates.isEmpty {
+                Text("No identities in the vault.").foregroundStyle(.secondary)
+            }
+            ForEach(model.snapshot.state.certificates) { certificate in
+                NavigationLink {
+                    CertificateVaultCertificateDetail(certificate: certificate, model: model)
+                } label: {
+                    certificateRow(certificate)
+                }
+            }
+        } header: {
+            Text("Certificates")
+        }
+    }
+
+    private func certificateRow(_ certificate: VaultCertificate) -> some View {
+        let keyColor: Color = certificate.keyState == .accessible ? .green : .orange
+        let expiryColor: Color = certificate.isExpired() ? .red : .secondary
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(certificate.displayName)
+                Spacer()
+                Text(certificate.keyState.rawValue)
+                    .font(.caption)
+                    .foregroundStyle(keyColor)
+            }
+            Text(certificate.shortFingerprint)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+            Text(expiryText(certificate.notAfter, prefix: "Certificate"))
+                .font(.caption)
+                .foregroundStyle(expiryColor)
+        }
+    }
+
+    @ViewBuilder
+    private var profilesSection: some View {
+        Section {
+            if model.snapshot.state.profiles.isEmpty {
+                Text("No provisioning profiles in the vault.").foregroundStyle(.secondary)
+            }
+            ForEach(model.snapshot.state.profiles) { profile in
+                NavigationLink {
+                    CertificateVaultProfileDetail(profile: profile, model: model)
+                } label: {
+                    profileRow(profile)
+                }
+            }
+        } header: {
+            Text("Provisioning Profiles")
+        }
+    }
+
+    private func profileRow(_ profile: VaultProfile) -> some View {
+        let expiryColor: Color = profile.isExpired() ? .red : .secondary
+        let typeText: String = profile.type.capitalized
+        let expiry: String = expiryText(profile.expirationDate, prefix: "Profile")
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(profile.name.isEmpty ? profile.uuid : profile.name)
+            Text(profile.appIdentifier ?? "No App ID recorded")
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+            Text("\(typeText) · \(expiry)")
+                .font(.caption)
+                .foregroundStyle(expiryColor)
+        }
+    }
+
+    @ViewBuilder
+    private var compatibilitySection: some View {
+        Section {
+            if model.snapshot.state.associations.isEmpty {
+                Text("No certificate/profile pairs have been evaluated. Open a certificate to associate one.").foregroundStyle(.secondary)
+            }
+            ForEach(model.snapshot.state.associations, id: \.id) { association in
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(association.outcome.rawValue)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(outcomeColor(association.outcome))
+                        Spacer()
+                        Text(association.evaluatedAt, style: .date)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(association.reasons, id: \.self) { reason in
+                        Text(reason).font(.caption)
+                    }
+                }
+            }
+        } header: {
+            Text("Compatibility")
+        }
+    }
+
+    @ViewBuilder
+    private var appReadinessSection: some View {
+        Section {
+            Picker("Library App", selection: $model.selectedApp) {
+                Text("None").tag(nil as LibraryAppRecord?)
+                ForEach(apps) { app in
+                    Text(app.workspaceName.isEmpty ? (app.identifier ?? app.id) : app.workspaceName)
+                        .tag(Optional(app))
+                }
+            }
+            Button("Assess Signing Readiness") { Task { await model.assessSelectedApp() } }
+                .disabled(model.selectedApp == nil || model.busy)
+            if let readiness = model.readiness {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Readiness: \(readiness.state.rawValue)").font(.headline)
+                    ForEach(readiness.explanation, id: \.self) { line in
+                        Text(line).font(.caption)
+                    }
+                    Text("This is an assessment only; it does not sign or install an app.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("App Readiness")
+        }
+    }
+
     private func expiryText(_ date: Date?, prefix: String) -> String {
-        guard let date else { return prefix + ": date unavailable" }
-        return prefix + " expires " + date.formatted(date: .abbreviated, time: .omitted)
+        guard let date else { return "\(prefix): date unavailable" }
+        return "\(prefix) expires \(date.formatted(date: .abbreviated, time: .omitted))"
     }
 
     private func outcomeColor(_ outcome: VaultAssociationOutcome) -> Color {

@@ -29,14 +29,14 @@ final class ContainerWorkspaceModel: ObservableObject {
     init(
         store: ContainerStore = ContainerStore(),
         archives: ContainerArchiveService? = nil,
-        handoff: ContainerURLHandoff = ContainerURLHandoff(),
-        tasks: ContainerTaskReporter = ContainerTaskReporter(),
+        handoff: ContainerURLHandoff? = nil,
+        tasks: ContainerTaskReporter? = nil,
         workspaceProvider: @escaping @MainActor () -> WorkspaceSnapshot = { .empty }
     ) {
         self.store = store
         self.archives = archives ?? ContainerArchiveService(store: store)
-        self.handoff = handoff
-        self.tasks = tasks
+        self.handoff = handoff ?? ContainerURLHandoff()
+        self.tasks = tasks ?? ContainerTaskReporter()
         self.workspaceProvider = workspaceProvider
     }
 

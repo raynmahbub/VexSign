@@ -120,7 +120,7 @@ final class DeviceServiceSession {
         let error = recordBytes.withUnsafeBytes { bytes -> UnsafeMutablePointer<IdeviceFfiError>? in
             guard let base = bytes.bindMemory(to: UInt8.self).baseAddress else { return nil }
             return peer.withCString { cPeer in
-                vexsign_tunnel_rppairing_verified(base, bytes.count, cPeer, 62078, cancelHandle, 30_000, &outAdapter, &outHandshake)
+                vexsign_tunnel_rppairing_verified(base, UInt(bytes.count), cPeer, 62078, cancelHandle, 30_000, &outAdapter, &outHandshake)
             }
         }
         if let error {

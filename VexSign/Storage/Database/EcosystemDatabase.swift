@@ -16,8 +16,13 @@ actor EcosystemDatabase {
 
     private func connection() throws -> OpaquePointer {
         if let database { return database }
-        let base = try testRoot.map { try FileManager.default.createDirectory(at: $0, withIntermediateDirectories: true) }
-            ?? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let base: URL
+        if let testRoot {
+            try FileManager.default.createDirectory(at: testRoot, withIntermediateDirectories: true)
+            base = testRoot
+        } else {
+            base = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        }
         let directory = base.appendingPathComponent("Ecosystem", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                                               attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])

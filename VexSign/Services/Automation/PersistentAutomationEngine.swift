@@ -164,7 +164,7 @@ actor PersistentAutomationEngine {
     private let store: AutomationJobStore
     private let executor: any AutomationJobExecuting
     private let clock: () -> Date
-    private let recorder: DiagnosticRecorder?
+    private var recorder: DiagnosticRecorder?
     private var running: Set<String> = []
 
     init(store: AutomationJobStore = AutomationJobStore(),

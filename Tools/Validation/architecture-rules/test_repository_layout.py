@@ -35,6 +35,8 @@ ALIASES = (
 ROOT_FILES = {
     ".editorconfig", ".gitattributes", ".gitignore", ".swiftformat", ".swiftlint.yml",
     "LICENSE", "Makefile", "README.md", "app-repo.json",
+    # LicensePlistBuildTool reads only <project root>/license_plist.yml (Plugins/LicensePlistBuildTool).
+    "license_plist.yml",
 }
 # Paths explicitly rejected by the adopted root contract. A synchronized-root move is
 # a build change, so these must fail at the portable gate rather than at a macOS-only build.

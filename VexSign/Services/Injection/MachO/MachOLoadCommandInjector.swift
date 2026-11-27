@@ -178,7 +178,8 @@ enum MachOLoadCommandInjector {
                     guard let offset = _u32(data, at: sectionStart + 48, base: base) else {
                         throw MachOLoadCommandError.malformedLoadCommands
                     }
-                    if offset > 0, offset < firstDataOffset { firstDataOffset = offset }
+                    let sectionOffset = Int(offset)
+                    if sectionOffset > 0, sectionOffset < firstDataOffset { firstDataOffset = sectionOffset }
                 }
             }
             cursor += Int(length)

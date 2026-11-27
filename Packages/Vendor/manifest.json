@@ -105,7 +105,7 @@
           "description": "Scoped pinned-FFI client adapter for classic and iOS 27+ on-device RPPairing verified identity/service queries; simulator and unsupported routes blocked.",
           "upstreamPathAbsent": true,
           "license": "MIT",
-          "patchedSHA256": "0fcaaa0f08ee5258d87b8c56cabe037491cf56992fdca9586e604caa85916054"
+          "patchedSHA256": "765937220a4a95b505b87e8abdd7d45ca73c82a10f4cb7f566ee64a024821964"
         },
         {
           "path": "Sources/IDeviceSwift/Heartbeat/DeviceServiceSession+Applications.swift",
@@ -133,7 +133,7 @@
           "description": "On-device RPPairing host session wrapper: prepare/advertise/accept with explicit PIN callback, bounded timeout/cancellation, and no persistent trust writes.",
           "upstreamPathAbsent": true,
           "license": "MIT",
-          "patchedSHA256": "062d175e67840bd52c382164f1b26b153089241f9d8fdd3c94ad99a077626c90"
+          "patchedSHA256": "7a132b03e95bb614aaa2953c94e54a102aa87174f83334435d87702ea7199f1e"
         }
       ],
       "licenseSHA256": "d629cb986812f6ae413ac4fa2a7841a7174b61d58feff97da5deb6b7cbcc92d5",

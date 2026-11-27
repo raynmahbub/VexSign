@@ -21,11 +21,11 @@ import urllib.request
 import zipfile
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[2]
+ROOT = HERE.parents[1]  # Packages/DeviceBridge -> repository root
 WORK = ROOT / '.build/device-bridge'
 PRODUCT = ROOT / 'Packages/Vendor/IDeviceKitten/.build/ModernDevice'
 LOCK = HERE / 'inputs.lock.json'
-FEATURES = 'ring,afc,core_device,core_device_proxy,heartbeat,installation_proxy,springboardservices,syslog_relay,tunnel_tcp_stack'
+FEATURES = 'ring,afc,core_device,core_device_proxy,heartbeat,installation_proxy,springboardservices,syslog_relay,tunnel_tcp_stack,tcp'
 TOOLCHAIN = '1.94.0'
 TARGETS = {
     'aarch64-apple-ios': 'iphoneos',

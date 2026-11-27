@@ -32,15 +32,15 @@ actor CatalogSourceRegistry {
         self.persistence = persistence
     }
 
-    func all() throws -> [CatalogSourceRecord] {
-        try persistence.sources().sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    func all() async throws -> [CatalogSourceRecord] {
+        try await persistence.sources().sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     /// Reconciles the metadata store with configured sources. Deleted sources
     /// lose their snapshot; newly added ones get an unverified record without
     /// making any network request.
-    func reconcile(configured: [RepositoryRecord]) throws -> [CatalogSourceRecord] {
-        let saved = try persistence.sources()
+    func reconcile(configured: [RepositoryRecord]) async throws -> [CatalogSourceRecord] {
+        let saved = try await persistence.sources()
         var byID = Dictionary(saved.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var result: [CatalogSourceRecord] = []
         var retained: Set<String> = []
@@ -68,7 +68,7 @@ actor CatalogSourceRegistry {
                CatalogIdentity.sourceKey(match.url) != CatalogIdentity.sourceKey(url) {
                 // The canonical source row moved. Bytes from the old address belong
                 // to a different feed and must not be served under the new one.
-                try persistence.removeSnapshot(sourceID: id)
+                try await persistence.removeSnapshot(sourceID: id)
                 item.validationState = .unverified
                 item.integrityVerified = false
                 item.schemaVersion = nil
@@ -81,9 +81,9 @@ actor CatalogSourceRegistry {
         }
 
         for removed in byID.keys {
-            try persistence.removeSnapshot(sourceID: removed)
+            try await persistence.removeSnapshot(sourceID: removed)
         }
-        try persistence.saveSources(result)
+        try await persistence.saveSources(result)
         return result
     }
 
@@ -92,11 +92,11 @@ actor CatalogSourceRegistry {
         name: String,
         format: CatalogSourceFormat = .altStore,
         declaredIdentifier: String? = nil
-    ) throws -> CatalogSourceRecord {
+    ) async throws -> CatalogSourceRecord {
         do { try SourceURLPolicy.validate(url) }
         catch { throw CatalogSourceError.invalidURL(error.localizedDescription) }
         let id = Self.identifier(for: url)
-        let known = try persistence.sources()
+        let known = try await persistence.sources()
         if known.contains(where: { $0.id == id }) || known.contains(where: {
             CatalogIdentity.isSameSource($0.url, url.absoluteString)
         }) {
@@ -112,7 +112,7 @@ actor CatalogSourceRegistry {
             createdAt: now,
             updatedAt: now
         )
-        try persistence.saveSources(known + [source])
+        try await persistence.saveSources(known + [source])
         return source
     }
 
@@ -122,8 +122,8 @@ actor CatalogSourceRegistry {
         summary: String? = nil,
         artworkURL: String? = nil,
         format: CatalogSourceFormat? = nil
-    ) throws -> CatalogSourceRecord {
-        var sources = try persistence.sources()
+    ) async throws -> CatalogSourceRecord {
+        var sources = try await persistence.sources()
         guard let index = sources.firstIndex(where: { $0.id == id }) else { throw CatalogSourceError.missingSource }
         if let artworkURL, !artworkURL.isEmpty,
            RepositoryValidator.webURL(artworkURL) == nil {
@@ -137,16 +137,16 @@ actor CatalogSourceRegistry {
         sources[index].artworkURL = artworkURL
         sources[index].format = format ?? sources[index].format
         sources[index].updatedAt = Date()
-        try persistence.saveSources(sources)
+        try await persistence.saveSources(sources)
         return sources[index]
     }
 
     /// Changes the address of an existing source without duplicating it. The
     /// snapshot is dropped because its contents belong to the old address.
-    func changeURL(id: String, to url: URL) throws -> CatalogSourceRecord {
+    func changeURL(id: String, to url: URL) async throws -> CatalogSourceRecord {
         do { try SourceURLPolicy.validate(url) }
         catch { throw CatalogSourceError.invalidURL(error.localizedDescription) }
-        var sources = try persistence.sources()
+        var sources = try await persistence.sources()
         guard let index = sources.firstIndex(where: { $0.id == id }) else { throw CatalogSourceError.missingSource }
         if sources.contains(where: { $0.id != id && CatalogIdentity.isSameSource($0.url, url.absoluteString) }) {
             throw CatalogSourceError.duplicateSource
@@ -154,26 +154,26 @@ actor CatalogSourceRegistry {
         sources[index].url = url.absoluteString
         sources[index].validationState = .unverified
         sources[index].updatedAt = Date()
-        try persistence.saveSources(sources)
-        try persistence.removeSnapshot(sourceID: id)
+        try await persistence.saveSources(sources)
+        try await persistence.removeSnapshot(sourceID: id)
         return sources[index]
     }
 
-    func setEnabled(id: String, enabled: Bool) throws -> CatalogSourceRecord {
-        var sources = try persistence.sources()
+    func setEnabled(id: String, enabled: Bool) async throws -> CatalogSourceRecord {
+        var sources = try await persistence.sources()
         guard let index = sources.firstIndex(where: { $0.id == id }) else { throw CatalogSourceError.missingSource }
         sources[index].enabled = enabled
         sources[index].updatedAt = Date()
-        try persistence.saveSources(sources)
+        try await persistence.saveSources(sources)
         return sources[index]
     }
 
-    func remove(id: String) throws {
-        var sources = try persistence.sources()
+    func remove(id: String) async throws {
+        var sources = try await persistence.sources()
         guard let index = sources.firstIndex(where: { $0.id == id }) else { throw CatalogSourceError.missingSource }
         sources.remove(at: index)
-        try persistence.saveSources(sources)
-        try persistence.removeSnapshot(sourceID: id)
+        try await persistence.saveSources(sources)
+        try await persistence.removeSnapshot(sourceID: id)
     }
 
     /// Applies one refresh outcome. Only a fully parsed snapshot can mark a
@@ -183,8 +183,8 @@ actor CatalogSourceRegistry {
         outcome: CatalogRefreshOutcome,
         duration: TimeInterval,
         statusCode: Int?
-    ) throws -> CatalogSourceRecord {
-        var sources = try persistence.sources()
+    ) async throws -> CatalogSourceRecord {
+        var sources = try await persistence.sources()
         guard let index = sources.firstIndex(where: { $0.id == id }) else { throw CatalogSourceError.missingSource }
         let now = Date()
         var health = sources[index].health
@@ -193,7 +193,7 @@ actor CatalogSourceRegistry {
 
         switch outcome {
         case .verified(let snapshot, let integrityVerified):
-            try persistence.saveSnapshot(snapshot)
+            try await persistence.saveSnapshot(snapshot)
             health.lastSuccessfulRefresh = now
             health.lastError = nil
             health.consecutiveFailures = 0
@@ -208,7 +208,7 @@ actor CatalogSourceRegistry {
             sources[index].artworkURL = snapshot.artworkURL
         case .unchanged(let snapshot):
             // Conditional 304: keep the cached bytes, only refresh freshness.
-            try persistence.saveSnapshot(snapshot)
+            try await persistence.saveSnapshot(snapshot)
             health.lastSuccessfulRefresh = now
             health.lastError = nil
             health.consecutiveFailures = 0
@@ -226,7 +226,7 @@ actor CatalogSourceRegistry {
         }
         sources[index].health = health
         sources[index].updatedAt = now
-        try persistence.saveSources(sources)
+        try await persistence.saveSources(sources)
         return sources[index]
     }
 

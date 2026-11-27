@@ -8,6 +8,7 @@
 import Foundation
 import OSLog
 import NimbleExtensions
+import NimbleJSON
 
 actor CatalogRefreshService {
     typealias Fetcher = @Sendable (URL, [String: String]) async -> Result<Data, Error>

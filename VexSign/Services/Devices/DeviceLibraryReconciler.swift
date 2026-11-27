@@ -5,6 +5,7 @@
 // version-less records are surfaced because they make automatic matching unsafe.
 
 import Foundation
+import IDeviceSwift
 import NimbleExtensions
 
 struct DeviceLibraryMatch: Equatable, Sendable, Identifiable {

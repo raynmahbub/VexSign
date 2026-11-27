@@ -79,7 +79,7 @@ enum CatalogSearch {
         }
     }
 
-    private static func _compare(_ lhs: CatalogAppRecord, _ rhs: CatalogAppRecord, sort: Sort) -> ComparisonResult {
+    private static func _compare(_ lhs: CatalogAppRecord, _ rhs: CatalogAppRecord, sort: CatalogSearchQuery.Sort) -> ComparisonResult {
         switch sort {
         case .name:
             return lhs.name.localizedCaseInsensitiveCompare(rhs.name)

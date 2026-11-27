@@ -153,9 +153,6 @@ enum UnifiedIdentityCatalog {
             if profile == nil {
                 notices.append(.localized("No readable provisioning profile is associated with this identity."))
             }
-            if source == .appleAccount {
-                notices.append(.localized("Apple Account handoff: free vs paid enrollment is not inferred from the certificate name. The account type is not verified here."))
-            }
             // Source comes only from an explicit record written by the importer.
             // An unlabelled identity stays external/unknown; names never count.
             let recorded = provenance(candidate.record.uuid)
@@ -166,6 +163,9 @@ enum UnifiedIdentityCatalog {
                 case .importedByUser, nil: return .externalImport
                 }
             }()
+            if source == .appleAccount {
+                notices.append(.localized("Apple Account handoff: free vs paid enrollment is not inferred from the certificate name. The account type is not verified here."))
+            }
             return UnifiedSigningIdentity(
                 id: candidate.input.reference,
                 displayName: candidate.record.workspaceName.isEmpty ? candidate.input.name : candidate.record.workspaceName,
@@ -214,7 +214,7 @@ enum UnifiedIdentityCatalog {
             } else {
                 validity = .valid
             }
-            let type = SigningCertificateType(profileType(from: linked.first))
+            let type = SigningCertificateType(linked.first.flatMap { ProvisionProfileType(rawValue: $0.type) } ?? .unknown)
             return UnifiedSigningIdentity(
                 id: certificate.id,
                 displayName: certificate.displayName,

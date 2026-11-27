@@ -30,7 +30,7 @@ actor ContainerArchiveService {
         password: String? = nil,
         checkpoint: (@Sendable () throws -> Void)? = nil
     ) async throws -> ContainerExport {
-        try check(checkpoint)
+        try Self.check(checkpoint)
         var record = try await store.record(id: id)
         guard try await store.verifyResources(id: id) else { throw ContainerError.corruptedContainer }
         record.state = .active
@@ -42,7 +42,7 @@ actor ContainerArchiveService {
         let pack = work.appendingPathComponent("pack", isDirectory: true)
         try manager.createDirectory(at: pack, withIntermediateDirectories: true)
         defer { try? manager.removeItem(at: work) } // try? ok: staging is private and no longer needed
-        try check(checkpoint)
+        try Self.check(checkpoint)
 
         let manifest = ContainerExportManifest(
             format: ContainerExportManifest.format,
@@ -55,7 +55,7 @@ actor ContainerArchiveService {
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let manifestData = try encoder.encode(manifest)
         try manifestData.write(to: pack.appendingPathComponent("manifest.json", isDirectory: false), options: .atomic)
-        try check(checkpoint)
+        try Self.check(checkpoint)
 
         for resource in record.resources {
             let from = try await store.resourceURL(id: id, relativePath: resource.relativePath)
@@ -63,12 +63,12 @@ actor ContainerArchiveService {
                 .appendingPathComponent(resource.relativePath, isDirectory: false)
             try manager.createDirectory(at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
             try manager.copyItem(at: from, to: to)
-            try check(checkpoint)
+            try Self.check(checkpoint)
         }
 
         let zip = work.appendingPathComponent("container.zip", isDirectory: false)
         try ArchiveEngine.zipDirectory(pack, to: zip, shouldKeepParent: false)
-        try check(checkpoint)
+        try Self.check(checkpoint)
         try ArchiveSafetyValidator.validate(zip, destination: work.appendingPathComponent("check", isDirectory: true),
                                             limits: limits)
 
@@ -113,25 +113,25 @@ actor ContainerArchiveService {
         authorization: ContainerRestoreAuthorization,
         checkpoint: (@Sendable () throws -> Void)? = nil
     ) async throws -> AppContainerRecord {
-        try check(checkpoint)
+        try Self.check(checkpoint)
         let prepared = try await _plaintextArchive(file: file, password: password, workspacePrefix: "VexContainerRestore")
         defer { try? FileManager.default.removeItem(at: prepared.work) } // try? ok: restore staging cleanup
-        try check(checkpoint)
+        try Self.check(checkpoint)
 
         try ArchiveSafetyValidator.validate(
             prepared.archive,
             destination: prepared.output,
             limits: limits,
-            checkpoint: { try check(checkpoint) }
+            checkpoint: { try Self.check(checkpoint) }
         )
         let manifest = try _readManifest(from: prepared.archive)
-        try check(checkpoint)
+        try Self.check(checkpoint)
 
         let archive = try Archive(url: prepared.archive, accessMode: .read)
         var extracted: [(relativePath: String, url: URL)] = []
         var seen = Set<String>()
         for entry in archive {
-            try check(checkpoint)
+            try Self.check(checkpoint)
             let raw = entry.path.replacingOccurrences(of: "\\", with: "/")
                 .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             let path = raw.hasPrefix("./") ? String(raw.dropFirst(2)) : raw
@@ -153,7 +153,7 @@ actor ContainerArchiveService {
             try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(),
                                                     withIntermediateDirectories: true)
             try archive.extract(entry, to: destination)
-            try check(checkpoint)
+            try Self.check(checkpoint)
             extracted.append((safe, destination))
         }
 
@@ -169,7 +169,7 @@ actor ContainerArchiveService {
                 throw ContainerArchiveError.checksumMismatch(resource.relativePath)
             }
         }
-        try check(checkpoint)
+        try Self.check(checkpoint)
 
         let forceID: String?
         switch authorization {
@@ -189,7 +189,7 @@ actor ContainerArchiveService {
             incoming.updatedAt = Date()
             let installed = try await store.installValidated(
                 incoming, stagedResources: extracted, forceID: forceID,
-                checkpoint: { try check(checkpoint) }
+                checkpoint: { try Self.check(checkpoint) }
             )
             try await store.commitReplacement(heldOriginal)
             return installed
@@ -212,7 +212,7 @@ actor ContainerArchiveService {
 
     // MARK: - Internals
 
-    private func check(_ checkpoint: (@Sendable () throws -> Void)?) throws {
+    private static func check(_ checkpoint: (@Sendable () throws -> Void)?) throws {
         if let checkpoint { try checkpoint() } else { try Task.checkCancellation() }
     }
 

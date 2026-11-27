@@ -125,7 +125,7 @@ final class DeviceLifecycleWorkspaceModel: ObservableObject {
     func verifySelected() {
         guard let deviceID = selectedDeviceID else { return }
         run(title: .localized("Verifying the selected device…"), operationType: "device-verify") {
-            try await registry.verify(deviceID: deviceID)
+            try await self.registry.verify(deviceID: deviceID)
             try await self.reloadDevices()
             self.message = .localized("The device answered a fresh identity query. Any install or inventory operation still needs its own consented session.")
         }
@@ -328,10 +328,11 @@ final class DeviceLifecycleWorkspaceModel: ObservableObject {
             defer {
                 // A cancelled generation is already retired by `cancel()`; do not let
                 // this old worker clear the state of whatever replaced it.
-                guard self.operationGeneration == generation else { return }
-                self.operation = nil
-                self.isWorking = false
-                self.stage = nil
+                if self.operationGeneration == generation {
+                    self.operation = nil
+                    self.isWorking = false
+                    self.stage = nil
+                }
             }
             do {
                 try Task.checkCancellation()

@@ -15,7 +15,7 @@ struct VaultPersistence {
     private static let fileName = "vault-inventory.json"
 
     let directory: URL
-    private var fileURL: URL { directory.appendingPathComponent(fileName) }
+    private var fileURL: URL { directory.appendingPathComponent(Self.fileName) }
 
     static var defaultDirectory: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]

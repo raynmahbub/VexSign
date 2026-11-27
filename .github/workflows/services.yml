@@ -173,7 +173,16 @@ jobs:
       # `build` is `tsc -p ...`; it type-checks and emits, so the old
       # `check` (`tsc --noEmit`) step was the same work twice.
       - run: npm run build
-      - run: npm test
+      # A skipped test is not a pass. The Postgres and Redis integration tests skip whenever their URLs
+      # are unset, which would let this job go green without touching either service. Fail on any skip.
+      - name: Test suite, no skipped tests
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee test-output.tap
+          if grep -qE '# SKIP|^# skipped [1-9]' test-output.tap; then
+            echo "::error::A cloud test was skipped; the integration suites must run in this job." >&2
+            exit 1
+          fi
       - run: npm run contracts && git diff --exit-code -- openapi.json
       # The iOS client decodes the contract above by hand. This compares the two texts, so a
       # renamed field fails here instead of in an accepted submission that cannot be decoded.

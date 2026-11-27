@@ -1,8 +1,8 @@
 {
  "schema": 1,
- "scope": "Vapor/Crypto/ASN1 promotion landed with the SideSign app integration (Vapor 4.122.3 permits Crypto 4.3.1). Baseline re-digested after normalising the workspace and project Package.resolved to one identical v2 pin file (41 versioned pins after the unused marmelroy/Zip package was removed, no other pin changed); the Xcode resolver remains the authority for transitive pins. Re-recorded when swift-http-types moved 1.5.1 -> 1.6.0: the pinned swift-nio-extras enables the FoundationURL trait, which 1.5.1 does not declare, so the app graph could not resolve at all. 1.6.0 declares it. Manifest digest was computed from the tagged upstream tree, and the method was validated against the previously recorded 1.5.1 digest before use.",
+ "scope": "Vapor/Crypto/ASN1 promotion landed with the SideSign app integration (Vapor 4.122.3 permits Crypto 4.3.1). Baseline re-digested after normalising the workspace and project Package.resolved to one identical v2 pin file (41 versioned pins after the unused marmelroy/Zip package was removed, no other pin changed); the Xcode resolver remains the authority for transitive pins. Re-recorded when swift-http-types moved 1.5.1 -> 1.6.0: the pinned swift-nio-extras enables the FoundationURL trait, which 1.5.1 does not declare, so the app graph could not resolve at all. 1.6.0 declares it. Manifest digest was computed from the tagged upstream tree, and the method was validated against the previously recorded 1.5.1 digest before use. Re-recorded for the compatible root updates resolving #149: SWCompression 4.8.6 -> 4.8.7 (only change: its BitByteData dependency becomes exact 2.0.4, already the resolved pin) and ZIPFoundation 0.9.20 -> 0.9.21 (adds an explicit linkedLibrary(\"z\") and an apt zlib1g-dev provider for Linux; no new dependencies). Both manifests were diffed against the previous tag and reviewed; the digest method reproduces the previously recorded digests for 4.8.6 and 0.9.20 exactly.",
  "app_pins_file": "VexSign.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
- "app_pins_sha256": "8eaae4b7ced3bbf45e8af1b176fed24bb5d7d713a7d756c088c8ab295fd6326f",
+ "app_pins_sha256": "900085c9aebecf0d671fa4a72371fc9cd652a8016bc5aabfb070dd597f372f46",
  "confirmed_blocker": {
   "identity": "vapor",
   "version": "4.122.3",
@@ -76,8 +76,8 @@
   },
   {
    "identity": "swcompression",
-   "revision": "390e0b0af8dd19a600005a242a89e570ff482e09",
-   "manifest_sha256": "9ac1ceaadb59c0b29a09a274932610a6a185405b6a02217a0e089006ae76f8c0"
+   "revision": "b0b560e4c65e080841fc72b9071ac17595efb4d4",
+   "manifest_sha256": "68284f516118ca0b439821be62973e227694bdbae0f2ced5381aea8a9ece7166"
   },
   {
    "identity": "swift-algorithms",
@@ -216,8 +216,8 @@
   },
   {
    "identity": "zipfoundation",
-   "revision": "22787ffb59de99e5dc1fbfe80b19c97a904ad48d",
-   "manifest_sha256": "2dd90c2f70b1f3d17a4d73bd32ac97e5fc002eecd5797586edaf170def789fff"
+   "revision": "e7048f0569f0ba37df26f8357f560b9d25e9a284",
+   "manifest_sha256": "4798223faf90b4d054140a8b6ef93a3b500d39fc749f759e3bb9e5db90f2a3e3"
   }
  ]
 }

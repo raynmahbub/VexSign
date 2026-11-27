@@ -8,6 +8,8 @@ enum UnifiedTaskKind: String, Codable, CaseIterable, Sendable {
 	case update
 	case export
     case deviceSetup
+    case sourceRefresh
+    case containerOperation
 
 }
 

@@ -5,6 +5,7 @@
 // across actor boundaries.
 
 import Foundation
+import IDeviceSwift
 
 @MainActor
 final class DeviceLifecycleTaskReporter {
