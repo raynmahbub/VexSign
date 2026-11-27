@@ -47,8 +47,11 @@ test('OTA manifests and pages escape untrusted metadata and preserve query strin
 test('contracts reject shell arguments, arbitrary signing paths, oversized batches and unsigned receipts', () => {
   assert.equal(signRequest.safeParse({ ipaId: '../x', p12Id: 'x', provisionId: 'x', password: 'x', command: 'sh' }).success, false);
   assert.equal(batchRequest.safeParse({ jobs: [] }).success, false);
-  assert.equal(signerResult.safeParse({ kind: 'sign', signatureVerified: false, metadata }).success, false);
-  assert.equal(signerResult.safeParse({ kind: 'sign', signatureVerified: true, metadata }).success, true);
+  const outputSha256 = '1'.repeat(64);
+  assert.equal(signerResult.safeParse({ kind: 'sign', signatureVerified: false, outputSha256, metadata }).success, false);
+  assert.equal(signerResult.safeParse({ kind: 'sign', signatureVerified: true, metadata }).success, false);
+  assert.equal(signerResult.safeParse({ kind: 'sign', signatureVerified: true, outputSha256: 'xyz', metadata }).success, false);
+  assert.equal(signerResult.safeParse({ kind: 'sign', signatureVerified: true, outputSha256, metadata }).success, true);
 });
 test('missing signer fails instead of returning a simulated artifact', async () => {
   await assert.rejects(invokeSigner('/nonexistent-vexsign-test-engine', { protocolVersion: 1, kind: 'sign', directory: '/tmp', p12Path: '/tmp/a', provisionPath: '/tmp/b', outputPath: '/tmp/c', password: 'not-logged' }), /SIGNER_FAILED/);

@@ -67,6 +67,9 @@ final class SigningHandler: NSObject {
 	/// Separate from `onStage`: reaching `.verifying` only says the check started, and a
 	/// "modify without signing" run reaches `.registering` without verifying anything.
 	var onSignatureVerified: (() -> Void)?
+	/// Receives the verifier's bounded result after the final check. Nil for a
+	/// modify-only run, which has no signature to verify.
+	var onVerificationReport: ((SigningVerificationReport) -> Void)?
 	
 	init(app: SigningAppSnapshot, options: Options, executionGate: SigningExecutionGate) {
         self.executionGate = executionGate
@@ -252,6 +255,12 @@ final class SigningHandler: NSObject {
 		if _options.signingOption == .default {
 			onStage?(.verifying)
 			try _verifySignedBundle(at: movedAppPath, assets: handler.verificationAssets)
+			if let report = verification {
+				onVerificationReport?(SigningVerificationReportBuilder.make(
+					from: report, bundleAt: movedAppPath,
+					componentCount: handler.verificationAssets.count
+				))
+			}
 			// `_verifySignedBundle` throws when the report is unacceptable, so returning from
 			// it is the engine's own evidence that verification passed. Reported here and only
 			// here: a "modify without signing" run never reaches this line.

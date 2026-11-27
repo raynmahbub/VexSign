@@ -15,6 +15,13 @@ final class DeepLinkBase64StagingTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: url), Data("hello".utf8))
     }
 
+    func testStagedPrivateKeyPayloadIsOwnerOnly() throws {
+        let url = try XCTUnwrap(staged("aGVsbG8="))
+        defer { try? FileManager.default.removeItem(at: url) }
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        XCTAssertEqual(attributes[.posixPermissions] as? NSNumber, 0o600)
+    }
+
     func testMissingPaddingIsAccepted() throws {
         let url = try XCTUnwrap(staged("aGVsbG8"))
         defer { try? FileManager.default.removeItem(at: url) }

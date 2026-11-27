@@ -41,6 +41,7 @@ final class SigningWorkspaceModel {
                      reviewedAuthorization: SigningResolutionAuthorization? = nil,
                      onStage: (@MainActor (SigningStage) -> Void)? = nil,
                      onVerified: (@MainActor () -> Void)? = nil,
+                     onVerificationReport: (@MainActor (SigningVerificationReport) -> Void)? = nil,
                      onCompatibilityRemoved: (@MainActor ([String]) -> Void)? = nil,
                      completion: @escaping @MainActor (Result<LibraryAppRecord, Error>) -> Void) {
         do {
@@ -50,11 +51,35 @@ final class SigningWorkspaceModel {
                 switch event {
                 case .stage(let stage): onStage?(stage)
                 case .signatureVerified: onVerified?()
+                case .verificationReport(let report): onVerificationReport?(report)
                 case .compatibilityRemoved(let components): onCompatibilityRemoved?(components)
                 case .finished(let result): completion(result)
                 }
             }
         } catch { completion(.failure(error)) }
+    }
+
+    /// Applies an explicit modification plan through the ordinary signing flow.
+    /// The source import is untouched; the existing pipeline owns copy, sign,
+    /// verify, registration and cleanup for this run as for every other run.
+    func applyModification(
+        _ app: AppInfoPresentable,
+        specs: [TweakInjectionSpec],
+        configurations: [InjectionConfiguration],
+        injectIntoExtensions: Bool,
+        requestID: String,
+        onVerificationReport: (@MainActor (SigningVerificationReport) -> Void)?,
+        completion: @escaping @MainActor (Result<LibraryAppRecord, Error>) -> Void
+    ) {
+        var options = Options.defaultOptions
+        options.tweakInjections = specs
+        options.injectionConfigurations = configurations
+        options.injectIntoExtensions = injectIntoExtensions
+        signPackage(
+            app, using: resolve(options, for: app), icon: nil, certificate: nil,
+            requestID: requestID, onVerificationReport: onVerificationReport,
+            completion: completion
+        )
     }
 
     func savedProfile(forBundleID bundleID: String?) -> SigningProfile? { useCase.savedProfile(bundleIdentifier: bundleID) }

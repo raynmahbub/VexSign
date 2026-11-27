@@ -95,7 +95,18 @@ extension FileManager {
 			data.count <= maxBytes
 		else { return nil }
 		let dir = self.temporaryDirectory.appendingPathComponent(UUID().uuidString + pathComponent)
-		try? data.write(to: dir) // try? ok: best-effort write to temp directory; caller validates file existence
+		// Certificate links carry a private key. Stage it with Data Protection and
+		// owner-only POSIX permissions from the first write; the consent sheet may
+		// be declined, but until then the bytes must not be readable by anything
+		// else in the app's group. A failed protected write must not be reported
+		// as a staged file.
+		do {
+			try data.write(to: dir, options: [.atomic, .completeFileProtection])
+			try setAttributes([.posixPermissions: 0o600], ofItemAtPath: dir.path)
+		} catch {
+			try? removeItem(at: dir) // try? ok: preserve the write/attribute failure; only a partial staging file is removed
+			return nil
+		}
 		return dir
 	}
 	

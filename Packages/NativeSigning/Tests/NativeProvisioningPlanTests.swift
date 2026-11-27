@@ -28,7 +28,8 @@ final class NativeProvisioningPlanTests: XCTestCase {
 
     func testReadOnlyPlanNeverTreatsRemoteCertificateAsOwnedPrivateKey() throws {
         let request = try NativeAccountProvisioningRequest(deviceIdentifier: udid, bundleIdentifiers: ["com.example.second", "com.example.first"])
-        let inventory = SideSignProvisioningInventory(deviceRegistered: true, appIdentifiers: ["com.example.first"], certificateCount: 2)
+        let inventory = SideSignProvisioningInventory(deviceRegistered: true, appIdentifiers: ["com.example.first"],
+            certificateCount: 2, activeAppIdentifierCount: 7, registeredDeviceCount: 2)
         let context = UUID()
         let plan = try inventory.plan(request: request, contextID: context, teamIdentifier: "TEAM", now: now, sessionExpiry: now.addingTimeInterval(600))
         XCTAssertEqual(plan.contextID, context)
@@ -36,9 +37,28 @@ final class NativeProvisioningPlanTests: XCTestCase {
         XCTAssertEqual(plan.appIDsToRegister, ["com.example.second"])
         XCTAssertEqual(plan.existingAppIdentifiers, ["com.example.first"])
         XCTAssertEqual(plan.remoteCertificateCount, 2)
+        XCTAssertEqual(plan.observedActiveAppIdentifierCount, 7)
+        XCTAssertEqual(plan.observedRegisteredDeviceCount, 2)
         XCTAssertTrue(plan.requiresLocallyOwnedSigningIdentity)
         XCTAssertEqual(plan.profileBundleIdentifiersToPrepare, ["com.example.first", "com.example.second"])
         XCTAssertEqual(plan.expiresAt, now.addingTimeInterval(120))
+    }
+
+    func testPlanDoesNotInventPortalCountsWhenTheyWereNotObserved() throws {
+        let request = try NativeAccountProvisioningRequest(deviceIdentifier: udid, bundleIdentifiers: ["com.example.app"])
+        let inventory = SideSignProvisioningInventory(deviceRegistered: true, appIdentifiers: [], certificateCount: 0)
+        let plan = try inventory.plan(request: request, contextID: UUID(), teamIdentifier: "TEAM",
+                                      now: now, sessionExpiry: now.addingTimeInterval(600))
+        XCTAssertNil(plan.observedActiveAppIdentifierCount)
+        XCTAssertNil(plan.observedRegisteredDeviceCount)
+    }
+
+    func testPlanRejectsImpossiblePortalCounts() throws {
+        let request = try NativeAccountProvisioningRequest(deviceIdentifier: udid, bundleIdentifiers: ["com.example.app"])
+        let inventory = SideSignProvisioningInventory(deviceRegistered: true, appIdentifiers: [], certificateCount: 0,
+                                                     activeAppIdentifierCount: -1)
+        XCTAssertThrowsError(try inventory.plan(request: request, contextID: UUID(), teamIdentifier: "TEAM",
+                                                now: now, sessionExpiry: now.addingTimeInterval(600)))
     }
 
     func testPlanDeadlineCannotOutliveSession() throws {

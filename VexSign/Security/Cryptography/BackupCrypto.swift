@@ -52,6 +52,7 @@ enum BackupCrypto {
 		case wrongPassword
 		case passwordRequired
 		case passwordTooShort
+		case blankPassword
 		case certificatesNeedPassword
 		case deviceBoundBackup
 		case cryptoFailed
@@ -68,6 +69,8 @@ enum BackupCrypto {
 				String.localized("This backup needs a password.")
 			case .passwordTooShort:
 				String.localized("Use at least %lld characters for the backup password.", arguments: Int64(BackupCrypto.minimumPasswordLength))
+			case .blankPassword:
+				String.localized("Enter a backup password, or leave the field completely empty.")
 			case .certificatesNeedPassword:
 				String.localized("A backup that includes certificates needs a password of at least %lld characters, because it contains private keys.", arguments: Int64(BackupCrypto.minimumPasswordLength))
 			case .deviceBoundBackup:

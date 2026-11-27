@@ -77,7 +77,7 @@ struct SelfUpdateSheet: View {
 					Text(release.title)
 						.font(.title3.bold())
 					HStack(spacing: 6) {
-						Text(Bundle.main.version)
+						Text(VexSignBuildInfo.version)
 						Image(systemName: "arrow.right")
 							.font(.caption2)
 						Text(release.version)

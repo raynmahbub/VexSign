@@ -184,6 +184,7 @@ struct TweakFolderView: View {
 				HStack(spacing: 12) {
 					Image(systemName: _selection.contains(tweak.id) ? "checkmark.circle.fill" : "circle")
 						.foregroundStyle(_selection.contains(tweak.id) ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+						.accessibilityLabel(Text(verbatim: String.localized(_selection.contains(tweak.id) ? "Deselect tweak %@" : "Select tweak %@", arguments: tweak.name)))
 					TweakRowLabel(tweak: tweak)
 				}
 			}

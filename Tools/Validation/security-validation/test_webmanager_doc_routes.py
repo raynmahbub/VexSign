@@ -102,6 +102,13 @@ class WebManagerRouteTableTests(unittest.TestCase):
             + ", ".join(f"{verb} {path}" for verb, path in stale),
         )
 
+    def test_webdav_locks_are_refused_instead_of_faked(self):
+        source = (ROOT / "VexSign/Services/WebManager/WebManagerServer+WebDAV.swift").read_text(encoding="utf-8")
+        self.assertNotIn('Response(status: .ok, headers: headers, body: .init(string: xml))', source)
+        self.assertIn('Response(status: .methodNotAllowed, headers: headers)', source)
+        self.assertNotIn("LOCK, UNLOCK", source)
+        self.assertIn("Refused with `405 Method Not Allowed`", DOC.read_text(encoding="utf-8"))
+
     def test_document_covers_the_webdav_verbs(self):
         text = DOC.read_text(encoding="utf-8")
         webdav = re.split(r"(?m)^### WebDAV$", text)[1]

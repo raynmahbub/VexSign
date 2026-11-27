@@ -38,6 +38,10 @@ struct Options: Codable, Equatable, Sendable {
 	var displayNames: [String: String]
 	/// Array of files (`.dylib`, `.deb` ) to extract and inject
 	var injectionFiles: [URL]
+	/// Explicit, provenance-bearing include/exclude rules for a modification plan.
+	/// Empty means the legacy explicit-file flow; when present, a tweak is never
+	/// injected into a bundle that no rule selected.
+	var injectionConfigurations: [InjectionConfiguration]
 	/// Mach-o load paths to remove (i.e. `@executable_path/demo1.dylib`)
 	var disInjectionFiles: [String]
 	/// App files to remove from (i.e. `Frameworks/CydiaSubstrate.framework`)
@@ -122,6 +126,7 @@ struct Options: Codable, Equatable, Sendable {
 		identifiers: [:],
 		displayNames: [:],
 		injectionFiles: [],
+		injectionConfigurations: [],
 		disInjectionFiles: [],
 		removeFiles: [],
 		fileSharing: false,
@@ -229,6 +234,7 @@ extension Options {
 		identifiers = try c.decodeIfPresent([String: String].self, forKey: .identifiers) ?? d.identifiers
 		displayNames = try c.decodeIfPresent([String: String].self, forKey: .displayNames) ?? d.displayNames
 		injectionFiles = try c.decodeIfPresent([URL].self, forKey: .injectionFiles) ?? d.injectionFiles
+		injectionConfigurations = try c.decodeIfPresent([InjectionConfiguration].self, forKey: .injectionConfigurations) ?? d.injectionConfigurations
 		disInjectionFiles = try c.decodeIfPresent([String].self, forKey: .disInjectionFiles) ?? d.disInjectionFiles
 		removeFiles = try c.decodeIfPresent([String].self, forKey: .removeFiles) ?? d.removeFiles
 		fileSharing = try c.decodeIfPresent(Bool.self, forKey: .fileSharing) ?? d.fileSharing
@@ -270,6 +276,8 @@ extension Options {
     func withoutPerAppFields() -> Options {
         var result = self
         result.appName = nil; result.appIdentifier = nil; result.appVersion = nil; result.tweakInjections = nil
+        // Structured rules are per-run, tied to the inspected package versions.
+        result.injectionConfigurations = []
         result.componentSigningPreferences = nil
         return result
     }

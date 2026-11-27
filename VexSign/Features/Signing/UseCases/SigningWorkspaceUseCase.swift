@@ -26,6 +26,10 @@ final class SigningWorkspaceUseCase<Icon> {
         active[request.id] = invocation
         provider.startSigning(request, icon: icon) { [weak self] event in
             guard let self, self.active[request.id] == invocation else { return }
+            if case .verificationReport(let report) = event {
+                onEvent(.verificationReport(report))
+                return
+            }
             if case .finished(let result) = event {
                 self.active.removeValue(forKey: request.id)
                 if case .success(let output) = result {

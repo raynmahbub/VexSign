@@ -37,6 +37,43 @@ final class VexSignUITests: VexSignUITestCase {
         attachScreenshot("relaunch")
     }
 
+    func testLibraryOpensContainerWorkspace() {
+        app.tabBars.buttons["Library"].tap()
+        let containers = app.buttons[UIID.libraryContainers].firstMatch
+        XCTAssertTrue(containers.waitForExistence(timeout: 5), "The container toolbar action should be reachable")
+        containers.tap()
+        XCTAssertTrue(app.navigationBars["Containers"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Managed Containers"].exists)
+        attachScreenshot("container-workspace")
+    }
+
+    func testSettingsReachesDeviceLifecycleEntry() {
+        app.tabBars.buttons["Settings"].tap()
+        let updates = app.staticTexts["App Updates"].firstMatch
+        XCTAssertTrue(updates.waitForExistence(timeout: 5), "The App Updates row should be reachable")
+        updates.tap()
+        let bootstrap = app.staticTexts["Review bootstrap limitations"].firstMatch
+        XCTAssertTrue(bootstrap.waitForExistence(timeout: 5))
+        bootstrap.tap()
+        let entry = app.descendants(matching: .any)["device.lifecycle.entry"].firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 5), "The lifecycle entry should be visible in Tunnel")
+        attachScreenshot("device-lifecycle-entry")
+    }
+
+    /// Navigation only. It does not request notification permission or claim
+    /// that a simulated launch proves local delivery.
+    func testSettingsReachesNotificationPreferences() {
+        app.tabBars.buttons["Settings"].tap()
+        let notifications = app.staticTexts["Notifications & Live Activities"].firstMatch
+        XCTAssertTrue(notifications.waitForExistence(timeout: 5))
+        notifications.tap()
+        let types = app.staticTexts["VexSign notification types and reminders"].firstMatch
+        XCTAssertTrue(types.waitForExistence(timeout: 5))
+        types.tap()
+        XCTAssertTrue(app.navigationBars["Notification Types"].waitForExistence(timeout: 5))
+        attachScreenshot("notification-preferences")
+    }
+
     func testLibrarySwipeGestureIsSafe() {
         app.tabBars.buttons["Library"].tap()
         let firstCell = app.cells.firstMatch

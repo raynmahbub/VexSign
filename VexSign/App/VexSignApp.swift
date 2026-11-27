@@ -58,10 +58,16 @@ struct VexSignApp: App {
     /// working app instead of behind the optional first-run wizard. It only
     /// skips onboarding; it does not fake a certificate, install or test result.
     private var isUIAutomationLaunch: Bool {
+        // The launch flag is only compiled into DEBUG builds. Production
+        // configurations cannot skip onboarding from a command-line argument.
+        #if DEBUG
         let arguments = CommandLine.arguments
         guard let flag = arguments.firstIndex(of: "-vexsign-ui-tests"),
               flag + 1 < arguments.count else { return false }
         return arguments[flag + 1] == "1"
+        #else
+        return false
+        #endif
     }
 
     var body: some Scene {
@@ -173,6 +179,23 @@ struct VexSignApp: App {
             }
             .onReceive(NotificationCenter.default.publisher(for: .vexShowOnboarding)) { _ in
                 _showOnboarding = true
+            }
+            // A notification action only navigates. Signing, installing and
+            // updating still need the user's explicit approval in the screen.
+            .onReceive(NotificationCenter.default.publisher(for: .vexNotificationRoute)) { note in
+                guard let route = note.userInfo?["route"] as? NotificationRoute else { return }
+                switch route {
+                case .certificates:
+                    tabSelection.selectedTab = .settings
+                case .updates:
+                    tabSelection.openAppStoreUpdates()
+                case .tasks:
+                    tabSelection.selectedTab = .downloads
+                case .sources:
+                    tabSelection.selectedTab = .appStore
+                case .none:
+                    break
+                }
             }
             .sheet(isPresented: $_showOnboarding) {
                 OnboardingView()

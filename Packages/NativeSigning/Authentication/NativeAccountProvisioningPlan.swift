@@ -45,6 +45,11 @@ public struct NativeAccountProvisioningPlan: Equatable, Sendable {
     public let appIDsToRegister: [String]
     public let existingAppIdentifiers: [String]
     public let remoteCertificateCount: Int
+    // Counts read from Apple's portal in THIS preflight, never from a local
+    // profile journal. Nil means the count was not observed: a free-account
+    // quota rule must fail closed instead of guessing from that absence.
+    public let observedActiveAppIdentifierCount: Int?
+    public let observedRegisteredDeviceCount: Int?
     // A server certificate never proves this device possesses its private key.
     public let requiresLocallyOwnedSigningIdentity: Bool
     // Even a listed profile is not reusable until CMS/identity/UDID/entitlements
@@ -57,12 +62,18 @@ struct SideSignProvisioningInventory: Sendable {
     let appIdentifiers: Set<String>
     let certificateCount: Int
     let validUntil: Date?
+    let activeAppIdentifierCount: Int?
+    let registeredDeviceCount: Int?
 
-    init(deviceRegistered: Bool, appIdentifiers: Set<String>, certificateCount: Int, validUntil: Date? = nil) {
+    init(deviceRegistered: Bool, appIdentifiers: Set<String>, certificateCount: Int,
+         validUntil: Date? = nil, activeAppIdentifierCount: Int? = nil,
+         registeredDeviceCount: Int? = nil) {
         self.deviceRegistered = deviceRegistered
         self.appIdentifiers = appIdentifiers
         self.certificateCount = certificateCount
         self.validUntil = validUntil
+        self.activeAppIdentifierCount = activeAppIdentifierCount
+        self.registeredDeviceCount = registeredDeviceCount
     }
 
     func plan(request: NativeAccountProvisioningRequest, contextID: UUID,
@@ -71,12 +82,17 @@ struct SideSignProvisioningInventory: Sendable {
               sessionExpiry > now, validUntil.map({ $0.timeIntervalSince1970.isFinite && $0 > now }) ?? true else {
             throw NativeProvisioningError.contextChanged
         }
+        guard [activeAppIdentifierCount, registeredDeviceCount].compactMap({ $0 }).allSatisfy({
+            $0 >= 0 && $0 <= 1000
+        }) else { throw NativeProvisioningError.inventoryRejected }
         let existing = request.bundleIdentifiers.filter { appIdentifiers.contains($0) }
         return NativeAccountProvisioningPlan(contextID: contextID, teamIdentifier: teamIdentifier,
             observedAt: now, expiresAt: min(min(sessionExpiry, validUntil ?? sessionExpiry), now.addingTimeInterval(120)),
             requiresDeviceRegistration: !deviceRegistered,
             appIDsToRegister: request.bundleIdentifiers.filter { !appIdentifiers.contains($0) },
             existingAppIdentifiers: existing, remoteCertificateCount: certificateCount,
+            observedActiveAppIdentifierCount: activeAppIdentifierCount,
+            observedRegisteredDeviceCount: registeredDeviceCount,
             requiresLocallyOwnedSigningIdentity: true,
             profileBundleIdentifiersToPrepare: request.bundleIdentifiers)
     }

@@ -48,9 +48,10 @@ struct HomeView: View {
     private var updateCount: Int { updateChecker.updateCount }
 
     private var updateTitle: String {
-        if updateCount == 1 { return .localized("1 Update Available") }
-        if updateCount > 1 { return String.localized("%lld Updates Available", arguments: updateCount) }
-        return .localized("No Updates Available")
+        if updateCount == 0 { return .localized("No Updates Available") }
+        // String Catalog plural variants keep the grammar correct in every
+        // supported locale; do not branch on the English "1" here.
+        return String.localized("%lld Updates Available", arguments: Int64(updateCount))
     }
 
     private var updateSubtitle: String {

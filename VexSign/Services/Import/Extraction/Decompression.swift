@@ -121,26 +121,7 @@ func extractFile(at fileURL: inout URL) throws {
 		return
 	}
 
-	let decompressed: Data
-	guard let format = ArchiveFormat.detect(data, extensionHint: fileURL.pathExtension.lowercased()) else {
-		throw TweakHandlerError.unsupportedFileExtension(fileURL.pathExtension)
-	}
-	switch format {
-	case .xz:
-		// Apple's COMPRESSION_LZMA decodes the XZ container; fall back to SWCompression.
-		decompressed = try (_appleDecompress(data, algorithm: COMPRESSION_LZMA, limit: maximumExpandedBytes)
-			?? XZArchive.unarchive(archive: data))
-	case .lzma:
-		decompressed = try LZMA.decompress(data: data)
-	case .gzip:
-		decompressed = try GzipArchive.unarchive(archive: data)
-	case .bzip2:
-		decompressed = try BZip2.decompress(data: data)
-	case .zstd:
-		// Bounded inside the decoder: the frame's declared size is refused before allocation
-		// and the growth of the output stops at the same ceiling.
-		decompressed = try ZstdDecompression.decompress(data, limit: maximumExpandedBytes)
-	}
+	let decompressed = try decompressArchiveData(data, extensionHint: fileURL.pathExtension.lowercased())
 
 	// XZ is bounded while it streams (see `_appleDecompress`). These decoders are single-shot, so
 	// the check lands after expansion: it keeps an oversized result from reaching the disk and from
@@ -154,6 +135,33 @@ func extractFile(at fileURL: inout URL) throws {
 	let outputURL = fileURL.deletingPathExtension()
 	try decompressed.write(to: outputURL)
 	fileURL = outputURL
+}
+
+/// Decompresses one archive member without untarring it. Shared by the ordinary
+/// extractor and the strict tweak-package inspector, so both enforce the same
+/// compression formats and the same expanded-size ceiling.
+func decompressArchiveData(_ data: Data, extensionHint: String) throws -> Data {
+	let decompressed: Data
+	guard let format = ArchiveFormat.detect(data, extensionHint: extensionHint) else {
+		throw TweakHandlerError.unsupportedFileExtension(extensionHint)
+	}
+	switch format {
+	case .xz:
+		decompressed = try (_appleDecompress(data, algorithm: COMPRESSION_LZMA, limit: maximumExpandedBytes)
+			?? XZArchive.unarchive(archive: data))
+	case .lzma:
+		decompressed = try LZMA.decompress(data: data)
+	case .gzip:
+		decompressed = try GzipArchive.unarchive(archive: data)
+	case .bzip2:
+		decompressed = try BZip2.decompress(data: data)
+	case .zstd:
+		decompressed = try ZstdDecompression.decompress(data, limit: maximumExpandedBytes)
+	}
+	guard decompressed.count <= maximumExpandedBytes else {
+		throw ArchiveExtractionError.expandedTooLarge(Int64(decompressed.count))
+	}
+	return decompressed
 }
 
 // MARK: - Secure extraction helpers

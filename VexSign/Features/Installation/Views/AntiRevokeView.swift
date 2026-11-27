@@ -77,6 +77,7 @@ struct AntiRevokeView: View {
 				} label: {
 					Image(systemName: "questionmark.circle.fill")
 						.foregroundColor(.accentColor)
+						.accessibilityLabel(Text(.localized("About DNS protection guidance")))
 				}
 				.buttonStyle(.plain)
 			}

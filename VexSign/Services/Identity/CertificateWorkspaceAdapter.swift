@@ -109,7 +109,7 @@ final class CertificateWorkspaceAdapter: CertificateWorkspaceProviding {
     }
     func setMonitoringEnabled(_ enabled: Bool) async throws {
         if enabled {
-            _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+            _ = await VexSignNotificationService.shared.requestAuthorization()
             EcosystemMaintenance.schedule()
         }
     }

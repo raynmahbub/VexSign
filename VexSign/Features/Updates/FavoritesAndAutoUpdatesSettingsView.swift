@@ -213,10 +213,12 @@ private struct FavoritesAndAutoUpdatesContent: View {
                         } label: {
                             Image(systemName: isFav ? "star.fill" : "star")
                                 .font(.system(size: 18))
+                                .accessibilityLabel(Text(verbatim: String.localized(isFav ? "Remove from favorites" : "Add to favorites")))
                                 .foregroundStyle(isFav ? Color.yellow : Color.secondary.opacity(0.5))
                                 .padding(6)
                         }
                         .buttonStyle(.plain)
+                        .vexsignMinimumTapTarget()
 
                         Button {
                             NBHaptic.tap()
@@ -224,10 +226,12 @@ private struct FavoritesAndAutoUpdatesContent: View {
                         } label: {
                             Image(systemName: isAuto ? "arrow.triangle.2.circlepath.circle.fill" : "arrow.triangle.2.circlepath.circle")
                                 .font(.title3)
+                                .accessibilityLabel(Text(verbatim: String.localized(isAuto ? "Disable automatic updates" : "Enable automatic updates")))
                                 .foregroundStyle(isAuto ? Color.userTint : Color.secondary.opacity(0.4))
                                 .padding(6)
                         }
                         .buttonStyle(.plain)
+                        .vexsignMinimumTapTarget()
                     }
                     .padding(.vertical, 2)
                 }

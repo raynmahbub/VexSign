@@ -74,6 +74,12 @@ struct TaskContext: Codable, Equatable, Sendable {
         signingTrace = trace
     }
 
+    mutating func recordSigningVerification(_ report: SigningVerificationReport) {
+        var trace = signing
+        trace.recordVerification(report)
+        signingTrace = trace
+    }
+
     mutating func recordSigningOutcome(_ outcome: TaskSigningTrace.Outcome) {
         var trace = signing
         trace.record(outcome: outcome)
@@ -149,10 +155,9 @@ struct TaskStageEntry: Codable, Equatable, Sendable {
 }
 
 enum BuildIdentity {
+    /// Delegates to the single application-level build metadata source.
     static var version: String {
-        let version = TaskContext.versionToken(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "unknown"
-        let build = TaskContext.versionToken(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "unknown"
-        return "\(version) (\(build))"
+        "\(VexSignBuildInfo.version) (\(VexSignBuildInfo.build))"
     }
     static func validatedVersion(_ raw: String?) -> String {
         guard let raw, raw.count <= 135,
@@ -161,7 +166,7 @@ enum BuildIdentity {
     }
 
     static var commit: String {
-        validatedCommit(Bundle.main.object(forInfoDictionaryKey: "VexSignSourceCommit") as? String)
+        VexSignBuildInfo.commit
     }
     static func validatedCommit(_ raw: String?) -> String {
         guard let raw, (7...40).contains(raw.count),

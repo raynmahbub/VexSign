@@ -375,6 +375,7 @@ extension TweakDetailView {
 					_addBundleId()
 				} label: {
 					Image(systemName: "plus.circle.fill")
+						.accessibilityLabel(Text(.localized("Add bundle identifier")))
 				}
 				.disabled(_newBundleId.trimmingCharacters(in: .whitespaces).isEmpty)
 			}

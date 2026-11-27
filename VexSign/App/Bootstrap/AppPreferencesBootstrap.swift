@@ -4,8 +4,8 @@ import Foundation
 @MainActor
 enum AppPreferencesBootstrap {
     static func prepare() {
-        // Migrate old UserDefaults keys (Feather/Ryuk) to new VexSign keys to preserve features for existing users
-        migrateLegacyUserDefaults()
+        // Idempotent, injectable upgrade step for old Feather/Ryuk keys.
+        LegacyPreferenceMigration.migrate(in: .standard)
 
         UserDefaults.standard.register(defaults: [
             "VexSign.serverMethod": 0, // Fully Local signing
@@ -29,25 +29,5 @@ enum AppPreferencesBootstrap {
         UserDefaults.standard.removeObject(forKey: "com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck")
     }
 
-    private static func migrateLegacyUserDefaults() {
-        let oldToNew: [String: String] = [
-            "feather.selectedCert": "vexsign.selectedCert",
-            "Feather.serverMethod": "VexSign.serverMethod",
-            "Feather.backgroundDownloadHeaderStartState": "VexSign.backgroundDownloadHeaderStartState",
-            "Feather.showDownloadHeaderInSourcesTab": "VexSign.showDownloadHeaderInSourcesTab",
-            "Feather.downloadDisplayMode": "VexSign.downloadDisplayMode",
-            "Feather.sourcesShowUpdatesAsTab": "VexSign.sourcesShowUpdatesAsTab",
-            "Feather.downloadOverlayTheme": "VexSign.downloadOverlayTheme",
-            "Feather.dynamicOverlaySize": "VexSign.dynamicOverlaySize",
-            "Feather.userInterfaceStyle": "VexSign.userInterfaceStyle",
-            "RyukSign.onboardingCompleted": "VexSign.onboardingCompleted"
-        ]
-        for (oldKey, newKey) in oldToNew {
-            if UserDefaults.standard.object(forKey: newKey) == nil,
-               let oldValue = UserDefaults.standard.object(forKey: oldKey) {
-                UserDefaults.standard.set(oldValue, forKey: newKey)
-            }
-        }
-    }
 
 }

@@ -104,42 +104,41 @@ enum SelfUpdateNotifier {
 	/// Announces the release unless the decision above says no. Safe to call after every check.
 	@MainActor
 	static func notifyIfNeeded(_ release: SelfUpdateRelease) async {
-		let settings = await UNUserNotificationCenter.current().notificationSettings()
+		let service = VexSignNotificationService.shared
+		let authorization = await service.currentAuthorization()
 		let ignored = SelfUpdateManager.shared.ignoredVersions
 		guard shouldNotify(
 			version: release.version,
 			isEnabled: isEnabled,
-			authorization: settings.authorizationStatus,
+			authorization: authorization,
 			alreadyNotified: Set(rememberedVersions()),
 			ignored: ignored,
 			alreadySurfaced: Set(surfacedVersions()),
 			isAppActive: UIApplication.shared.applicationState == .active
 		) else { return }
 
-		let content = UNMutableNotificationContent()
-		content.title = String.localized("VexSign %@ is available", arguments: release.version)
-		content.body = .localized("Open VexSign to review the release notes and install the update.")
-		content.sound = .default
-		content.threadIdentifier = threadIdentifier
-		content.userInfo = ["version": release.version]
-		content.interruptionLevel = .active
-
 		// One identifier per version: a re-check replaces its own banner instead of stacking.
-		let request = UNNotificationRequest(
+		let note = VexSignNotification(
 			identifier: identifierPrefix + release.version,
-			content: content,
-			trigger: nil
+			topic: .appUpdates,
+			title: String.localized("VexSign %@ is available", arguments: release.version),
+			body: .localized("Open VexSign to review the release notes and install the update."),
+			category: .update,
+			details: [
+				NotificationPayloadKey.route.rawValue: "updates",
+				NotificationPayloadKey.version.rawValue: release.version
+			]
 		)
-
-		do {
-			try await UNUserNotificationCenter.current().add(request)
+		if await service.post(note, dedupeContentKey: release.version) {
 			remember(release.version)
 			FileLogger.log("Notified about release \(release.version)", category: "update")
-		} catch {
-			// A failed delivery is not worth failing the check over; it is retried on the next one
-			// because the version is only remembered after a successful add.
-			FileLogger.log("Could not post release notification: \(error.localizedDescription)", category: "update")
 		}
+		// Automation sees the same confirmed result. No install is started here.
+		AutomationDomainEvent.post(AutomationDomainEvent(
+			kind: .appUpdateFound,
+			referenceID: release.version,
+			summary: release.version
+		))
 	}
 
 	/// True when the tapped notification belongs to a release announcement.

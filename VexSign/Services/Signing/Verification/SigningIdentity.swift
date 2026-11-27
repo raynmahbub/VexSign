@@ -29,6 +29,9 @@ struct SigningIdentity: Identifiable, Equatable, Sendable {
 	let fingerprint: String
 	/// Subject common name, when the certificate has one.
 	let commonName: String?
+	/// Issuer common name, when the certificate names one. Description only; it is
+	/// never used as a trust decision.
+	let issuerCommonName: String?
 	let teamIdentifier: String?
 	/// Uppercase hex, the way Apple prints a serial number.
 	let serial: String?
@@ -42,6 +45,7 @@ struct SigningIdentity: Identifiable, Equatable, Sendable {
 
 		self.fingerprint = Self.fingerprint(of: der)
 		self.commonName = parsed.commonName
+		self.issuerCommonName = parsed.issuerCommonName
 		self.teamIdentifier = parsed.teamIdentifier
 		self.serial = parsed.serial
 		self.notBefore = parsed.notBefore
@@ -52,6 +56,7 @@ struct SigningIdentity: Identifiable, Equatable, Sendable {
 	init(
 		fingerprint: String,
 		commonName: String? = nil,
+		issuerCommonName: String? = nil,
 		teamIdentifier: String? = nil,
 		serial: String? = nil,
 		notBefore: Date? = nil,
@@ -59,6 +64,7 @@ struct SigningIdentity: Identifiable, Equatable, Sendable {
 	) {
 		self.fingerprint = fingerprint
 		self.commonName = commonName
+		self.issuerCommonName = issuerCommonName
 		self.teamIdentifier = teamIdentifier
 		self.serial = serial
 		self.notBefore = notBefore
@@ -107,6 +113,7 @@ private enum X509 {
 		let notBefore: Date
 		let notAfter: Date
 		let commonName: String?
+		let issuerCommonName: String?
 		let teamIdentifier: String?
 	}
 
@@ -137,6 +144,8 @@ private enum X509 {
 		guard index + 3 < fields.count else { return nil }
 		let serialElement = fields[index]
 		guard serialElement.tag == 0x02 else { return nil }
+		let issuer = fields[index + 2]
+		guard issuer.tag == 0x30 else { return nil }
 		index += 3
 
 		let validityElement = fields[index]
@@ -159,6 +168,7 @@ private enum X509 {
 			notBefore: notBefore,
 			notAfter: notAfter,
 			commonName: attributeName(in: subject, bytes: bytes, oid: commonNameOID),
+			issuerCommonName: attributeName(in: issuer, bytes: bytes, oid: commonNameOID),
 			teamIdentifier: attributeName(in: subject, bytes: bytes, oid: [0x55, 0x04, 0x0b])
 		)
 	}

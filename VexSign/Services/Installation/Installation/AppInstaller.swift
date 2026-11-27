@@ -184,7 +184,7 @@ final class AppInstaller: ObservableObject {
 		self._inPlaceVerdict = Self.inPlaceVerdict(
 			for: app,
 			runningIdentifier: runningIdentifier,
-			runningVersion: Bundle.main.version
+			runningVersion: VexSignBuildInfo.version
 		)
         if isSharing {
             _pipeline = nil

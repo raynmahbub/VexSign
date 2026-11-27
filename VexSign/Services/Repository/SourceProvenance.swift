@@ -66,7 +66,10 @@ enum SourceProvenance: Equatable, Sendable {
 		case .unsigned:
 			return nil
 		case .verified(let publisher):
-			return publisher.map { String.localized("Signed by %@", arguments: $0) } ?? .localized("Signed")
+			// The key is supplied by the feed itself. That proves document integrity
+			// under a self-declared key, not publisher identity. Say so in the badge:
+			// a separate pinned key store is required before claiming "Signed by X".
+			return publisher.map { String.localized("Self-signed by %@", arguments: $0) } ?? .localized("Self-signed")
 		case .claimedButInvalid:
 			return .localized("Bad signature")
 		}

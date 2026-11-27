@@ -39,7 +39,7 @@ final class UIKitWorkspaceSupportEnvironmentAdapter: WorkspaceSupportEnvironment
         return WorkspaceSupportSnapshot(
             deviceModel: MobileGestalt.physicalHardwareName ?? "Unknown",
             systemVersion: UIDevice.current.systemVersion,
-            appVersion: Bundle.main.version,
+            appVersion: VexSignBuildInfo.version,
             routingPreference: modeManager.preference.rawValue,
             installationDetails: installationDetails
         )

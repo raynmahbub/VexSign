@@ -32,6 +32,11 @@ enum AppLifecycleCoordinator {
         await SelfUpdateManager.shared.checkOnLaunch()
         await EcosystemMaintenance.run()
         await CertificateExpiryMonitor.checkOnLaunch()
+        await ExpiryReminderScheduler().reconcile(ExpiryReminderSource.subjects())
+        // Foreground fallback: the system may never launch a scheduled task while
+        // the app is in use, so eligible work is reconsidered here. Eligibility,
+        // backoff and the overlap guard live in the persistent engine.
+        await PersistentAutomationEngine.shared.runDueJobs()
         await StorageRules.warnIfOverLimit()
     }
 }

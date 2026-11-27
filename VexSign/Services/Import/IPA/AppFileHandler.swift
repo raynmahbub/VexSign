@@ -32,6 +32,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 	/// directory. Only that folder may be moved into the library: the work directory
 	/// also holds the copied archive, which must never be stored as app content.
 	private var _payloadIsPayloadFolder = true
+	private var _archiveSummary: AppBundleInspection.ArchiveSummary?
 	private let _appDescription: String?
 	private var _didAddToDatabase = false
 
@@ -165,6 +166,9 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
                     DispatchQueue.main.async { download.unpackageProgress = fraction }
                 }
             })
+            // A failed summary never promotes a failed import: extraction and the
+            // shared validator have already admitted these archive bytes.
+            _archiveSummary = try? IPAArchiveInspector.summarize(_ipa) // try? ok: archive summary is advisory evidence
             // A `.tipa` has no `Payload` folder, so the location is remembered rather
         // than assumed: the work directory holds the payload whatever its layout.
         let payload = _uniqueWorkDir.appendingPathComponent("Payload")
@@ -230,6 +234,28 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			Logger.misc.error("[\(self._uuid)] Move failed: \(error.localizedDescription)")
 			throw _error(.move, reason: error.localizedDescription, underlying: error)
 		}
+	}
+
+	/// Produces the structured inspection record for the library copy. Metadata is
+	/// kept beside the app, never written into the bundle where it would alter the
+	/// signature being described. An unreadable sidecar is logged, not promoted to
+	/// a fake app failure; an invalid required bundle field does stop the import.
+	func inspect() async throws {
+		try Task.checkCancellation()
+		let libraryDirectory = try await _directory()
+		let app = try IPAImportPayload.application(in: libraryDirectory)
+		let result = AppBundleInspector.inspect(appBundle: app, archive: _archiveSummary)
+		guard result.report.isImportable else {
+			let detail = result.report.errorDiagnostics.first?.detail
+				?? "The app bundle contains invalid metadata."
+			throw _error(.payload, reason: detail)
+		}
+		do {
+			try ImportInspectionStore.write(result, to: libraryDirectory)
+		} catch {
+			Logger.misc.error("[\(self._uuid)] Inspection sidecar failed: \(error.localizedDescription)")
+		}
+		try Task.checkCancellation()
 	}
 
 	@discardableResult

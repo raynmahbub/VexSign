@@ -63,12 +63,14 @@ struct DownloadItemCardView: View {
                         } label: {
                             Image(systemName: model.isPaused ? "play.fill" : "pause.fill")
                                 .font(.caption.weight(.semibold))
+                                .accessibilityLabel(Text(verbatim: String.localized(model.isPaused ? "Resume download" : "Pause download")))
                                 .foregroundStyle(model.isPaused ? .green : .orange)
                                 .frame(width: 28, height: 28)
                                 .background((model.isPaused ? Color.green : Color.orange).opacity(0.15))
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
+                        .vexsignMinimumTapTarget()
                     }
 
                     if download.canCancel {
@@ -78,11 +80,13 @@ struct DownloadItemCardView: View {
                             Image(systemName: "xmark")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.red)
+                                .accessibilityLabel(Text(.localized("Cancel download")))
                                 .frame(width: 28, height: 28)
                                 .background(Color.red.opacity(0.15))
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
+                        .vexsignMinimumTapTarget()
                     }
                 }
             }

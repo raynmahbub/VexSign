@@ -210,6 +210,14 @@ final class SourceCatalogStore: ObservableObject {
 		var transportBlocked: [(source: AltSource, identifier: String)] = []
 		for source in sourcesArray {
 			guard !source.isDeleted else { continue }
+			let sourceID = Self._id(for: source)
+			guard SourcePreferences.isEnabled(sourceID) else {
+				// A disabled source keeps its validated offline catalog but is not
+				// contacted. It must not be mistaken for a healthy refresh.
+				staleSourceIDs.insert(sourceID)
+				transportBlocked.append((source, sourceID))
+				continue
+			}
 			guard let url = source.sourceURL else {
 				Logger.misc.error("Source has no URL: \(source.name ?? "Unknown", privacy: .public)")
 				continue

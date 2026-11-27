@@ -1,5 +1,4 @@
 import BackgroundTasks
-import UserNotifications
 import Foundation
 
 @MainActor
@@ -37,6 +36,10 @@ enum EcosystemMaintenance {
             await SourceCatalogStore.shared.fetchSources(sources)
             if !Task.isCancelled, SourceCatalogStore.shared.sources.count == sources.count {
                 defaults.set(Date(), forKey: "VexSign.ecosystem.lastRepositoryRefresh")
+                AutomationDomainEvent.post(AutomationDomainEvent(
+                    kind: .sourceRefreshed,
+                    summary: "Refreshed \(sources.count) source(s)."
+                ))
             }
         }
         guard !Task.isCancelled, defaults.bool(forKey: "VexSign.ecosystem.certificateMonitoring") else { return }
@@ -53,12 +56,29 @@ enum EcosystemMaintenance {
         }
         guard !Task.isCancelled else { return }
         if report.errors.isEmpty { UserDefaults.standard.set(Date(), forKey: "VexSign.ecosystem.lastCertificateCheck") }
-        for cert in report.certificates where cert.daysRemaining <= 14 || cert.revocation == .revoked {
-            let content = UNMutableNotificationContent()
-            content.title = "Certificate Health Alert"
-            content.body = cert.revocation == .revoked ? "\(cert.name) has been revoked." : "\(cert.name): \(cert.daysRemaining) days until profile expiry."
-            content.sound = .default
-            try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "health.\(cert.id)", content: content, trigger: nil))
+        // One scheduler owns expiry reminders. Inspected metadata supplies both
+        // dates; a missing date stays unknown and produces no reminder.
+        var subjects: [ExpiryReminderSubject] = []
+        for cert in report.certificates {
+            subjects.append(ExpiryReminderSubject(
+                referenceID: cert.id + "-profile",
+                kind: .profile,
+                displayName: cert.name,
+                expiry: cert.expires
+            ))
+            if let certificateExpiry = cert.certificateExpires {
+                subjects.append(ExpiryReminderSubject(
+                    referenceID: cert.id + "-certificate",
+                    kind: .certificate,
+                    displayName: cert.name,
+                    expiry: certificateExpiry
+                ))
+            }
         }
+        await ExpiryReminderScheduler().reconcile(subjects)
+        AutomationDomainEvent.post(AutomationDomainEvent(
+            kind: .certificateInspected,
+            summary: "Reviewed \(report.certificates.count) signing identities."
+        ))
     }
 }

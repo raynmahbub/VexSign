@@ -868,9 +868,10 @@ class WorkflowPolicyTests(unittest.TestCase):
                     validated_gate_free.append(f'{path.name}:{job}')
             self.assertNotIn('models: read', text)
             for runner in re.findall(r'runs-on: (.+)', text):
-                # The only self-hosted label set is the explicitly opt-in physical-device
-                # runner; it is checked separately by test_physical_device_job_is_opt_in.
-                if runner == '[self-hosted, macos, arm64, ios-device]':
+                # Both self-hosted label sets are explicitly opt-in and checked
+                # separately by their own policy tests.
+                if runner in ('[self-hosted, macos, arm64, ios-device]',
+                              '[self-hosted, macos, arm64, vexsign-signed]'):
                     continue
                 self.assertIn(runner, ('ubuntu-24.04', 'macos-15'))
             # Device-testing IPAs have a 14-day exception; logs, quick findings
@@ -982,6 +983,22 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('feature-acceptance.py init', device)
         # A simulator result must not be presented as hardware evidence.
         self.assertNotIn('platform=iOS Simulator', device)
+
+    def test_signed_export_runner_is_opt_in_and_never_pull_request(self):
+        """Apple signing material is only used behind an explicit protected opt-in."""
+        text = (WORKFLOWS / 'release.yml').read_text()
+        jobs = block(text, 'jobs', 0)
+        signed = block(jobs, 'signed-export', 2)
+        self.assertIn('runs-on: [self-hosted, macos, arm64, vexsign-signed]', signed)
+        self.assertIn("github.event_name == 'workflow_dispatch'", signed)
+        self.assertIn("vars.VEXSIGN_SIGNED_RUNNER == 'true'", signed)
+        self.assertIn('inputs.signed_export == true', signed)
+        self.assertIn('environment: release-signing', signed)
+        self.assertIn('contents: read', block(signed, 'permissions', 4))
+        self.assertIn('Tools/Release/export_signed_ipa.py', signed)
+        self.assertIn('--require-signature', signed)
+        self.assertNotIn('softprops/action-gh-release', signed)
+        self.assertNotIn('pull_request:', text)
 
     def test_ci_repair_assistant_is_same_repo_scoped_draft_only_and_least_privilege(self):
         text = (ROOT / ".github/workflows/ci-repair-assistant.yml").read_text()
@@ -1336,6 +1353,21 @@ class WorkflowPolicyTests(unittest.TestCase):
             'imported by Services/WebManager/API but absent from '
             'Configuration/requirements.txt, so no deployment installs it'
         )
+
+    def test_device_feature_evidence_is_a_hard_gate(self):
+        """A green device job must fail when the per-feature matrix is incomplete.
+
+        The check used to be advisory, so an opt-in device runner could report
+        pending cases and still leave the workflow green. That made CI evidence
+        look stronger than the report it actually produced.
+        """
+        text = (WORKFLOWS / 'ci.yml').read_text()
+        start = text.index('      - name: Check per-feature device evidence')
+        end = text.index('\n      - name:', start + 1)
+        step = text[start:end]
+        self.assertIn('id: feature_check', step)
+        self.assertNotIn('continue-on-error:', step)
+        self.assertIn('feature-acceptance.py check', step)
 
 
 if __name__ == '__main__':

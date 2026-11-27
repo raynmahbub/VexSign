@@ -171,6 +171,7 @@ struct AppCustomizationSheet: View {
                     } label: {
                         Image(systemName: "doc.on.clipboard")
                             .foregroundStyle(Color.userTint)
+                            .accessibilityLabel(Text(.localized("Copy link")))
                     }
                 }
             }

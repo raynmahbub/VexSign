@@ -109,6 +109,33 @@ protocol PlatformSystemAdapting: AnyObject {
     func notifyError(_ message: String, sticky: Bool)
     func presentDestructiveConfirmation(title: String, message: String, onConfirm: @escaping () -> Void)
     func presentYesNoAlert(title: String, message: String, confirmTitle: String, onConfirm: @escaping () -> Void)
+    /// Consent for an operation that has already staged sensitive files. Unlike the
+    /// ordinary yes/no alert this also reports the decline, so the caller can remove
+    /// the staged private key even when the user never taps confirm.
+    func presentImportConsentAlert(
+        title: String,
+        message: String,
+        confirmTitle: String,
+        onConfirm: @escaping () -> Void,
+        onCancel: @escaping () -> Void
+    )
     func presentErrorWithCopy(title: String, message: String)
     func triggerHapticFeedback(success: Bool)
+}
+
+@MainActor
+extension PlatformSystemAdapting {
+    /// Compatibility default for test doubles and secondary adapters. The iOS
+    /// adapter overrides this so a declined consent can be reported; callers
+    /// must never rely on the default to clean up sensitive staged files.
+    func presentImportConsentAlert(
+        title: String,
+        message: String,
+        confirmTitle: String,
+        onConfirm: @escaping () -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        presentYesNoAlert(title: title, message: message, confirmTitle: confirmTitle, onConfirm: onConfirm)
+        _ = onCancel
+    }
 }

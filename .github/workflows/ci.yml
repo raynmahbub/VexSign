@@ -16,8 +16,8 @@ name: CI
 #   concurrency  macOS · `make strict-concurrency`, the only check that
 #           compiles the first-party packages with complete concurrency
 #           diagnostics. Report-only for now; see the job comment.
-#   device  self-hosted iPhone runner · install, launch and optional native tests
-#           on real hardware. Never runs for a pull request and never on a
+#   device  self-hosted iPhone runner · install, launch and optional native/UI
+#           tests on real hardware. Never runs for a pull request and never on a
 #           GitHub-hosted runner. Requires explicit variables/secrets below.
 #
 # Not here: publishing (release.yml), companion SDKs (platform-check.yml),
@@ -33,7 +33,13 @@ name: CI
 #   VEXSIGN_DEVICE_UDID                    UDID of the connected iPhone.
 #   VEXSIGN_DEVICE_IPA                     path to a development-signed IPA on the runner.
 #   VEXSIGN_DEVICE_RUN_TESTS=true          also run VexSignTests on the device.
+#   VEXSIGN_DEVICE_RUN_UI_TESTS=true       run hardware-only XCUITests (requires
+#                             VEXSIGN_TEST_IPA_PATH and VEXSIGN_TEST_INVALID_IPA_PATH).
 #   Secret VEXSIGN_DEVICE_SIGNING_IDENTITY development certificate for that IPA.
+#   workflow_dispatch.simulator_runtime  minimum iOS runtime (e.g. "17.0") for
+#                             one run; empty uses the newest installed runtime.
+#   workflow_dispatch.strict_a11y_audit  true fails the UI job on real XCUITest
+#                             accessibility audit findings; default reports only.
 
 on:
   push:
@@ -149,6 +155,15 @@ on:
         options: ['true', 'strict', 'false']
         required: false
         default: 'true'
+      simulator_runtime:
+        description: 'Minimum iOS simulator runtime for the test jobs (e.g. "17.0" for the deployment target). Empty = newest available.'
+        required: false
+        default: ''
+      strict_a11y_audit:
+        description: 'Fail the UI job on real XCUITest accessibility audit findings (default: report only)'
+        type: boolean
+        required: false
+        default: false
       device:
         description: 'Run the physical-device job on a configured self-hosted iPhone runner'
         type: boolean
@@ -245,6 +260,12 @@ jobs:
           python3 Tools/Validation/security-validation/test_device_foundation.py
           python3 Tools/Validation/security-validation/test_install_monitoring_policy.py
           python3 Tools/Validation/security-validation/check-native-handoff.py
+          # Accessibility/localization/UI regressions must fail without Xcode.
+          python3 Tools/Audit/test_quality_engineering_contracts.py
+          python3 Tools/Audit/test_simulator_selection.py
+          python3 Tools/Release/test_release_engineering.py
+          python3 Tools/Release/validate_release_config.py
+          python3 Tools/Audit/test_release_engineering_contracts.py
           # The CMS fixture is generated elsewhere (OpenSSL) and must keep
           # conforming to the subset the parser accepts; drift fails here.
           python3 Packages/NativeSigning/Fixtures/make_cms_fixture.py --check
@@ -318,7 +339,11 @@ jobs:
           python3 Tools/Validation/architecture-rules/test_architecture_excellence.py
           python3 Tools/Validation/repository-validation/test_ci_repair_agent.py
           python3 Tools/Audit/test_device_acceptance.py
+          python3 Tools/Audit/test_notification_automation_contracts.py
+          python3 Tools/Audit/test_security_hardening_contracts.py
+          python3 Tools/Audit/test_diagnostics_observability_contracts.py
           python3 Tools/Audit/test_device_runner_preflight.py
+          python3 Tools/Audit/device_capability_matrix.py --check
           python3 Tools/Audit/test_feature_acceptance.py
           python3 Tools/Audit/test_quality_report.py
           python3 Tools/Audit/test_combined_report.py
@@ -742,11 +767,18 @@ jobs:
       # is the usual reason a test job starts failing on a day nothing changed.
       - name: Select simulator
         id: simulator
+        env:
+          MIN_RUNTIME: ${{ inputs.simulator_runtime || '' }}
         run: |
           set -euo pipefail
-          line="$(python3 .github/scripts/select_simulator.py)"
+          # A dispatch may request the oldest supported runtime (17.0). Normal
+          # pushes use the newest available iPhone runtime for the selected Xcode.
+          flag=""
+          if [ -n "$MIN_RUNTIME" ]; then flag="--min-runtime $MIN_RUNTIME"; fi
+          line="$(python3 .github/scripts/select_simulator.py $flag)"
           udid="${line##* }"
           echo "udid=${udid}" >> "$GITHUB_OUTPUT"
+          echo "device=${line}" >> "$GITHUB_OUTPUT"
           echo "Using simulator: ${line}"
 
       # Filter only the known libunicorn.a deployment-version lines from the
@@ -975,11 +1007,18 @@ jobs:
 
       - name: Select simulator
         id: simulator
+        env:
+          MIN_RUNTIME: ${{ inputs.simulator_runtime || '' }}
         run: |
           set -euo pipefail
-          line="$(python3 .github/scripts/select_simulator.py)"
+          # A dispatch may request the oldest supported runtime (17.0). Normal
+          # pushes use the newest available iPhone runtime for the selected Xcode.
+          flag=""
+          if [ -n "$MIN_RUNTIME" ]; then flag="--min-runtime $MIN_RUNTIME"; fi
+          line="$(python3 .github/scripts/select_simulator.py $flag)"
           udid="${line##* }"
           echo "udid=${udid}" >> "$GITHUB_OUTPUT"
+          echo "device=${line}" >> "$GITHUB_OUTPUT"
           echo "Using simulator: ${line}"
 
       # UI tests must not run in parallel workers: each worker would launch its
@@ -988,6 +1027,9 @@ jobs:
         id: test
         env:
           SIM_UDID: ${{ steps.simulator.outputs.udid }}
+          # Default is report-only: the audit's heuristics still need a human
+          # baseline. A manual dispatch can promote real findings to failures.
+          VEXSIGN_STRICT_A11Y_AUDIT: ${{ inputs.strict_a11y_audit == true && '1' || '0' }}
         run: |
           set +e
           set -uo pipefail
@@ -1018,6 +1060,18 @@ jobs:
             echo "::error::XCUITest xcodebuild exited with status ${status}; see the uploaded xcresult and screenshots."
           fi
           exit "${status}"
+
+      - name: Simulator configuration evidence
+        if: always()
+        run: |
+          {
+            echo "### Simulator UI configuration"
+            echo
+            echo "- Device: \`${{ steps.simulator.outputs.device }}\`"
+            echo "- Accessibility audit: ${VEXSIGN_STRICT_A11Y_AUDIT:-0} (1 = findings fail the job)"
+            echo "- Screenshots and the xcresult are uploaded with this run."
+            echo "- This is a simulator run only; it is not physical-device evidence."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Surface UI failures
         if: failure() && steps.test.outcome != 'skipped'
@@ -1249,6 +1303,9 @@ jobs:
       DEVICE_SIGNING_IDENTITY: ${{ secrets.VEXSIGN_DEVICE_SIGNING_IDENTITY }}
       DEVICE_IPA: ${{ vars.VEXSIGN_DEVICE_IPA }}
       RUN_DEVICE_TESTS: ${{ vars.VEXSIGN_DEVICE_RUN_TESTS }}
+      RUN_DEVICE_UI_TESTS: ${{ vars.VEXSIGN_DEVICE_RUN_UI_TESTS }}
+      VEXSIGN_TEST_IPA_PATH: ${{ vars.VEXSIGN_TEST_IPA_PATH }}
+      VEXSIGN_TEST_INVALID_IPA_PATH: ${{ vars.VEXSIGN_TEST_INVALID_IPA_PATH }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1271,6 +1328,12 @@ jobs:
           set -euo pipefail
           flags=""
           if [ "$RUN_DEVICE_TESTS" = "true" ]; then flags="--run-tests"; fi
+          if [ "$RUN_DEVICE_UI_TESTS" = "true" ]; then
+            for key in VEXSIGN_TEST_IPA_PATH VEXSIGN_TEST_INVALID_IPA_PATH; do
+              test -n "${!key}" || { echo "::error::$key is required for device UI tests"; exit 1; }
+            done
+            flags="$flags --run-ui-tests"
+          fi
           python3 Tools/Audit/run-device-acceptance.py \
             --ipa "$DEVICE_IPA" \
             --device "$DEVICE_UDID" \
@@ -1286,7 +1349,6 @@ jobs:
 
       - name: Check per-feature device evidence
         id: feature_check
-        continue-on-error: true
         run: |
           python3 Tools/Audit/feature-acceptance.py check \
             --ipa "$DEVICE_IPA" \
@@ -1314,5 +1376,6 @@ jobs:
             ${{ runner.temp }}/device-acceptance.log
             ${{ runner.temp }}/feature-acceptance.json
             .artifacts/VexSignDevice.xcresult
+            .artifacts/VexSignDeviceUI.xcresult
           if-no-files-found: warn
           retention-days: 3

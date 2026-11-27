@@ -140,7 +140,34 @@ private struct DiagnosticsCenterContent: View {
                 }
             }
 
+            NBSection(.localized("Security Verification")) {
+                if viewModel.securityChecks.isEmpty {
+                    Text(.localized("No security checks were available on this device."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(viewModel.securityChecks) { check in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Image(systemName: Self.securitySymbol(check.status))
+                                .foregroundStyle(Self.securityColor(check.status))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(check.title)
+                                    .font(.subheadline.weight(.medium))
+                                Text(check.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+
             NBSection(.localized("Export & Logs")) {
+                NavigationLink(destination: TroubleshootingCenterView()) {
+                    Label(.localized("Troubleshooting Center"), systemImage: "wrench.and.screwdriver")
+                }
+                .accessibilityIdentifier(A11y.Diagnostics.troubleshooting)
+
                 NavigationLink(destination: LogsHistoryView(inNavigationStack: false)) {
                     Label(.localized("View Logs History"), systemImage: "text.alignleft")
                 }
@@ -161,6 +188,27 @@ private struct DiagnosticsCenterContent: View {
         }
         .onAppear {
             viewModel.refresh()
+        }
+    }
+
+    /// Status is shown per check. A check that could not run is never drawn as a
+    /// green tick, and warnings are visually distinct from failures.
+    private static func securitySymbol(_ status: SecurityCheckStatus) -> String {
+        switch status {
+        case .passed: return "checkmark.shield"
+        case .warning: return "exclamationmark.shield"
+        case .failed: return "xmark.shield"
+        case .unknown: return "questionmark.circle"
+        case .unsupported: return "minus.circle"
+        }
+    }
+
+    private static func securityColor(_ status: SecurityCheckStatus) -> Color {
+        switch status {
+        case .passed: return .green
+        case .warning: return .orange
+        case .failed: return .red
+        case .unknown, .unsupported: return .secondary
         }
     }
 

@@ -406,3 +406,35 @@ private final class NotFoundDownloadProtocol: URLProtocol {
     }
     override func stopLoading() {}
 }
+
+/// A refused `startDownload` request still returns a `Download` object. Identity is
+/// the only evidence that the manager actually registered the transfer.
+final class DownloadAdmissionIdentityTests: XCTestCase {
+    private func row(id: String = "row", url: URL? = nil) -> Download {
+        let resolved = url ?? URL(string: "https://example.test/app.ipa")
+            ?? URL(fileURLWithPath: "/tmp/app.ipa")
+        return Download(id: id, url: resolved, appName: "App")
+    }
+
+    func testRegisteredObjectIsAccepted() {
+        let download = row()
+        XCTAssertTrue(DownloadAdmission.isAccepted(download, in: [download]))
+    }
+
+    func testPlaceholderWithTheSameURLIsRejected() {
+        let registered = row(id: "real")
+        let refused = row(id: "refused")
+        XCTAssertEqual(registered.url, refused.url)
+        XCTAssertFalse(DownloadAdmission.isAccepted(refused, in: [registered]))
+    }
+
+    func testEmptyManagerListNeverReportsSuccess() {
+        XCTAssertFalse(DownloadAdmission.isAccepted(row(), in: []))
+    }
+
+    func testARefusedRowWithAnExistingIDDoesNotBorrowItsAdmission() {
+        let registered = row(id: "shared-id")
+        let refused = row(id: "shared-id")
+        XCTAssertFalse(DownloadAdmission.isAccepted(refused, in: [registered]))
+    }
+}

@@ -9,7 +9,7 @@ import type { Job } from 'bullmq';
 import type { Config } from '../Configuration/config.js';
 import type { Infrastructure } from '../Storage/infrastructure.js';
 import { seal } from '../Security/security.js';
-import { deliverWebhooks, failureCode, fetchAsset, finish, hashingStream, processJob, type WorkerDeps } from '../Signing/Worker/processor.js';
+import { deliverWebhooks, failureCode, fetchAsset, finish, hashFile, hashingStream, processJob, type WorkerDeps } from '../Signing/Worker/processor.js';
 
 const key = randomBytes(32);
 const config: Config = {
@@ -56,6 +56,18 @@ test('the artifact hash covers exactly the bytes the uploader consumes', async (
   for await (const chunk of artifact.body) seen.push(Buffer.from(chunk));
   assert.equal(Buffer.concat(seen).toString('hex'), payload.toString('hex'), 'bytes must pass through unchanged');
   assert.equal(artifact.hex(), createHash('sha256').update(payload).digest('hex'));
+});
+
+test('a signer report is bound to the exact artifact bytes it produced', async () => {
+  await scratch(async dir => {
+    const path = join(dir, 'signed.ipa');
+    const payload = Buffer.concat([Buffer.from('PK\\u0003\\u0004'), randomBytes(2048)]);
+    await writeFile(path, payload);
+    const declared = createHash('sha256').update(payload).digest('hex');
+    assert.equal(await hashFile(path), declared);
+    await writeFile(path, Buffer.concat([payload, Buffer.from('different bytes')]));
+    assert.notEqual(await hashFile(path), declared);
+  });
 });
 
 test('an unreadable artifact fails the job instead of stalling the upload', async () => {

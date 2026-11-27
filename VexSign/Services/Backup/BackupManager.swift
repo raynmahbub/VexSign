@@ -201,14 +201,28 @@ final class BackupManager {
 		return (components, counts)
 	}
 
+	/// Decides whether a typed password is usable before any bytes are written.
+	///
+	/// Whitespace-only input is not the same as leaving the field empty: the
+	/// encryption layer treats an empty password as a device-bound backup, and
+	/// silently doing that after the user typed characters misstates the result.
+	nonisolated static func passwordRejection(
+		for password: String,
+		components: BackupComponents
+	) -> BackupCrypto.Failure? {
+		let trimmed = password.trimmingCharacters(in: .whitespacesAndNewlines)
+		if components.contains(.certificates), trimmed.count < BackupCrypto.minimumPasswordLength {
+			return .certificatesNeedPassword
+		}
+		if !password.isEmpty, trimmed.isEmpty { return .blankPassword }
+		return nil
+	}
+
 	func makeBackup(password: String, components: BackupComponents) async throws -> URL {
         let workLease = try AppOperationRegistry.shared.acquireTemporaryWork()
         defer { withExtendedLifetime(workLease) {} }
-		// A backup with certificates carries private keys and their passwords, so
-		// it never leaves this app without a password of the user's choosing.
-		let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
-		if components.contains(.certificates), trimmedPassword.count < BackupCrypto.minimumPasswordLength {
-			throw BackupCrypto.Failure.certificatesNeedPassword
+		if let rejection = Self.passwordRejection(for: password, components: components) {
+			throw rejection
 		}
 
 		let staging = _fm.uniqueTemporaryDirectory("VexBackup")
@@ -318,7 +332,7 @@ final class BackupManager {
 		var manifest = BackupManifest(
 			version: 3,
 			createdAt: Date(),
-			appVersion: Bundle.main.version,
+			appVersion: VexSignBuildInfo.version,
 			contents: written,
 			includesTweaks: written.contains(.tweaks),
 			counts: counts,

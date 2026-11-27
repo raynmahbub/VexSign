@@ -66,14 +66,20 @@ def prepare(output, version, channel, repository):
     shutil.copyfile(ROOT / "VexSign/Resources/brand/home-preview.svg", output / 'Home-layout-preview.svg')
     with ipas[0].open('rb') as handle:
         digest = hashlib.file_digest(handle, 'sha256').hexdigest()
+    artifact_path = output / 'ARTIFACT.json'
+    if not artifact_path.is_file():
+        raise ValueError('ARTIFACT.json is required; generate and verify it before release notes')
     metadata = dict(schema_version=1, version=version, channel=channel, repository=repository,
                     commit=commit, unsigned=True, ipa=dict(name=ipas[0].name, sha256=digest),
+                    artifact_manifest='ARTIFACT.json',
+                    distribution_boundary=json.loads(artifact_path.read_text()).get('verification_boundary', ''),
                     workflow_run=os.environ.get('GITHUB_RUN_ID'),
                     workflow_attempt=os.environ.get('GITHUB_RUN_ATTEMPT'),
                     notes_source=notes_source,
                     visuals='App icon and design illustration; not device screenshots')
     (output / 'RELEASE.json').write_text(json.dumps(metadata, indent=2) + '\n')
-    names = [ipas[0].name, 'CHANGELOG.md', 'RELEASE.json', 'VexSign-icon.png', 'Home-layout-preview.svg']
+    names = [ipas[0].name, 'ARTIFACT.json', 'BUILD.json', 'CHANGELOG.md',
+             'RELEASE.json', 'VexSign-icon.png', 'Home-layout-preview.svg']
     sums = []
     for name in names:
         with (output / name).open('rb') as handle:

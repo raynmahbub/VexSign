@@ -11,7 +11,6 @@
 import Foundation
 import SwiftUI
 import CoreData
-import UserNotifications
 import AltSourceKit
 import NimbleExtensions
 
@@ -348,7 +347,7 @@ enum BackgroundAutomation {
             result.refreshReminders += 1
             // A separate notification: the opt-in refresh reminder must not be
             // swallowed by the unrelated "notify on auto update" preference.
-            postAccountRefreshReminder(reason)
+            await postAccountRefreshReminder(reason)
         }
 		guard !Task.isCancelled else {
 			AutomationHistoryStore.shared.record("cancelled", fromBackground: fromBackground, result: result, duration: Date().timeIntervalSince(startedAt))
@@ -361,7 +360,7 @@ enum BackgroundAutomation {
 
 		// 6. One summarizing notification.
 		if fromBackground && (policy != .signAndQueue || UpdateMatchingPreferences.shared.notifyOnAutoUpdate) {
-			postSummary(result)
+			await postSummary(result)
 		}
 
 		AutomationHistoryStore.shared.record(result.failed > 0 ? "partialFailure" : "completed", fromBackground: fromBackground, result: result, duration: Date().timeIntervalSince(startedAt))
@@ -430,28 +429,29 @@ enum BackgroundAutomation {
 	}
 
 	/// A background reminder never contains credentials and never claims work was done.
-	private nonisolated static func postAccountRefreshReminder(_ reason: AccountRefreshReminderReason) {
-		let content = UNMutableNotificationContent()
-		content.title = .localized("Apple Account refresh needs you")
+	/// Stable identifier and a persisted dedupe window replace the old random
+	/// UUID reminder. The text says what the user must do, never what automation
+	/// did on their behalf.
+	private static func postAccountRefreshReminder(_ reason: AccountRefreshReminderReason) async {
+		let body: String
 		switch reason {
 		case .sessionNeedsAuthentication:
-			content.body = .localized("Sign in to your Apple Account in VexSign to review a due refresh. Nothing was changed automatically.")
+			body = .localized("Sign in to your Apple Account in VexSign to review a due refresh. Nothing was changed automatically.")
 		case .approvalRequired:
-			content.body = .localized("Review the due account refresh in VexSign. Provisioning, key export and installation need your approval.")
+			body = .localized("Review the due account refresh in VexSign. Provisioning, key export and installation need your approval.")
 		}
-		content.sound = .default
-		content.interruptionLevel = .active
-		UNUserNotificationCenter.current().add(
-			UNNotificationRequest(identifier: "vexsign.account-refresh.\(UUID().uuidString)", content: content, trigger: nil)
+		let note = VexSignNotification(
+			identifier: "com.vexsign.account-refresh.\(reason.rawValue)",
+			topic: .certificateExpiry,
+			title: .localized("Apple Account refresh needs you"),
+			body: body,
+			category: .expiry,
+			details: [NotificationPayloadKey.route.rawValue: "certificates"]
 		)
+		await VexSignNotificationService.shared.post(note, dedupeContentKey: reason.rawValue)
 	}
 
-	private nonisolated static func postSummary(_ result: AutomationRunResult) {
-		let content = UNMutableNotificationContent()
-		content.title = .localized("VexSign automation")
-		content.sound = .default
-		content.interruptionLevel = .active
-
+	private static func postSummary(_ result: AutomationRunResult) async {
 		var lines: [String] = []
 		if result.foundUpdates > 0 {
 			lines.append(String.localized("%lld updates found", arguments: result.foundUpdates))
@@ -490,10 +490,20 @@ enum BackgroundAutomation {
 			lines.append(String.localized("Cleaned %@", arguments: cleanup.freedBytes.formattedFileSize))
 		}
 
-		content.body = lines.joined(separator: " · ")
-
-		UNUserNotificationCenter.current().add(
-			UNNotificationRequest(identifier: "vexsign.automation.\(UUID().uuidString)", content: content, trigger: nil)
+		let body = lines.joined(separator: " · ")
+		let note = VexSignNotification(
+			identifier: "com.vexsign.automation.summary",
+			topic: .maintenance,
+			title: .localized("VexSign automation"),
+			body: body,
+			category: .maintenance,
+			details: [NotificationPayloadKey.route.rawValue: "tasks"]
+		)
+		let formatter = DateFormatter()
+		formatter.dateFormat = "yyyy-MM-dd"
+		await VexSignNotificationService.shared.post(
+			note,
+			dedupeContentKey: "summary|\(formatter.string(from: Date()))"
 		)
 	}
 }

@@ -62,7 +62,9 @@ extension DownloadManager: URLSessionDownloadDelegate {
 		if isAppInBackground {
 			let activeDownloads = downloads.filter { $0.progress > 0 && $0.progress < 1.0 && $0.id != download.id }
 			if activeDownloads.isEmpty {
-				UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["merged_download_progress"])
+				Task { @MainActor in
+				VexSignNotificationService.shared.cancel(identifier: "merged_download_progress")
+			}
 			}
 		}
 		

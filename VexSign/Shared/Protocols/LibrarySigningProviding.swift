@@ -13,6 +13,7 @@ struct LibrarySigningRequest {
 enum LibrarySigningEvent {
     case stage(SigningStage)
     case signatureVerified
+    case verificationReport(SigningVerificationReport)
     case compatibilityRemoved([String])
     case finished(Result<LibraryAppRecord, Error>)
 }

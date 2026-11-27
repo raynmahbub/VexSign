@@ -144,9 +144,11 @@ final class FileSystemDownloadedFilesAdapter: DownloadedFilesManaging {
 @MainActor
 final class DiagnosticsRepositoryAdapter: DiagnosticsProviding {
     private let operationOutcomes: OperationOutcomeJournal
+    private let diagnosticEvents: DiagnosticEventJournal
 
-    init(operationOutcomes: OperationOutcomeJournal) {
+    init(operationOutcomes: OperationOutcomeJournal, diagnosticEvents: DiagnosticEventJournal = DiagnosticEventJournal()) {
         self.operationOutcomes = operationOutcomes
+        self.diagnosticEvents = diagnosticEvents
     }
 
     func currentSnapshot() -> DiagnosticOverviewSnapshot {
@@ -196,7 +198,7 @@ final class DiagnosticsRepositoryAdapter: DiagnosticsProviding {
     }
 
     func exportDiagnosticArchiveURL() async -> URL? {
-        await DiagnosticBundleExporter.createDiagnosticBundle(outcomes: operationOutcomes)
+        await DiagnosticBundleExporter.createDiagnosticBundle(outcomes: operationOutcomes, events: diagnosticEvents)
     }
 }
 

@@ -46,6 +46,17 @@ on:
         required: false
         type: boolean
         default: false
+      signed_export:
+        description: "Opt in to a signed export on a configured self-hosted Mac (never publishes)"
+        required: false
+        type: boolean
+        default: false
+      signed_method:
+        description: "Apple distribution method for the opt-in signed export"
+        required: false
+        type: choice
+        options: [development, adHoc, appStore]
+        default: development
   # Push a release tag to publish automatically. The tag must be
   # v<MARKETING_VERSION>, optionally followed by a -pre-release suffix:
   # v1.2, v1.2.0, v1.2.0-beta.1, v1.2-rc1.
@@ -62,6 +73,11 @@ on:
     - cron: '0 3 * * *'   # daily 03:00 UTC
   # No pull_request trigger. CI validates relevant PRs, main pushes or manual branch
   # requests; stable Release remains tag/manual-only, nightly is scheduled.
+  #
+  # Hosted release jobs build an ad-hoc signed, unsigned-for-installation artifact.
+  # ARTIFACT.json records that boundary. No hosted job claims a device-installable
+  # or TestFlight/App Store build; those need an explicitly configured Mac and
+  # Apple distribution material outside this repository.
 
 permissions:
   contents: read
@@ -286,6 +302,18 @@ jobs:
       - name: Repository validation gates
         run: make verify
 
+      # Fails before a macOS build if versions, channels, entitlements or
+      # bundle identifiers drift, or if credential-like files are committed.
+      - name: Validate release configuration
+        env:
+          RELEASE_TAG: ${{ steps.mode.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "$RELEASE_TAG" ]; then args+=(--tag "$RELEASE_TAG"); fi
+          python3 Tools/Release/validate_release_config.py "${args[@]}" > "$RUNNER_TEMP/release-config.json"
+          cat "$RUNNER_TEMP/release-config.json" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Select Xcode
         id: xcode
         env:
@@ -302,6 +330,13 @@ jobs:
           key: spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
             spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-
+
+      - name: Record Swift toolchain
+        run: |
+          set -euo pipefail
+          swift_version="$(xcrun swift --version 2>/dev/null | head -1)"
+          echo "SWIFT_VERSION=${swift_version}" >> "$GITHUB_ENV"
+          echo "Swift: ${swift_version}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Prefetch verified binary archives
         run: |
@@ -407,6 +442,39 @@ jobs:
       - name: Verify source revision and write IPA checksums
         run: python3 Tools/Release/write-build-provenance.py --directory upload
 
+      # Build metadata lives in the artifact manifest, not in a README or a
+      # hand-written release note. Verification runs before any publication.
+      - name: Generate and verify artifact manifest
+        env:
+          RELEASE_TAG: ${{ steps.mode.outputs.release_tag }}
+          RELEASE_CHANNEL: ${{ steps.mode.outputs.channel }}
+          RELEASE_SHA: ${{ github.sha }}
+          XCODE_VERSION: ${{ steps.xcode.outputs.xcode_version }}
+        run: |
+          set -euo pipefail
+          case "$RELEASE_CHANNEL" in
+            stable)      BUILD_CHANNEL=release ;;
+            nightly|prerelease|preview|build-only) BUILD_CHANNEL=prerelease ;;
+            *) echo "::error::Unknown release channel $RELEASE_CHANNEL"; exit 1 ;;
+          esac
+          ipa="$(find upload -maxdepth 1 -name '*.ipa' -print -quit)"
+          if [ -z "$ipa" ]; then echo "::error::No IPA to package"; exit 1; fi
+          tag_args=()
+          if [ -n "$RELEASE_TAG" ]; then tag_args+=(--tag "$RELEASE_TAG"); fi
+          python3 Tools/Release/artifact_manifest.py \
+            --ipa "$ipa" --output upload \
+            --source-commit "$RELEASE_SHA" "${tag_args[@]}" \
+            --xcode-version "$XCODE_VERSION" --swift-version "$SWIFT_VERSION" \
+            --configuration Release --channel "$BUILD_CHANNEL" \
+            --signing-class adHoc --distribution-method artifactDownload \
+            --checksum-extra BUILD.json
+          python3 Tools/Release/verify_artifact.py \
+            --ipa "$ipa" --manifest upload/ARTIFACT.json \
+            --expected-commit "$RELEASE_SHA" \
+            --expected-tag "$RELEASE_TAG" \
+            --expected-version "${{ steps.get_version.outputs.version }}"
+          (cd upload && sha256sum --check SHA256SUMS)
+
       # Every successful build-only or release run leaves a
       # downloadable IPA on the run page. This is how you test a change
       # without publishing it.
@@ -418,6 +486,7 @@ jobs:
           path: |
             upload/*.ipa
             upload/BUILD.json
+            upload/ARTIFACT.json
             upload/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
@@ -442,6 +511,7 @@ jobs:
           name: verified-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             upload/*.ipa
+            upload/ARTIFACT.json
             upload/SHA256SUMS
             upload/CHANGELOG.md
             upload/RELEASE.json
@@ -450,6 +520,108 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+
+  # Opt-in, never automatic. A hosted runner cannot hold Apple distribution
+  # material; a protected self-hosted Mac with VEXSIGN_SIGNED_RUNNER=true and
+  # the signing environment below can produce an explicitly signed artifact.
+  # This job still does not publish, install on a device or upload to App Store
+  # Connect. Its result is only as trustworthy as the configured profile.
+  signed-export:
+    if: >-
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.signed_export == true &&
+      vars.VEXSIGN_SIGNED_RUNNER == 'true'
+    needs: build
+    runs-on: [self-hosted, macos, arm64, vexsign-signed]
+    environment: release-signing
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    env:
+      VEXSIGN_RELEASE_TEAM_ID: ${{ vars.VEXSIGN_RELEASE_TEAM_ID }}
+      VEXSIGN_RELEASE_SIGNING_IDENTITY: ${{ secrets.VEXSIGN_RELEASE_SIGNING_IDENTITY }}
+      VEXSIGN_RELEASE_PROVISIONING_PROFILE: ${{ vars.VEXSIGN_RELEASE_PROVISIONING_PROFILE }}
+      SIGNED_METHOD: ${{ inputs.signed_method }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.12'
+
+      - name: Validate release configuration
+        run: python3 Tools/Release/validate_release_config.py > "$RUNNER_TEMP/signed-config.json"
+
+      - name: Select Xcode
+        id: xcode
+        env:
+          REQUESTED_XCODE: ${{ inputs.xcode || vars.RELEASE_XCODE || '' }}
+        run: bash .github/scripts/select_xcode.sh
+
+      - name: Record Swift toolchain
+        run: |
+          set -euo pipefail
+          echo "SWIFT_VERSION=$(xcrun swift --version 2>/dev/null | head -1)" >> "$GITHUB_ENV"
+
+      - name: Archive unsigned for explicit export
+        run: |
+          set -euo pipefail
+          xcodebuild -workspace VexSign.xcworkspace -scheme VexSign \
+            -configuration Release-distribution \
+            -destination generic/platform=iOS \
+            -archivePath "$RUNNER_TEMP/VexSign.xcarchive" \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            archive 2>&1 | tee "$RUNNER_TEMP/signed-archive.log"
+
+      - name: Export with explicit manual signing
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/signed-upload"
+          python3 Tools/Release/export_signed_ipa.py \
+            --archive "$RUNNER_TEMP/VexSign.xcarchive" \
+            --export-directory "$RUNNER_TEMP/signed-upload" \
+            --method "$SIGNED_METHOD"
+
+      - name: Manifest and strict signature verification
+        run: |
+          set -euo pipefail
+          ipa="$(find "$RUNNER_TEMP/signed-upload" -maxdepth 1 -name '*.ipa' -print -quit)"
+          test -n "$ipa"
+          tag_args=()
+          if [ -n "${{ needs.build.outputs.release_tag }}" ]; then
+            tag_args+=(--tag "${{ needs.build.outputs.release_tag }}")
+          fi
+          python3 Tools/Release/artifact_manifest.py \
+            --ipa "$ipa" --output "$RUNNER_TEMP/signed-upload" \
+            --source-commit "${{ github.sha }}" "${tag_args[@]}" \
+            --xcode-version "${{ steps.xcode.outputs.xcode_version }}" \
+            --swift-version "$SWIFT_VERSION" \
+            --configuration Release-distribution --channel release \
+            --signing-class "$SIGNED_METHOD" --distribution-method "$SIGNED_METHOD"
+          python3 Tools/Release/verify_artifact.py \
+            --ipa "$ipa" --manifest "$RUNNER_TEMP/signed-upload/ARTIFACT.json" \
+            --expected-commit "${{ github.sha }}" --require-signature
+
+      - name: Upload signed evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signed-export-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/signed-upload/
+            ${{ runner.temp }}/signed-archive.log
+            ${{ runner.temp }}/signed-config.json
+          if-no-files-found: warn
+          retention-days: 3
 
   publish:
     if: >-
@@ -486,6 +658,7 @@ jobs:
         with:
           subject-path: |
             upload/*.ipa
+            upload/ARTIFACT.json
             upload/SHA256SUMS
             upload/RELEASE.json
 
@@ -520,6 +693,7 @@ jobs:
           body_path: upload/CHANGELOG.md
           files: |
             upload/*.ipa
+            upload/ARTIFACT.json
             upload/SHA256SUMS
             upload/CHANGELOG.md
             upload/RELEASE.json

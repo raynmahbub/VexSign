@@ -181,6 +181,7 @@ extension SigningEntitlementsEditorView {
 				} label: {
 					Image(systemName: "line.3.horizontal.decrease")
 						.foregroundStyle(_flaggedCount == 0 ? Color.secondary : (_flaggedOnly ? Color.accentColor : Color.primary))
+						.accessibilityLabel(Text(verbatim: String.localized(_flaggedOnly ? "Show all entitlements" : "Show flagged entitlements")))
 				}
 				.disabled(_flaggedCount == 0)
 			}
@@ -349,6 +350,7 @@ extension SigningEntitlementsEditorView {
 			HStack {
 				Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
 					.foregroundStyle(isSelected ? Color.accentColor : .secondary)
+					.accessibilityLabel(Text(verbatim: String.localized(isSelected ? "Deselect entitlement %@" : "Select entitlement %@", arguments: key)))
 				PlistValueRow(key: key, value: value)
 			}
 		}
@@ -419,6 +421,7 @@ extension SigningEntitlementsEditorView {
 				} label: {
 					Image(systemName: match == .missing ? "exclamationmark.triangle.fill" : "arrow.triangle.2.circlepath.circle.fill")
 						.foregroundStyle(match == .missing ? .orange : .blue)
+						.accessibilityLabel(Text(verbatim: String.localized("Show details for %@", arguments: key)))
 				}
 				.buttonStyle(.plain)
 			}

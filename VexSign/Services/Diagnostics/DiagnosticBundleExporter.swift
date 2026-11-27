@@ -15,7 +15,11 @@ enum DiagnosticBundleExporter {
 	/// Pass the composition root's journal so the export sees outcomes written in
 	/// this process; the fallback is for callers without an injected container.
 	@MainActor
-	static func createDiagnosticBundle(outcomes: OperationOutcomeJournal? = nil) async -> URL? {
+	static func createDiagnosticBundle(
+		outcomes: OperationOutcomeJournal? = nil,
+		events: DiagnosticEventJournal? = nil,
+		filter: DiagnosticExportFilter? = nil
+	) async -> URL? {
 		let fm = FileManager.default
 		let stamp = _timestamp()
 		let bundleName = "VexSign-Diagnostics-\(stamp)"
@@ -26,23 +30,31 @@ enum DiagnosticBundleExporter {
 		do {
 			try fm.createDirectoryIfNeeded(at: stagingDir)
 
-			// 1. Sanitized Activity Logs
-			let rawLogs = SigningLog.shared.exportText(SigningLog.shared.entries)
-			let sanitizedLogs = _sanitize(rawLogs)
-			try sanitizedLogs.write(
-				to: stagingDir.appendingPathComponent("logs.txt"),
-				atomically: true,
-				encoding: .utf8
-			)
+			// 1. Sanitized Activity Logs. A filtered export omits free-form text:
+			// those lines have no category or timestamp structure to filter on,
+			// and including them would silently widen the chosen scope.
+			if filter == nil {
+                let rawLogs = SigningLog.shared.exportText(SigningLog.shared.entries)
+                let sanitizedLogs = _sanitize(rawLogs)
+                try sanitizedLogs.write(
+                    to: stagingDir.appendingPathComponent("logs.txt"),
+                    atomically: true,
+                    encoding: .utf8
+                )
 
-            // Include retained disk events too: subsystem callers do not all write to
-            // SigningLog, and the console only holds a bounded subset of history.
-            let activityLogs = _sanitize(FileLogger.readAll())
-            try activityLogs.write(
-                to: stagingDir.appendingPathComponent("activity.txt"),
-                atomically: true,
-                encoding: .utf8
-            )
+                // Include retained disk events too: subsystem callers do not all write to
+                // SigningLog, and the console only holds a bounded subset of history.
+                let activityLogs = _sanitize(FileLogger.readAll())
+                try activityLogs.write(
+                    to: stagingDir.appendingPathComponent("activity.txt"),
+                    atomically: true,
+                    encoding: .utf8
+                )
+            } else {
+                let descriptor = filter?.jsonObject ?? [:]
+                let data = (try? JSONSerialization.data(withJSONObject: descriptor, options: [.prettyPrinted, .sortedKeys])) ?? Data("{}".utf8) // try? ok: fixed string keys always serialize; fallback is a valid empty descriptor
+                try data.write(to: stagingDir.appendingPathComponent("filter.json"))
+            }
 
 			// 2. System and Environment Info
 			let envData = _buildEnvironmentJSON()
@@ -68,10 +80,24 @@ enum DiagnosticBundleExporter {
             // 7. Operation outcomes: correlation ID, stage, status and a
             //    sanitized reason only. Written through the journal's own export
             //    so a diagnostic never carries a raw error or a private path.
-            let outcomesData = await (outcomes ?? OperationOutcomeJournal()).exportJSON()
+            let outcomesData: Data
+            if let filter {
+                let retained = await (outcomes ?? OperationOutcomeJournal()).all()
+                let selected = retained.filter { filter.matches($0) }
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                outcomesData = (try? encoder.encode(selected)) ?? Data("[]".utf8) // try? ok: Codable values; export an empty array on failure
+            } else {
+                outcomesData = await (outcomes ?? OperationOutcomeJournal()).exportJSON()
+            }
             try outcomesData.write(to: stagingDir.appendingPathComponent("operations.json"))
 
-            // 8. Compress into ZIP
+            // 8. Structured diagnostic events, sanitized again at the export
+            //    boundary. An empty history exports an empty envelope.
+            let eventsData = await (events ?? DiagnosticEventJournal()).exportJSON(filter: filter)
+            try eventsData.write(to: stagingDir.appendingPathComponent("diagnostic-events.json"))
+
+            // 9. Compress into ZIP
 			let filesToZip = try fm.contentsOfDirectory(at: stagingDir, includingPropertiesForKeys: nil)
 			try ArchiveEngine.zipItems(filesToZip, to: zipURL)
 

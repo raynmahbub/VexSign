@@ -174,29 +174,38 @@ final class DeepLinkRouterUseCase {
         // signing identity that can be used on later installs. Staging the files is safe;
         // installing the identity is not, so the user decides — the same reasoning that stages a
         // handed-over backup in `handleSharedBackup` instead of restoring it.
-        platform.presentYesNoAlert(
+        platform.presentImportConsentAlert(
             title: NSLocalizedString("Import Certificate From Link?", comment: ""),
             message: NSLocalizedString("This link installs a signing certificate and its password. Only continue if you requested it from someone you trust. The certificate is not marked as default; you choose it before it signs anything.", comment: ""),
-            confirmTitle: NSLocalizedString("Import", comment: "")
-        ) { [weak self] in
-            guard let self else { return }
-            self.importCertificateFiles(p12URL, provisionURL, password) { [weak self] error in
+            confirmTitle: NSLocalizedString("Import", comment: ""),
+            onConfirm: { [weak self] in
                 guard let self else { return }
-                self.discardStagedCertificateFiles([p12URL, provisionURL])
-                if let error {
-                    self.platform.presentErrorWithCopy(title: NSLocalizedString("Error", comment: ""), message: error.localizedDescription)
-                } else {
-                    self.platform.triggerHapticFeedback(success: true)
+                self.importCertificateFiles(p12URL, provisionURL, password) { [weak self] error in
+                    guard let self else { return }
+                    self.discardStagedCertificateFiles([p12URL, provisionURL])
+                    if let error {
+                        self.platform.presentErrorWithCopy(title: NSLocalizedString("Error", comment: ""), message: error.localizedDescription)
+                    } else {
+                        self.platform.triggerHapticFeedback(success: true)
+                    }
                 }
+            },
+            onCancel: { [weak self] in
+                guard let self else { return }
+                // Declining an untrusted link is still a decision. The staged
+                // p12 contains a private key; it must not wait for the next
+                // stale-temporary sweep to disappear.
+                self.discardStagedCertificateFiles([p12URL, provisionURL])
             }
-        }
+        )
     }
 
     /// The staged `.p12`/`.mobileprovision` files are plaintext copies written by
     /// `decodeBase64File`; remove them once the outcome is known (or the pair is rejected) so a
     /// private key does not linger in the temporary directory of an app that never used it.
-    /// A *declined* prompt is the one path without a callback — `presentYesNoAlert` reports only
-    /// the confirm action — so those files are left to `StorageManager.purgeStaleTemporary()`.
+    /// The consent alert reports both actions, so a decline removes the staged files
+    /// here as well. A platform adapter that cannot present the alert fails closed
+    /// by reporting cancellation.
     private func discardStagedCertificateFiles(_ urls: [URL]) {
         for url in urls {
             incomingFiles.discardTemporaryFile(url)

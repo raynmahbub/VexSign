@@ -40,6 +40,25 @@ final class LogRedactionTests: XCTestCase {
 		assertRedacted("password=\"hun ter\"", "hun ter")
 	}
 
+	func testDeepLinkPrivateKeyAndProfilePayloadsAreMaskedInAQuery() {
+		let line = "routing vexsign://import-certificate?p12=MIIKOAIBAzCCCf4&mobileprovision=YmFzZTY0LXByb2ZpbGU&password=c2VjcmV0"
+		let output = LogRedaction.redact(line)
+		XCTAssertFalse(output.contains("MIIKOAIBAzCCCf4"), output)
+		XCTAssertFalse(output.contains("YmFzZTY0LXByb2ZpbGU"), output)
+		XCTAssertFalse(output.contains("c2VjcmV0"), output)
+		XCTAssertTrue(output.contains("import-certificate"), output)
+		XCTAssertEqual(LogRedaction.redact(output), output)
+	}
+
+	func testEmbeddedNewlinesCannotForgeASecondLogLine() {
+		let output = LogRedaction.redact("signing failed\nWARNING: install succeeded")
+		XCTAssertFalse(output.contains("\n"), output)
+		XCTAssertFalse(output.contains("\r"), output)
+		XCTAssertTrue(output.contains("signing failed"), output)
+		XCTAssertTrue(output.contains("WARNING: install succeeded"), output)
+		XCTAssertEqual(LogRedaction.redact(output), output)
+	}
+
 	func testTokensAndKeysAreMasked() {
 		assertRedacted("token=abc123def456", "abc123def456")
 		assertRedacted("api_key=sk-live-1234", "sk-live-1234")

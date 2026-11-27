@@ -74,7 +74,11 @@ enum IPAExtractor {
                 }
                 try manager.createDirectory(at: destination, withIntermediateDirectories: true)
                 // Apply read-only modes/dates only after children have been written.
-                directoryAttributes.append((destination, entry.fileAttributes))
+                // Archive metadata is untrusted: keep rwx bits, drop setuid/setgid/sticky
+                // and group/other write before applying it to a real file.
+                directoryAttributes.append((destination, ArchiveFileAttributesPolicy.sanitized(
+                    entry.fileAttributes, isDirectory: true
+                )))
             case .file:
                 guard !manager.fileExists(atPath: destination.path) else {
                     throw ExtractionError.duplicate(entry.path)
@@ -107,7 +111,10 @@ enum IPAExtractor {
                     try? output.close() // try? ok: preserve the original extraction failure
                     throw error
                 }
-                try manager.setAttributes(entry.fileAttributes, ofItemAtPath: destination.path)
+                try manager.setAttributes(
+                    ArchiveFileAttributesPolicy.sanitized(entry.fileAttributes, isDirectory: false),
+                    ofItemAtPath: destination.path
+                )
             case .symlink:
                 throw ArchiveSafetyValidator.ValidationError.symbolicLink(entry.path)
             }

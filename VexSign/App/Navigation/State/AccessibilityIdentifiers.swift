@@ -61,6 +61,19 @@ enum A11y {
 		static let installationEngine = "vexsign.settings.installationengine"
 	}
 
+	/// Diagnostics and troubleshooting surfaces. These identifiers let a UI
+	/// test prove that the export/filter controls are reachable without relying
+	/// on translated labels.
+	enum Diagnostics {
+		static let center = "vexsign.diagnostics.center"
+		static let troubleshooting = "vexsign.diagnostics.troubleshooting"
+		static let events = "vexsign.diagnostics.events"
+		static let categoryFilter = "vexsign.diagnostics.categoryfilter"
+		static let operationFilter = "vexsign.diagnostics.operationfilter"
+		static let exportFiltered = "vexsign.diagnostics.exportfiltered"
+		static let eventRowPrefix = "vexsign.diagnostics.event."
+	}
+
 	enum Home {
 		static let search = "vexsign.home.search"
 		static let importPackages = "vexsign.home.import"
@@ -88,6 +101,9 @@ enum A11y {
 			Install.start, Install.progress, Install.appName, Install.status,
 			Tasks.downloadOptions, Tasks.importFromFiles,
 			Settings.signingMethods, Settings.installationEngine,
+			Diagnostics.center, Diagnostics.troubleshooting, Diagnostics.events,
+			Diagnostics.categoryFilter, Diagnostics.operationFilter,
+			Diagnostics.exportFiltered,
 			Home.search, Home.importPackages,
 			Library.installedBadge, Library.guestBadge, Library.updateBadge, Library.lockBadge,
 			Library.resign, Library.export, Library.selectionToggle, Library.importPackages

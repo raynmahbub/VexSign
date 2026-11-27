@@ -11,6 +11,8 @@ extension UnifiedTaskKind {
 		case .update: .localized("Update")
 		case .export: .localized("Export")
         case .deviceSetup: .localized("Device setup")
+        case .sourceRefresh: .localized("Source refresh")
+        case .containerOperation: .localized("Container operation")
 		}
 	}
 
@@ -23,6 +25,8 @@ extension UnifiedTaskKind {
 		case .update: "arrow.triangle.2.circlepath"
 		case .export: "square.and.arrow.up.fill"
         case .deviceSetup: "cable.connector"
+        case .sourceRefresh: "arrow.triangle.2.circlepath"
+        case .containerOperation: "shippingbox"
 		}
 	}
 }

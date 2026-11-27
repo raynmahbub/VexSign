@@ -37,6 +37,11 @@ extension AppDelegate {
             using: nil
         ) { task in
             guard let processingTask = task as? BGProcessingTask else {
+                _recordBackgroundFailure(
+                    message: "A background download task had an unexpected type.",
+                    detail: "BGTaskScheduler delivered an incompatible task object.",
+                    operationID: task.identifier
+                )
                 task.setTaskCompleted(success: false)
                 return
             }
@@ -48,6 +53,11 @@ extension AppDelegate {
             using: nil
         ) { task in
             guard let refreshTask = task as? BGAppRefreshTask else {
+                _recordBackgroundFailure(
+                    message: "A background refresh task had an unexpected type.",
+                    detail: "BGTaskScheduler delivered an incompatible task object.",
+                    operationID: task.identifier
+                )
                 task.setTaskCompleted(success: false)
                 return
             }
@@ -61,6 +71,11 @@ extension AppDelegate {
             using: nil
         ) { task in
             guard let maintenanceTask = task as? BGProcessingTask else {
+                _recordBackgroundFailure(
+                    message: "A background maintenance task had an unexpected type.",
+                    detail: "BGTaskScheduler delivered an incompatible task object.",
+                    operationID: task.identifier
+                )
                 task.setTaskCompleted(success: false)
                 return
             }
@@ -69,17 +84,28 @@ extension AppDelegate {
     }
 
     private func _handleMaintenance(task: BGProcessingTask) {
+        // Exactly one completion path, even if expiration arrives mid-run.
+        let gate = BackgroundTaskCompletionGate { success in
+            task.setTaskCompleted(success: success)
+        }
         let worker = Task { @MainActor in
+            await PersistentAutomationEngine.shared.runDueJobs()
             let result = await BackgroundAutomation.run(fromBackground: true)
-            task.setTaskCompleted(success: result != nil)
+            if result == nil {
+                self._recordBackgroundFailure(
+                    message: "Scheduled maintenance did not produce a run result.",
+                    detail: "The background automation runner returned no result.",
+                    operationID: "com.vexsign.background.maintenance"
+                )
+            }
+            gate.finish(success: result != nil)
             self.scheduleAutomationMaintenance()
         }
 
-        // Expiration requests cooperative cancellation. The worker owns the one
-        // completion call after the runner unwinds; completing here as well
-        // races the worker and lets its signing/download work continue untracked.
+        // Expiration cancels; it never calls `setTaskCompleted` a second time.
         task.expirationHandler = {
             worker.cancel()
+            gate.expire()
         }
     }
 
@@ -99,6 +125,11 @@ extension AppDelegate {
             try BGTaskScheduler.shared.submit(request)
         } catch {
             Logger.misc.error("Failed to schedule automation: \(error.localizedDescription)")
+            _recordBackgroundFailure(
+                message: "A automation task could not be scheduled.",
+                detail: error.localizedDescription,
+                operationID: "com.vexsign.background.maintenance"
+            )
         }
     }
 	
@@ -226,6 +257,11 @@ extension AppDelegate {
         } catch {
             // Silent failure made a rejected request indistinguishable from "nothing pending".
             Logger.misc.error("Failed to schedule background download: \(error.localizedDescription)")
+            _recordBackgroundFailure(
+                message: "A background download task could not be scheduled.",
+                detail: error.localizedDescription,
+                operationID: "com.vexsign.background.download"
+            )
         }
         // The processing task is the fast path; this is the fallback that re-wakes the app if
         // the system never grants it.
@@ -249,6 +285,11 @@ extension AppDelegate {
             try BGTaskScheduler.shared.submit(request)
         } catch {
             Logger.misc.error("Failed to schedule background refresh: \(error.localizedDescription)")
+            _recordBackgroundFailure(
+                message: "A background refresh task could not be scheduled.",
+                detail: error.localizedDescription,
+                operationID: "com.vexsign.background.refresh"
+            )
         }
     }
 
@@ -277,6 +318,33 @@ extension AppDelegate {
             try BGTaskScheduler.shared.submit(request)
         } catch {
             Logger.misc.error("Failed to submit BGContinuedProcessingTask: \(error.localizedDescription)")
+            _recordBackgroundFailure(
+                message: "A continued background download could not be scheduled.",
+                detail: error.localizedDescription,
+                operationID: request.identifier
+            )
+        }
+    }
+
+    /// Background callbacks have no view tree. The file-backed recorder keeps
+    /// these failures in the same journal the Troubleshooting Center reads.
+    private func _recordBackgroundFailure(
+        message: String,
+        detail: String,
+        operationID: String,
+        metadata: [String: String] = [:]
+    ) {
+        Task {
+            await DiagnosticRecorder.fileRecorder.record(.make(
+                code: DiagnosticEventCode.backgroundFailure,
+                severity: .warning,
+                category: .background,
+                operationID: operationID,
+                userMessage: message,
+                developerDetail: detail,
+                recoverySuggestion: "Check Background settings and retry the operation when the app is active.",
+                metadata: metadata
+            ))
         }
     }
 }

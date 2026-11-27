@@ -108,8 +108,10 @@ struct DownloadItemView: View {
                         Image(systemName: "xmark.circle.fill")
                             .font(.title3)
                             .foregroundStyle(.secondary)
+                            .accessibilityLabel(Text(.localized("Cancel download")))
                     }
                     .buttonStyle(.borderless)
+                    .vexsignMinimumTapTarget()
                 }
             }
             

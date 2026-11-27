@@ -177,6 +177,7 @@ private struct IPSWBrowserContent: View {
                 } label: {
                     Image(systemName: "arrow.down.circle")
                         .font(.title3)
+                        .accessibilityLabel(Text(verbatim: String.localized("Download firmware %@", arguments: firmware.filename)))
                 }
                 .buttonStyle(.borderless)
                 .disabled(firmware.downloadURL == nil)

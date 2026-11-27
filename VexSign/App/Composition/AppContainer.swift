@@ -26,6 +26,10 @@ final class AppContainer: ObservableObject {
     /// Local, sanitized outcomes of staged operations. Injected so screens can
     /// record a refresh without owning another global store.
     let operationOutcomes: OperationOutcomeJournal
+    /// Structured, sanitized diagnostic events. Separate from `operationOutcomes`
+    /// in shape, but written by the same composition root and exported together.
+    let diagnosticEvents: DiagnosticEventJournal
+    let diagnosticRecorder: DiagnosticRecorder
     let companion: CompanionArchiveModel
     let repositoryBuilder: RepositoryBuilderViewModel
     let entitlements: EntitlementsWorkspaceModel
@@ -35,6 +39,8 @@ final class AppContainer: ObservableObject {
     let archives: ArchiveCatalogModel
     private let fileUseCase: FileWorkspaceUseCase
     let workspace: WorkspaceViewModel
+    let containers: ContainerWorkspaceModel
+    let deviceLifecycle: DeviceLifecycleWorkspaceModel
     let library: LibraryWorkspaceModel
     let sources: SourcesViewModel
     let repositories: RepositoryManagementModel
@@ -114,6 +120,7 @@ final class AppContainer: ObservableObject {
         workspaceSupportEnvironment: WorkspaceSupportEnvironmentProviding,
         anisetteProvider: AnisetteConfigurationProviding,
         operationOutcomes: OperationOutcomeJournal,
+        diagnosticEvents: DiagnosticEventJournal = DiagnosticEventJournal(),
         directInstallFactory: @escaping () -> DirectPackageInstallUseCase,
         firmwareDownloadFactory: @escaping () -> FirmwareDownloadUseCase,
         deepLinkRouterFactory: @escaping (SharedBackupInbox) -> DeepLinkRouterUseCase,
@@ -127,6 +134,10 @@ final class AppContainer: ObservableObject {
         self.appleAccount = AppleAccountWorkspaceModel(useCase: AppleAccountWorkspaceUseCase(provider: appleAccount))
         self.analytics = LocalAnalyticsUseCase(provider: analytics)
         self.operationOutcomes = operationOutcomes
+        self.diagnosticEvents = diagnosticEvents
+        self.diagnosticRecorder = DiagnosticRecorder { event in
+            await diagnosticEvents.record(event)
+        }
         self.companion = CompanionArchiveModel(useCase: CompanionArchiveUseCase(provider: companion))
         self.repositoryBuilder = RepositoryBuilderViewModel(useCase: RepositoryBuilderUseCase(provider: repositoryDocuments))
         self.entitlements = EntitlementsWorkspaceModel(useCase: EntitlementsWorkspaceUseCase(provider: entitlementsWorkspace))
@@ -138,6 +149,52 @@ final class AppContainer: ObservableObject {
         self.archives = ArchiveCatalogModel(useCase: ArchiveWorkspaceCatalogUseCase(provider: archiveCatalog))
         let workspace = WorkspaceViewModel(useCase: WorkspaceCatalogUseCase(repository: workspaceRepository))
         self.workspace = workspace
+        self.containers = ContainerWorkspaceModel(
+            workspaceProvider: { workspace.snapshot }
+        )
+        // Device lifecycle owns no second transport, task center or database. It composes the
+        // already-injected installation/backup providers with the existing ecosystem store.
+        let deviceDatabase = EcosystemDatabase.shared
+        let deviceDiagnosticRecorder = DiagnosticRecorder { event in
+            await diagnosticEvents.record(event)
+        }
+        let deviceReporter = DeviceLifecycleTaskReporter(center: UnifiedTaskCenter.shared)
+        let deviceStore = DeviceLifecycleStore(database: deviceDatabase)
+        let deviceRegistry = DeviceRegistryService(store: deviceStore, reporter: deviceReporter)
+        let deviceInventory = DeviceInventoryService(store: deviceStore, reporter: deviceReporter)
+        let deviceCoordinator = DeviceLifecycleCoordinator(
+            registry: deviceRegistry, inventory: deviceInventory,
+            installer: PairedDeviceApplicationInstaller(installation: libraryInstallation),
+            remover: PairedDeviceApplicationRemover(), reporter: deviceReporter
+        )
+        let deviceBackupCoordinator = DeviceBackupCoordinator(
+            backups: backupWorkspace,
+            containers: ContainerArchiveService(store: ContainerStore())
+        )
+        let deviceCatalog = CatalogPersistence(database: deviceDatabase)
+        self.deviceLifecycle = DeviceLifecycleWorkspaceModel(
+            registry: deviceRegistry, inventory: deviceInventory, coordinator: deviceCoordinator,
+            downloader: PairedDeviceUpdateDownloader(), backups: deviceBackupCoordinator,
+            libraryAppsProvider: { workspace.snapshot.apps },
+            catalogAppsProvider: {
+                let ids = workspace.snapshot.repositories.map { CatalogSourceRegistry.id(for: $0) }
+                let snapshots: [String: CatalogSnapshot]
+                do { snapshots = try await deviceCatalog.allSnapshots(sourceIDs: ids) }
+                catch { return [] }
+                return snapshots.values.flatMap(\.apps)
+            },
+            signingIdentityProvider: {
+                SigningIdentityAvailability.hasUsableIdentity(in: workspace.snapshot.certificates)
+            },
+            availableBytesProvider: { DeviceStorageAvailability.importantUsageBytes() },
+            certificateExpiryProvider: { reference in
+                guard let certificate = workspace.snapshot.certificates.first(where: {
+                    $0.uuid == reference.uuid || $0.id == reference.recordID
+                }) else { return nil }
+                return SigningIdentityAvailability.installationExpiry(for: certificate)
+            },
+            diagnosticRecorder: deviceDiagnosticRecorder
+        )
         self.library = LibraryWorkspaceModel(useCase: LibraryUseCase(repository: workspaceRepository, cloning: libraryCloning), workspace: workspace, platform: platform)
         self.sources = SourcesViewModel(useCase: RepositoryCatalogUseCase(provider: repositoryCatalog))
         self.repositories = RepositoryManagementModel(useCase: RepositoryManagementUseCase(provider: repositoryManagement, policy: securityPolicy), workspace: workspace, platform: platform)
@@ -171,12 +228,16 @@ final class AppContainer: ObservableObject {
 
     static func live() -> AppContainer {
         let security = SecurityPolicyGateway()
-        let transfer = NetworkTransferAdapter(securityPolicy: security)
+        let operationOutcomes = OperationOutcomeJournal()
+        let diagnosticEvents = DiagnosticEventJournal()
+        let diagnosticRecorder = DiagnosticRecorder { event in
+            await diagnosticEvents.record(event)
+        }
+        let transfer = NetworkTransferAdapter(securityPolicy: security, diagnostics: diagnosticRecorder)
         let platform = UIKitPlatformAdapter()
         let resetStore = CoreDataWorkspaceResetAdapter()
         let downloadedFiles = FileSystemDownloadedFilesAdapter()
-        let operationOutcomes = OperationOutcomeJournal()
-        let diagnostics = DiagnosticsRepositoryAdapter(operationOutcomes: operationOutcomes)
+        let diagnostics = DiagnosticsRepositoryAdapter(operationOutcomes: operationOutcomes, diagnosticEvents: diagnosticEvents)
         let privacy = AppPrivacyAdapter()
         let certCatalog = CertificateCatalogAdapter()
         let workspaceSupport = UIKitWorkspaceSupportEnvironmentAdapter()
@@ -221,6 +282,7 @@ final class AppContainer: ObservableObject {
             workspaceSupportEnvironment: workspaceSupport,
             anisetteProvider: NativeAnisetteConfigurationAdapter(),
             operationOutcomes: operationOutcomes,
+            diagnosticEvents: diagnosticEvents,
             directInstallFactory: {
                 DirectPackageInstallUseCase(
                     securityPolicy: security,
@@ -360,11 +422,33 @@ final class AppContainer: ObservableObject {
         // writes to the same journal the diagnostic bundle exports.
         let recordOutcome: OperationOutcomeRecording = { outcome in
             await container.operationOutcomes.record(outcome)
+            let mapping = Self.diagnosticMapping(for: outcome.operation)
+            await container.diagnosticRecorder.record(.fromOutcome(
+                outcome,
+                category: mapping.category,
+                code: outcome.status == .succeeded ? nil : mapping.code,
+                recoverySuggestion: outcome.status == .failed
+                    ? DiagnosticRecoveryGuide.suggestion(for: .unknown)
+                    : nil
+            ))
         }
         AutoSignManager.shared.outcomeRecorder = recordOutcome
         DownloadManager.shared.outcomeRecorder = recordOutcome
         InstallQueue.shared.outcomeRecorder = recordOutcome
         return container
+    }
+
+    /// Maps the existing operation names onto stable diagnostic codes. This is
+    /// intentionally a switch over known names: an unknown operation is still
+    /// recorded under the app-health code rather than being dropped.
+    private static func diagnosticMapping(for operation: String) -> (category: DiagnosticCategory, code: String) {
+        switch operation {
+        case "sign": return (.signing, DiagnosticEventCode.signFailed)
+        case "import": return (.ipa, DiagnosticEventCode.importFailed)
+        case "install": return (.installation, DiagnosticEventCode.installFailed)
+        case "download": return (.download, DiagnosticEventCode.downloadFailed)
+        default: return (.app, DiagnosticEventCode.appHealth)
+        }
     }
 
     // MARK: - Use Case & ViewModel Factories
@@ -464,6 +548,27 @@ final class AppContainer: ObservableObject {
     func makeDiagnosticsViewModel() -> DiagnosticsCenterViewModel {
         DiagnosticsCenterViewModel(
             provider: diagnosticsProvider,
+            platform: platform,
+            securityProvider: SecurityDiagnosticsService(
+                signedBundleURL: {
+                    guard let app = Storage.shared.getAllApps().first(where: { $0.isSigned }) else { return nil }
+                    return Storage.shared.getAppDirectory(for: app)
+                },
+                profileData: {
+                    guard let certificate = Storage.shared.getAllCertificates().first,
+                          let url = Storage.shared.getFile(.provision, from: certificate),
+                          let data = try? CertificateInputReader.read(url) else { return nil } // try? ok: an unreadable stored profile is reported as unsupported
+                    return data
+                },
+                recorder: diagnosticRecorder
+            )
+        )
+    }
+
+    func makeTroubleshootingViewModel() -> TroubleshootingCenterViewModel {
+        TroubleshootingCenterViewModel(
+            journal: diagnosticEvents,
+            outcomes: operationOutcomes,
             platform: platform
         )
     }

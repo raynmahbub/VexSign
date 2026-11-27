@@ -20,6 +20,29 @@ import XCTest
 @testable import VexSign
 
 final class BackupRestorePolicyTests: XCTestCase {
+	// MARK: - What a backup may carry
+
+	func testWhitespaceOnlyPasswordIsRejectedRatherThanSilentlyDeviceBound() {
+		XCTAssertEqual(
+			BackupManager.passwordRejection(for: "   \n\t", components: [.settings]),
+			.blankPassword
+		)
+		XCTAssertEqual(
+			BackupManager.passwordRejection(for: "", components: [.settings]),
+			nil,
+			"leaving the field empty remains an explicit device-bound backup"
+		)
+		XCTAssertEqual(
+			BackupManager.passwordRejection(for: "long-enough", components: [.settings]),
+			nil
+		)
+		XCTAssertEqual(
+			BackupManager.passwordRejection(for: "      ", components: [.certificates]),
+			.certificatesNeedPassword,
+			"certificates keep the stronger rule even when the typed password is blank"
+		)
+	}
+
 	// MARK: - What a restore may write
 
 	func testAnEntryIsRestoredOnlyWhenNothingIsInTheWay() {

@@ -56,6 +56,7 @@ final class LibrarySigningAdapter: LibrarySigningProviding {
                 isCancellationRequested: { [weak self] in self?.cancelledRequests.contains(request.id) == true },
                 onStage: { onEvent(.stage($0)) },
                 onVerified: { onEvent(.signatureVerified) },
+                onVerificationReport: { onEvent(.verificationReport($0)) },
                 onCompatibilityRemoved: { onEvent(.compatibilityRemoved($0)) }
             ) { [weak self, repository] result in
                 self?.cancelledRequests.remove(request.id)

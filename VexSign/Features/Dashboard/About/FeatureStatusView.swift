@@ -24,14 +24,15 @@ struct FeatureStatusView: View {
 		NBList(.localized("Feature Status")) {
 			NBSection(.localized("Overview")) {
 				HStack(spacing: 12) {
-					_counter(FeatureStatusRegistry.implementedCount, title: .localized("Implemented"), tint: .green, icon: "checkmark.circle.fill")
+					_counter(FeatureStatusRegistry.implementedCount, title: .localized("Source present"), tint: .green, icon: "checkmark.circle.fill")
 					_counter(FeatureStatusRegistry.needsDeviceCount, title: .localized("Needs Device"), tint: .orange, icon: "iphone.gen3")
 				}
 				.listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
 				.listRowBackground(Color.clear)
 				.accessibilityElement(children: .combine)
+					.accessibilityLabel(Text(verbatim: String.localized("%lld source present, %lld need device validation", arguments: Int64(FeatureStatusRegistry.implementedCount), Int64(FeatureStatusRegistry.needsDeviceCount))))
 			} footer: {
-				Text(.localized("Each feature is tracked end-to-end: setting → persisted value → signing/download/install consumer. 'Needs device validation' means the chain is wired but the last mile requires real hardware."))
+				Text(.localized("Each feature is tracked end-to-end: setting → persisted value → signing/download/install consumer. 'Source present' means the chain is wired, not that a build or device pass was observed. 'Needs device validation' means the last mile requires real hardware."))
 			}
 
 			NBSection(.localized("Features"), systemName: "checklist") {
@@ -61,7 +62,8 @@ struct FeatureStatusView: View {
 		.padding(12)
 		.frame(maxWidth: .infinity)
 		.background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-		.accessibilityHidden(true)
+		// The counters carry the only numbers in this row; hiding them made the
+		// overview silent. They are combined by the section, not duplicated here.
 	}
 
 	private func _row(_ entry: FeatureStatusEntry) -> some View {
@@ -83,19 +85,22 @@ struct FeatureStatusView: View {
 		}
 		.padding(.vertical, 4)
 		.accessibilityElement(children: .combine)
-		.accessibilityLabel(Text(verbatim: "\(entry.name), \(entry.status.title)"))
+		.accessibilityLabel(Text(verbatim: String.localized("%@, %@", arguments: entry.name, entry.status.title)))
 	}
 
 	private func _pipelineRow(icon: String, label: String, value: String) -> some View {
 		HStack(alignment: .top, spacing: 8) {
 			Image(systemName: icon)
-				.font(.system(size: 10, weight: .semibold))
+				.font(.caption2.weight(.semibold))
 				.foregroundStyle(.secondary)
 				.frame(width: 14)
+				.accessibilityHidden(true)
 			Text(label)
 				.font(.caption2.weight(.semibold))
 				.foregroundStyle(.secondary)
-				.frame(width: 62, alignment: .leading)
+				// A minimum, not a maximum: translated labels and large text grow
+				// instead of being clipped at the old 62-point width.
+				.frame(minWidth: 62, alignment: .leading)
 			Text(verbatim: value)
 				.font(.caption2)
 				.foregroundStyle(.secondary)

@@ -64,9 +64,17 @@ struct SideSignProvisioningAdapter<Portal: SideSignProvisioningPortal>: Sendable
                   matchingApps.allSatisfy({ $0.expirationDate.map { $0 > now } ?? true }) else {
                 throw NativeProvisioningError.inventoryRejected
             }
+            // Apple's Personal Team documentation allows 10 App IDs and 3
+            // devices (each registered for 7 days). Count the full portal
+            // inventory, not just the IDs requested by this operation, and
+            // count every listed device conservatively. Unexpired App IDs are
+            // the ones still occupying a registration slot.
+            let activeAppIdentifiers = apps.filter { $0.expirationDate.map { $0 > now } ?? true }
             return SideSignProvisioningInventory(deviceRegistered: !matchingDevices.isEmpty,
                 appIdentifiers: Set(matchingApps.map(\.bundleIdentifier)), certificateCount: certificates.count,
-                validUntil: matchingApps.compactMap(\.expirationDate).min())
+                validUntil: matchingApps.compactMap(\.expirationDate).min(),
+                activeAppIdentifierCount: activeAppIdentifiers.count,
+                registeredDeviceCount: devices.count)
         } catch {
             if error is CancellationError || Task.isCancelled { throw CancellationError() }
             if let safe = error as? NativeProvisioningError { throw safe }

@@ -148,7 +148,7 @@ struct DeviceDiagnosticsView: View {
         Device Model: \(deviceModel)
         Architecture: \(architecture)
         iOS Version: \(iosVersion) (Build \(buildNumber))
-        App Version: \(Bundle.main.version)
+        App Version: \(VexSignBuildInfo.version)
         Total Storage: \(totalDiskSpace)
         Available Storage: \(availableDiskSpace)
         App Routing Preference: \(SigningModeManager.shared.preference.rawValue)

@@ -403,7 +403,7 @@ struct SigningMethodsView: View {
             Divider()
             AnisetteProviderConfigView(model: services.makeAnisetteSettingsViewModel())
 
-            Text(.localized("Free Apple ID: 3 apps per 7 days with weekly profile refresh and limited entitlements. Selecting this method routes app installs to the embedded LiveContainer host; the combined runtime must be loaded. Account sign-in alone does not import or install a guest."))
+            Text(.localized("Free Personal Team: Apple documents 10 App IDs and 3 registered devices for 7 days, 3 apps per device, and profiles that expire 7 days after issue. VexSign renews only in an attended, approved flow. Account sign-in alone does not import a certificate or install an app."))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .disabled(switchingSlot)
