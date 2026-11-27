@@ -188,6 +188,15 @@ jobs:
           # builds against the pinned Package.resolved revisions, not the floating branch refs.
           swift test --package-path Packages/SideSign --force-resolved-versions 2>&1 \
             | tee "$RUNNER_TEMP/sidesign-tests.log"
+      # The app links the source-built IDevice bridge (vexsign_device_*). Without it the
+      # package falls back to upstream v0.1.57, which lacks those symbols. Build it here
+      # with the same pinned toolchain and script that device-bridge.yml uses.
+      - name: Pinned Rust toolchain
+        run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Build source-built device bridge
+        run: |
+          set -euo pipefail
+          python3 Packages/DeviceBridge/prepare.py --build 2>&1 | tee "$RUNNER_TEMP/device-bridge-build.log"
       - name: Build standalone VexSign native input
         id: native_input
         env:
