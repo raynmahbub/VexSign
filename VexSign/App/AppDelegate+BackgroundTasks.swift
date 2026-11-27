@@ -37,7 +37,7 @@ extension AppDelegate {
             using: nil
         ) { task in
             guard let processingTask = task as? BGProcessingTask else {
-                _recordBackgroundFailure(
+                self._recordBackgroundFailure(
                     message: "A background download task had an unexpected type.",
                     detail: "BGTaskScheduler delivered an incompatible task object.",
                     operationID: task.identifier
@@ -53,7 +53,7 @@ extension AppDelegate {
             using: nil
         ) { task in
             guard let refreshTask = task as? BGAppRefreshTask else {
-                _recordBackgroundFailure(
+                self._recordBackgroundFailure(
                     message: "A background refresh task had an unexpected type.",
                     detail: "BGTaskScheduler delivered an incompatible task object.",
                     operationID: task.identifier
@@ -71,7 +71,7 @@ extension AppDelegate {
             using: nil
         ) { task in
             guard let maintenanceTask = task as? BGProcessingTask else {
-                _recordBackgroundFailure(
+                self._recordBackgroundFailure(
                     message: "A background maintenance task had an unexpected type.",
                     detail: "BGTaskScheduler delivered an incompatible task object.",
                     operationID: task.identifier
@@ -125,7 +125,7 @@ extension AppDelegate {
             try BGTaskScheduler.shared.submit(request)
         } catch {
             Logger.misc.error("Failed to schedule automation: \(error.localizedDescription)")
-            _recordBackgroundFailure(
+            self._recordBackgroundFailure(
                 message: "A automation task could not be scheduled.",
                 detail: error.localizedDescription,
                 operationID: "com.vexsign.background.maintenance"
@@ -257,7 +257,7 @@ extension AppDelegate {
         } catch {
             // Silent failure made a rejected request indistinguishable from "nothing pending".
             Logger.misc.error("Failed to schedule background download: \(error.localizedDescription)")
-            _recordBackgroundFailure(
+            self._recordBackgroundFailure(
                 message: "A background download task could not be scheduled.",
                 detail: error.localizedDescription,
                 operationID: "com.vexsign.background.download"
@@ -285,7 +285,7 @@ extension AppDelegate {
             try BGTaskScheduler.shared.submit(request)
         } catch {
             Logger.misc.error("Failed to schedule background refresh: \(error.localizedDescription)")
-            _recordBackgroundFailure(
+            self._recordBackgroundFailure(
                 message: "A background refresh task could not be scheduled.",
                 detail: error.localizedDescription,
                 operationID: "com.vexsign.background.refresh"
@@ -318,7 +318,7 @@ extension AppDelegate {
             try BGTaskScheduler.shared.submit(request)
         } catch {
             Logger.misc.error("Failed to submit BGContinuedProcessingTask: \(error.localizedDescription)")
-            _recordBackgroundFailure(
+            self._recordBackgroundFailure(
                 message: "A continued background download could not be scheduled.",
                 detail: error.localizedDescription,
                 operationID: request.identifier

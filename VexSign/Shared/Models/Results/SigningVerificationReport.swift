@@ -43,7 +43,7 @@ struct SigningVerificationReport: Codable, Equatable, Sendable {
     /// same secret/path redaction as other operation results: an engine line
     /// can contain a password or a container path, and neither belongs here.
     static func bounded(_ text: String) -> String {
-        let redacted = OperationOutcome.reason(text) ?? ""
+        let redacted = OperationOutcomeSanitizer.reason(text) ?? ""
         return String(redacted.prefix(240))
     }
 }
