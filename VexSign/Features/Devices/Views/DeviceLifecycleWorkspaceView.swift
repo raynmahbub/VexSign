@@ -309,7 +309,7 @@ struct DeviceLifecycleWorkspaceView: View {
                 }
             }
             if let preview = model.containerPreview {
-                LabeledContent(.localized("Container"), value: preview.container.name)
+                LabeledContent(String.localized("Container"), value: preview.container.displayName)
                 LabeledContent(.localized("Format"), value: preview.format)
             }
             ForEach(model.backupScope.exclusions) { exclusion in

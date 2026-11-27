@@ -28,7 +28,7 @@ struct NotificationTopicsSettingsView: View {
     }
 
     private var systemDenied: Bool {
-        service.authorizationStatus == .denied || service.authorizationStatus == .restricted
+        service.authorizationStatus == .denied
     }
 
     var body: some View {
