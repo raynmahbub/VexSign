@@ -96,26 +96,26 @@ final class StorageLibrarySnapshotTests: XCTestCase {
 		LibrarySnapshot(apps: apps, certificates: [], protected: [], productions: registry)
 	}
 
-	func testACopyBeingProducedIsNotALeftover() {
+	func testACopyBeingProducedIsNotALeftover() throws {
 		let registry = AppOperationRegistry()
 		let library = earlierSnapshot(asking: registry)
 		XCTAssertFalse(library.owns("new-copy", signed: true), "Nothing has announced it yet")
 
 		// The run starts after the library was read. Its bundle is moved in, its row is not
 		// committed yet: a folder with no row.
-		let claim = registry.claimProduction(of: "new-copy")
+		let claim = try registry.claimProduction(of: "new-copy")
 
 		XCTAssertTrue(library.owns("new-copy", signed: true), "The folder is judged now, so it is asked about now")
 		withExtendedLifetime(claim) {}
 	}
 
-	func testACopyProducedAndRegisteredSinceTheSnapshotIsNotALeftover() {
+	func testACopyProducedAndRegisteredSinceTheSnapshotIsNotALeftover() throws {
 		let registry = AppOperationRegistry()
 		let library = earlierSnapshot(asking: registry)
 
 		// The whole run fits between reading the library and judging the folder: the row is
 		// committed and the run is over, and the snapshot still has no row for it.
-		var claim: AppOperationRegistry.Lease? = registry.claimProduction(of: "new-copy")
+		var claim: AppOperationRegistry.Lease? = try registry.claimProduction(of: "new-copy")
 		registry.confirmProduction(of: "new-copy")
 		XCTAssertNotNil(claim)
 		claim = nil
@@ -123,11 +123,11 @@ final class StorageLibrarySnapshotTests: XCTestCase {
 		XCTAssertTrue(library.owns("new-copy", signed: true), "Deleting this folder would leave a row pointing at nothing")
 	}
 
-	func testWhatAFailedRunLeftBehindIsALeftoverAgain() {
+	func testWhatAFailedRunLeftBehindIsALeftoverAgain() throws {
 		let registry = AppOperationRegistry()
 		let library = earlierSnapshot(asking: registry)
 
-		var claim: AppOperationRegistry.Lease? = registry.claimProduction(of: "abandoned")
+		var claim: AppOperationRegistry.Lease? = try registry.claimProduction(of: "abandoned")
 		XCTAssertTrue(library.owns("abandoned", signed: true), "While the run is alive its folder is left alone")
 
 		// The run fails or is cancelled: no row was committed, and the claim ends with the run.
@@ -137,9 +137,9 @@ final class StorageLibrarySnapshotTests: XCTestCase {
 		XCTAssertFalse(library.owns("abandoned", signed: true), "Never registered, so it stays reclaimable")
 	}
 
-	func testAFolderNothingAccountsForIsStillALeftover() {
+	func testAFolderNothingAccountsForIsStillALeftover() throws {
 		let registry = AppOperationRegistry()
-		let claim = registry.claimProduction(of: "new-copy")
+		let claim = try registry.claimProduction(of: "new-copy")
 		registry.confirmProduction(of: "registered-copy")
 		let apps = ["known": AppDescriptor(name: "App", version: "1", date: Date(), isSigned: true)]
 		let library = earlierSnapshot(apps: apps, asking: registry)
@@ -151,9 +151,9 @@ final class StorageLibrarySnapshotTests: XCTestCase {
 		withExtendedLifetime(claim) {}
 	}
 
-	func testCopiesBeingProducedDoNotMakeACertificateFolderOwned() {
+	func testCopiesBeingProducedDoNotMakeACertificateFolderOwned() throws {
 		let registry = AppOperationRegistry()
-		let claim = registry.claimProduction(of: "new-copy")
+		let claim = try registry.claimProduction(of: "new-copy")
 		let library = earlierSnapshot(asking: registry)
 
 		XCTAssertFalse(library.ownsCertificate("new-copy"))

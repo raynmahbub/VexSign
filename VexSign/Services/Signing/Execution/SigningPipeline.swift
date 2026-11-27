@@ -30,7 +30,12 @@ struct SigningPipeline: SigningWork, Sendable {
             return .failure(WorkspaceAccessError.mismatchedRecord)
         }
 
-        let handler = SigningHandler(app: request.app, options: request.options, executionGate: executionGate)
+        let handler: SigningHandler
+        do {
+            handler = try SigningHandler(app: request.app, options: request.options, executionGate: executionGate)
+        } catch {
+            return .failure(error)
+        }
         handler.appCertificateID = request.certificateID
         handler.authorization = request.authorization
         handler.appIconData = request.iconData

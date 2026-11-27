@@ -14,6 +14,7 @@ final class ContainerWorkspaceModel: ObservableObject {
     @Published private(set) var selected: AppContainerRecord?
     @Published private(set) var libraryApps: [LibraryAppRecord] = []
     @Published private(set) var usage: [String: ContainerUsage] = [:]
+    @Published private(set) var recoveryReport: ContainerRecoveryReport = .empty
     @Published private(set) var isBusy = false
     @Published var message: String?
     @Published var error: String?
@@ -53,7 +54,8 @@ final class ContainerWorkspaceModel: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         do {
-            try await store.prepare()
+            let recovery = try await store.prepare()
+            recoveryReport = recovery
             containers = try await store.list()
             var measured: [String: ContainerUsage] = [:]
             for container in containers {
@@ -64,7 +66,7 @@ final class ContainerWorkspaceModel: ObservableObject {
             if let selected {
                 self.selected = try? await store.record(id: selected.id) // try? ok: a stale detail is cleared when its container disappears
             }
-            error = nil
+            error = recovery.actionableDescription
         } catch { self.error = error.localizedDescription }
     }
 

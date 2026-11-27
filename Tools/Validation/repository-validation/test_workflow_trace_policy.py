@@ -440,7 +440,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
                             ('VexSign/Services/Import/IPA/AppFileHandler.swift', '_importClaim')]:
             source = self.text(path)
             initializer = source.split('\tinit(', 1)[1].split('super.init()', 1)[0]
-            self.assertIn(f'self.{claim} = AppOperationRegistry.shared.claimProduction(of: _uuid)', initializer, path)
+            self.assertIn(f'self.{claim} = try AppOperationRegistry.shared.claimProduction(of: _uuid)', initializer, path)
             register = source.split('func addToDatabase()', 1)[1].split('func clean()', 1)[0]
             self.assertLess(register.index('_didAddToDatabase = true'),
                             register.index('AppOperationRegistry.shared.confirmProduction(of: _uuid)'), path)

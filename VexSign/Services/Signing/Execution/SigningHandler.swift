@@ -71,14 +71,14 @@ final class SigningHandler: NSObject {
 	/// modify-only run, which has no signature to verify.
 	var onVerificationReport: ((SigningVerificationReport) -> Void)?
 	
-	init(app: SigningAppSnapshot, options: Options, executionGate: SigningExecutionGate) {
+	init(app: SigningAppSnapshot, options: Options, executionGate: SigningExecutionGate) throws {
         self.executionGate = executionGate
 		self._app = app
 		self._options = options
 		self._appDescription = app.appDescription
 		self._uniqueWorkDir = _fileManager.temporaryDirectory
 			.appendingPathComponent("VexSigning_\(_uuid)", isDirectory: true)
-		self._outputClaim = AppOperationRegistry.shared.claimProduction(of: _uuid)
+		self._outputClaim = try AppOperationRegistry.shared.claimProduction(of: _uuid)
 		super.init()
 	}
 	

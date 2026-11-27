@@ -61,6 +61,122 @@ final class TweakPackageInspectorTests: XCTestCase {
         XCTAssertEqual(report.layout, .rootful)
     }
 
+    func testRootlessPayloadRequiresACompletePayloadDirectoryPrefix() async throws {
+        let files = [
+            ("var/jb/Library/MobileSubstrate/DynamicLibraries/Rootless.dylib", Data([0xca, 0xfe]), "0")
+        ]
+        let url = try writeDeb(InjectionFixtures.deb(control: validControl(), files: files))
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let report = try await TweakPackageInspector.inspect(fileAt: url)
+
+        XCTAssertEqual(report.layout, .rootless)
+        XCTAssertEqual(report.outcome, .requiresAdditionalValidation)
+        XCTAssertEqual(report.dylibs, ["var/jb/Library/MobileSubstrate/DynamicLibraries/Rootless.dylib"])
+    }
+
+    func testMixedRootfulAndRootlessPayloadIsRejected() async throws {
+        let files = [
+            ("Library/MobileSubstrate/DynamicLibraries/Rootful.dylib", Data([0x01]), "0"),
+            ("var/jb/Library/MobileSubstrate/DynamicLibraries/Rootless.dylib", Data([0x02]), "0")
+        ]
+        let url = try writeDeb(InjectionFixtures.deb(control: validControl(), files: files))
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let report = try await TweakPackageInspector.inspect(fileAt: url)
+
+        XCTAssertEqual(report.layout, .mixed)
+        XCTAssertEqual(report.outcome, .invalidPackage)
+        XCTAssertTrue(report.findings.contains { $0.severity == .blocking })
+    }
+
+    func testEmptyAndPrefixLookalikePayloadsAreNotAccepted() async throws {
+        let unknownControl = validControl().replacingOccurrences(of: "iphoneos-arm64", with: "all")
+        let emptyURL = try writeDeb(
+            InjectionFixtures.deb(control: unknownControl, files: []),
+            name: "empty.deb"
+        )
+        defer { try? FileManager.default.removeItem(at: emptyURL.deletingLastPathComponent()) }
+        let empty = try await TweakPackageInspector.inspect(fileAt: emptyURL)
+        XCTAssertEqual(empty.layout, .unknown)
+        XCTAssertEqual(empty.outcome, .invalidPackage)
+
+        let lookalikes = [
+            ("Library/MobileSubstrate/DynamicLibrariesLookalike/Fake.dylib", Data([0x01]), "0"),
+            ("var/jbLibrary/MobileSubstrate/DynamicLibraries/Fake.dylib", Data([0x02]), "0"),
+            ("var/jb/Library/MobileSubstrate/DynamicLibrariesLookalike/Fake.dylib", Data([0x03]), "0")
+        ]
+        let lookalikeURL = try writeDeb(
+            InjectionFixtures.deb(control: unknownControl, files: lookalikes),
+            name: "lookalike.deb"
+        )
+        defer { try? FileManager.default.removeItem(at: lookalikeURL.deletingLastPathComponent()) }
+        let lookalike = try await TweakPackageInspector.inspect(fileAt: lookalikeURL)
+        XCTAssertEqual(lookalike.layout, .unknown)
+        XCTAssertEqual(lookalike.outcome, .invalidPackage)
+        XCTAssertTrue(lookalike.findings.contains { $0.code == "noInjectablePayload" })
+    }
+
+    func testMalformedAbsolutePayloadPathIsRejected() async throws {
+        let url = try writeDeb(InjectionFixtures.deb(control: validControl(), files: [
+            ("/Library/MobileSubstrate/DynamicLibraries/Absolute.dylib", Data([0x01]), "0")
+        ]))
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        do {
+            _ = try await TweakPackageInspector.inspect(fileAt: url)
+            XCTFail("an absolute payload path must be rejected")
+        } catch TweakPackageInspectorError.extractionFailed(_) { }
+    }
+
+    func testDuplicateArchiveEntriesAreRejected() async throws {
+        let path = "Library/MobileSubstrate/DynamicLibraries/Duplicate.dylib"
+        let url = try writeDeb(InjectionFixtures.deb(control: validControl(), files: [
+            (path, Data([0x01]), "0"),
+            (path, Data([0x02]), "0")
+        ]))
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        do {
+            _ = try await TweakPackageInspector.inspect(fileAt: url)
+            XCTFail("duplicate archive output paths must be rejected")
+        } catch TweakPackageInspectorError.extractionFailed(_) { }
+    }
+
+    func testCanonicalDuplicateArchiveOutputsAreRejected() async throws {
+        let first = "Library/MobileSubstrate/DynamicLibraries/Alias.dylib"
+        let second = "library/mobilesubstrate/dynamiclibraries/alias.dylib"
+        let url = try writeDeb(InjectionFixtures.deb(control: validControl(), files: [
+            (first, Data([0x01]), "0"),
+            (second, Data([0x02]), "0")
+        ]))
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        do {
+            _ = try await TweakPackageInspector.inspect(fileAt: url)
+            XCTFail("case-equivalent archive output paths must be rejected")
+        } catch TweakPackageInspectorError.extractionFailed(_) { }
+    }
+
+    func testMalformedRelativePathComponentsAreRejected() async throws {
+        let malformedPaths = [
+            "Library//MobileSubstrate/DynamicLibraries/Repeated.dylib",
+            "Library/./MobileSubstrate/DynamicLibraries/Dot.dylib"
+        ]
+        for (index, path) in malformedPaths.enumerated() {
+            let url = try writeDeb(
+                InjectionFixtures.deb(control: validControl(), files: [(path, Data([0x01]), "0")]),
+                name: "malformed-\(index).deb"
+            )
+            defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+            do {
+                _ = try await TweakPackageInspector.inspect(fileAt: url)
+                XCTFail("malformed path must be rejected: \(path)")
+            } catch TweakPackageInspectorError.extractionFailed(_) { }
+        }
+    }
+
     func testMalformedEnvelopeIsRejected() async throws {
         let url = try writeDeb(Data("not a deb".utf8))
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }

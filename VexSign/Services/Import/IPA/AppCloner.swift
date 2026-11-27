@@ -40,7 +40,7 @@ final class AppCloner {
         var registered = false
         try Task.checkCancellation()
         let newUUID = UUID().uuidString
-        let production = AppOperationRegistry.shared.claimProduction(of: newUUID)
+        let production = try AppOperationRegistry.shared.claimProduction(of: newUUID)
         defer { withExtendedLifetime(production) {} }
 		let destDir = (app.isSigned && !asUnsigned) ? _fm.signed(newUUID) : _fm.unsigned(newUUID)
 

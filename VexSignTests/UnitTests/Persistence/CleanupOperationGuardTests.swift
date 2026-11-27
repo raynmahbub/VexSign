@@ -98,20 +98,20 @@ func testTheRegistryIsIdleUntilSomethingIsAcquired() async {
 
 // MARK: - What is being produced?
 
-    func testACopyIsKnownFromTheMomentItIsAnnounced() {
+    func testACopyIsKnownFromTheMomentItIsAnnounced() throws {
         let registry = AppOperationRegistry()
         XCTAssertFalse(registry.knowsProduction(of: "new-copy"))
 
-        let claim = registry.claimProduction(of: "new-copy")
+        let claim = try registry.claimProduction(of: "new-copy")
 
         XCTAssertTrue(registry.knowsProduction(of: "new-copy"))
         XCTAssertFalse(registry.knowsProduction(of: "another-copy"))
         withExtendedLifetime(claim) {}
     }
 
-    func testAClaimGivenUpWithoutARowEndsWithTheRun() {
+    func testAClaimGivenUpWithoutARowEndsWithTheRun() throws {
         let registry = AppOperationRegistry()
-        var claim: AppOperationRegistry.Lease? = registry.claimProduction(of: "abandoned")
+        var claim: AppOperationRegistry.Lease? = try registry.claimProduction(of: "abandoned")
         XCTAssertTrue(registry.knowsProduction(of: "abandoned"))
 
         // A run that fails or is cancelled never confirms.
@@ -121,9 +121,9 @@ func testTheRegistryIsIdleUntilSomethingIsAcquired() async {
         XCTAssertFalse(registry.knowsProduction(of: "abandoned"), "What it left behind is a leftover like any other")
     }
 
-    func testARegisteredCopyStaysKnownAfterItsRunIsOver() {
+    func testARegisteredCopyStaysKnownAfterItsRunIsOver() throws {
         let registry = AppOperationRegistry()
-        var claim: AppOperationRegistry.Lease? = registry.claimProduction(of: "new-copy")
+        var claim: AppOperationRegistry.Lease? = try registry.claimProduction(of: "new-copy")
         registry.confirmProduction(of: "new-copy")
 
         XCTAssertNotNil(claim)
@@ -135,10 +135,10 @@ func testTheRegistryIsIdleUntilSomethingIsAcquired() async {
         )
     }
 
-    func testTwoClaimsOnOneCopyNeedBothGivenUp() {
+    func testTwoClaimsOnOneCopyNeedBothGivenUp() throws {
         let registry = AppOperationRegistry()
-        var first: AppOperationRegistry.Lease? = registry.claimProduction(of: "new-copy")
-        var second: AppOperationRegistry.Lease? = registry.claimProduction(of: "new-copy")
+        var first: AppOperationRegistry.Lease? = try registry.claimProduction(of: "new-copy")
+        var second: AppOperationRegistry.Lease? = try registry.claimProduction(of: "new-copy")
 
         XCTAssertNotNil(first)
         first = nil
@@ -151,10 +151,11 @@ func testTheRegistryIsIdleUntilSomethingIsAcquired() async {
 
     func testAClaimIsNotAnOperationOnAStoredCopy() async throws {
         let registry = AppOperationRegistry()
-        let claim = registry.claimProduction(of: "new-copy")
+        let claim = try registry.claimProduction(of: "new-copy")
         registry.confirmProduction(of: "new-copy")
 
-        XCTAssertFalse(registry.hasActiveOperations, "Producing a copy does not hold up a cleanup pass by itself")
+        XCTAssertFalse(registry.hasActiveOperations, "A production claim is not ownership of a stored copy")
+        XCTAssertNil(registry.acquireCleanup(), "Cleanup must wait until production releases its files")
         XCTAssertFalse(registry.isBusy("signed:new-copy"))
         // Once the copy is registered, the next operation can own it straight away.
         XCTAssertNoThrow(try registry.acquire("signed:new-copy"))

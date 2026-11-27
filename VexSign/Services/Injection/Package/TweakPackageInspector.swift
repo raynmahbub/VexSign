@@ -157,10 +157,19 @@ enum TweakPackageInspector {
             }
             let (filters, filterErrors) = _readFilters(in: entries, binaryNames: dylibs + frameworkExecutables)
 
-            let hasRoot = installPaths.contains { TweakPackageLayout.payloadDirectories.contains { prefix in
-                $0.hasPrefix(prefix) && !$0.hasPrefix(TweakPackageLayout.rootlessPrefix)
-            } }
-            let hasRootless = installPaths.contains { $0.hasPrefix(TweakPackageLayout.rootlessPrefix) }
+            let hasRoot = installPaths.contains { path in
+                TweakPackageLayout.payloadDirectories.contains { payloadDirectory in
+                    path.hasPrefix(payloadDirectory)
+                }
+            }
+            let hasRootless = installPaths.contains { path in
+                guard path.hasPrefix(TweakPackageLayout.rootlessPrefix) else { return false }
+                let relative = String(path.dropFirst(TweakPackageLayout.rootlessPrefix.count))
+                return TweakPackageLayout.payloadDirectories.contains { payloadDirectory in
+                    relative.hasPrefix(payloadDirectory)
+                }
+            }
+            let hasClassifiedPayload = hasRoot || hasRootless
             let declared = TweakPackageLayout(declaredArchitecture: fields["architecture"])
             let resolution = TweakCompatibility.resolveLayout(
                 declaredArchitecture: fields["architecture"],
@@ -168,12 +177,19 @@ enum TweakPackageInspector {
                 hasRootlessPayload: hasRootless
             )
 
-            var findings = resolution.findings
+            var compatibilityFindings = resolution.findings
             if let declared, let observed = _observedLayout(hasRoot: hasRoot, hasRootless: hasRootless),
                declared != observed, declared != .unknown, observed != .unknown {
-                findings.append(TweakCompatibility.Finding(
+                compatibilityFindings.append(TweakCompatibility.Finding(
                     code: .layoutMismatch(declared: declared, observed: observed)
                 ))
+            }
+            var findings = compatibilityFindings.map {
+                InjectionFinding(
+                    code: _code(of: $0),
+                    severity: $0.isBlocking ? .blocking : .advisory,
+                    detail: $0.message
+                )
             }
             filterErrors.forEach {
                 findings.append(InjectionFinding(code: "invalidFilter", severity: .blocking, detail: $0))
@@ -184,7 +200,7 @@ enum TweakPackageInspector {
                     detail: .localized("Maintenance scripts in this package are read but never executed or installed.")
                 ))
             }
-            if dylibs.isEmpty && frameworks.isEmpty && bundles.isEmpty {
+            if !hasClassifiedPayload || dylibs.isEmpty && frameworks.isEmpty && bundles.isEmpty {
                 findings.append(InjectionFinding(
                     code: "noInjectablePayload", severity: .blocking,
                     detail: .localized("This package contains no dylib, framework or resource bundle that VexSign can inject.")
@@ -192,9 +208,11 @@ enum TweakPackageInspector {
             }
 
             let outcome: InjectionOutcome
-            if resolution.isBlocked || !filterErrors.isEmpty || dylibs.isEmpty && frameworks.isEmpty && bundles.isEmpty {
+            if resolution.isBlocked || !filterErrors.isEmpty || !hasClassifiedPayload
+                || dylibs.isEmpty && frameworks.isEmpty && bundles.isEmpty {
                 outcome = .invalidPackage
-            } else if resolution.layout == .rootless || resolution.layout == .roothide || !scripts.isEmpty || !findings.contains(where: \.isBlocking) && findings.count > 0 {
+            } else if resolution.layout == .rootless || resolution.layout == .roothide || !scripts.isEmpty
+                || !findings.contains(where: { $0.severity == .blocking }) && findings.count > 0 {
                 outcome = .requiresAdditionalValidation
             } else {
                 outcome = .compatible
@@ -221,7 +239,7 @@ enum TweakPackageInspector {
                 filters: filters,
                 filterErrors: filterErrors,
                 layout: resolution.layout,
-                findings: findings.map { InjectionFinding(code: _code(of: $0), severity: $0.isBlocking ? .blocking : .advisory, detail: $0.message) },
+                findings: findings,
                 outcome: outcome
             )
         } catch let error as StrictTarExtractorError {

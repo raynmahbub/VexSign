@@ -128,7 +128,7 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
 
         // Import claims production
         do {
-            let importClaim = registry.claimProduction(of: testUUID)
+            let importClaim = try registry.claimProduction(of: testUUID)
             XCTAssertTrue(registry.knowsProduction(of: testUUID))
 
             // Import confirms production

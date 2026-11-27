@@ -300,8 +300,13 @@ final class TweakCompatibilityTests: XCTestCase {
 		XCTAssertFalse(presence.root)
 		XCTAssertTrue(presence.rootless)
 
-		// A library outside the injected directories is not payload in either tree.
-		presence = TweakCompatibility.payloadPresence(inRelativePaths: ["/usr/lib/libhelper.dylib"])
+		// Libraries outside the injected directories and malformed lookalikes are not payload.
+		presence = TweakCompatibility.payloadPresence(inRelativePaths: [
+			"/usr/lib/libhelper.dylib",
+			"/Library/FrameworksEvil/Helper.dylib",
+			"/Library/Frameworks/../escape.dylib",
+			"/var/jb/Library//Frameworks/Helper.dylib"
+		])
 		XCTAssertFalse(presence.root)
 		XCTAssertFalse(presence.rootless)
 	}

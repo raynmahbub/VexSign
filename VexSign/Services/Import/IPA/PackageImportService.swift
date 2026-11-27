@@ -36,19 +36,25 @@ enum PackageImportService {
                 return UnifiedTaskCenter.shared.begin(kind: .importIPA, title: .localized("Import IPA"), phase: .importing).id
             }
             let workLease: AppOperationRegistry.Lease
-            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
-            catch {
+            let handler: AppFileHandler
+            do {
+                workLease = try AppOperationRegistry.shared.acquireTemporaryWork()
+                handler = try AppFileHandler(file: ipa, download: download, originURL: originURL)
+            } catch {
                 await MainActor.run {
                     if let task = taskRecord(id: importTaskID) {
                         task.context?.recordFailure(error)
-                        UnifiedTaskCenter.shared.transition(task, to: .failed, error: error.localizedDescription)
+                        UnifiedTaskCenter.shared.transition(
+                            task,
+                            to: error is CancellationError ? .cancelled : .failed,
+                            error: error.localizedDescription
+                        )
                     }
                     completion(.failure(error))
                 }
                 return
             }
             defer { withExtendedLifetime(workLease) {} }
-            let handler = AppFileHandler(file: ipa, download: download, originURL: originURL)
 
             do {
                 try await handler.copy()

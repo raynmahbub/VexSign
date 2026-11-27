@@ -194,11 +194,19 @@ actor ContainerArchiveService {
             try await store.commitReplacement(heldOriginal)
             return installed
         } catch {
+            let restoreError = error
             if let forceID, let held = heldOriginal {
-                try? await store.rollbackReplacement(held, id: forceID) // try? ok: rollback is best-effort; the error is surfaced
+                do {
+                    try await store.rollbackReplacement(held, id: forceID)
+                } catch {
+                    throw ContainerError.persistenceFailed(
+                        "Restore failed (\(restoreError.localizedDescription)) and automatic recovery did not "
+                            + "finish (\(error.localizedDescription)). Unresolved recovery data was retained."
+                    )
+                }
             }
-            if error is CancellationError { throw ContainerArchiveError.interrupted }
-            throw error
+            if restoreError is CancellationError { throw ContainerArchiveError.interrupted }
+            throw restoreError
         }
     }
 
@@ -252,8 +260,12 @@ actor ContainerArchiveService {
         do { manifest = try decoder.decode(ContainerExportManifest.self, from: data) }
         catch { throw ContainerArchiveError.malformedManifest }
         try manifest.validateFormat()
+        var seenResources = Set<String>()
         for resource in manifest.container.resources {
-            _ = try ContainerPathPolicy.safeRelativePath(resource.relativePath)
+            let safe = try ContainerPathPolicy.safeRelativePath(resource.relativePath)
+            guard safe == resource.relativePath, seenResources.insert(safe).inserted else {
+                throw ContainerArchiveError.malformedManifest
+            }
         }
         return manifest
     }

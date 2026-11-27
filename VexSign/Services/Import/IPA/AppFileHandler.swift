@@ -41,7 +41,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 		install: Bool = false,
 		download: Download? = nil,
 		originURL: URL? = nil
-	) {
+	) throws {
 		self._ipa = ipa
 		self._fileName = ipa.lastPathComponent
 		self._install = install
@@ -50,7 +50,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 		self._appDescription = download?.appDescription
 		self._uniqueWorkDir = _fileManager.temporaryDirectory
 			.appendingPathComponent("VexSignImport_\(_uuid)", isDirectory: true)
-		self._importClaim = AppOperationRegistry.shared.claimProduction(of: _uuid)
+		self._importClaim = try AppOperationRegistry.shared.claimProduction(of: _uuid)
 
 		super.init()
 		Logger.misc.debug("Import initiated for: \(self._ipa.lastPathComponent) with ID: \(self._uuid)")

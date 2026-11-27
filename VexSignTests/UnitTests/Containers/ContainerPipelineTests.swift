@@ -12,9 +12,12 @@ final class ContainerPipelineTests: XCTestCase {
         return root
     }
 
-    private func makeStore(_ root: URL) async throws -> ContainerStore {
-        let store = ContainerStore(root: root)
-        try await store.prepare()
+    private func makeStore(
+        _ root: URL,
+        fileManager: FileManager = .default
+    ) async throws -> ContainerStore {
+        let store = ContainerStore(root: root, fileManager: fileManager)
+        _ = try await store.prepare()
         return store
     }
 
@@ -144,8 +147,14 @@ final class ContainerPipelineTests: XCTestCase {
 
         let container = try await store.create(displayName: "Versioned")
         let valid = try await archives.export(id: container.id, password: nil)
-        var manifest = valid.manifest
-        manifest.formatVersion = 99
+        let manifest = ContainerExportManifest(
+            format: valid.manifest.format,
+            formatVersion: 99,
+            schemaVersion: valid.manifest.schemaVersion,
+            exportedAt: valid.manifest.exportedAt,
+            appVersion: valid.manifest.appVersion,
+            container: valid.manifest.container
+        )
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let rewritten = try _archiveReplacingManifest(
@@ -154,6 +163,51 @@ final class ContainerPipelineTests: XCTestCase {
         XCTAssertThrowsError(try await archives.restore(file: rewritten, password: nil, authorization: .createNew)) { error in
             guard case ContainerArchiveError.unsupportedVersion = error else {
                 return XCTFail("expected version rejection, got \(error)")
+            }
+        }
+    }
+
+    func testDuplicateManifestResourcePathsAreRejected() async throws {
+        let root = try temporaryRoot()
+        let store = try await makeStore(root)
+        let archives = ContainerArchiveService(store: store)
+        let container = try await store.create(displayName: "Duplicate manifest")
+        let file = try makeFile(in: root, text: "payload")
+        let withResource = try await store.addResource(
+            id: container.id,
+            from: file,
+            relativePath: "payload.txt"
+        )
+        let valid = try await archives.export(id: withResource.id, password: nil)
+        var duplicated = withResource
+        let firstResource = try XCTUnwrap(withResource.resources.first)
+        duplicated.resources.append(firstResource)
+        let manifest = ContainerExportManifest(
+            format: valid.manifest.format,
+            formatVersion: valid.manifest.formatVersion,
+            schemaVersion: valid.manifest.schemaVersion,
+            exportedAt: valid.manifest.exportedAt,
+            appVersion: valid.manifest.appVersion,
+            container: duplicated
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let rewritten = try _archiveReplacingManifest(
+            export: valid,
+            manifestData: try encoder.encode(manifest),
+            in: root
+        )
+
+        do {
+            _ = try await archives.restore(
+                file: rewritten,
+                password: nil,
+                authorization: .createNew
+            )
+            XCTFail("expected duplicate manifest resource rejection")
+        } catch {
+            guard case ContainerArchiveError.malformedManifest = error else {
+                return XCTFail("expected duplicate manifest resource rejection, got \(error)")
             }
         }
     }
@@ -217,7 +271,11 @@ final class ContainerPipelineTests: XCTestCase {
             }
         }
         XCTAssertTrue(try await store.list().isEmpty)
-        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: root.path).isEmpty)
+        let rootItems = try FileManager.default.contentsOfDirectory(atPath: root.path)
+        XCTAssertEqual(rootItems, [".staging"])
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(
+            atPath: root.appendingPathComponent(".staging").path
+        ).isEmpty)
     }
 
     func testDuplicateAndDeleteCleanUpFiles() async throws {
@@ -235,14 +293,313 @@ final class ContainerPipelineTests: XCTestCase {
         XCTAssertEqual(try await store.list().map(\.id), [original.id])
     }
 
+    func testValidatedInstallMoveFailurePublishesNoPartialContainer() async throws {
+        let root = try temporaryRoot()
+        let initial = try await makeStore(root)
+        let original = try await initial.create(displayName: "Original")
+        let file = try makeFile(in: root, name: "transaction.txt", text: "complete")
+        _ = try await initial.addResource(id: original.id, from: file, relativePath: "transaction.txt")
+        let manager = FaultingContainerFileManager(moveFailures: 1, moveSourceSuffix: ".incomplete")
+        let failing = ContainerStore(root: root, fileManager: manager)
+
+        do {
+            _ = try await failing.duplicate(id: original.id, displayName: "Failed copy")
+            XCTFail("expected publication move failure")
+        } catch {
+            guard case ContainerError.persistenceFailed(_) = error else {
+                return XCTFail("expected persistence failure, got \(error)")
+            }
+        }
+
+        let records = try await failing.list()
+        XCTAssertEqual(records.map(\.id), [original.id])
+        let staged = try FileManager.default.contentsOfDirectory(
+            atPath: root.appendingPathComponent(".staging", isDirectory: true).path
+        )
+        XCTAssertTrue(staged.isEmpty)
+    }
+
+    func testValidatedInstallAcceptsACompletedMoveOnlyAfterValidation() async throws {
+        let root = try temporaryRoot()
+        let initial = try await makeStore(root)
+        let original = try await initial.create(displayName: "Original")
+        let file = try makeFile(in: root, name: "transaction.txt", text: "complete")
+        _ = try await initial.addResource(id: original.id, from: file, relativePath: "transaction.txt")
+        let manager = FaultingContainerFileManager(
+            failuresAfterMove: 1,
+            moveSourceSuffix: ".incomplete"
+        )
+        let recovering = ContainerStore(root: root, fileManager: manager)
+
+        let copy = try await recovering.duplicate(id: original.id, displayName: "Validated copy")
+
+        XCTAssertNotEqual(copy.id, original.id)
+        let copiedResource = try await recovering.resourceURL(id: copy.id, relativePath: "transaction.txt")
+        XCTAssertEqual(try Data(contentsOf: copiedResource), Data("complete".utf8))
+    }
+
     func testInterruptedReplacementRecoversOriginalOnPrepare() async throws {
         let root = try temporaryRoot()
         let store = try await makeStore(root)
         let original = try await store.create(displayName: "Before")
-        _ = try await store.detachForReplacement(id: original.id)
+        let detached = try await store.detachForReplacement(id: original.id)
+        let held = try XCTUnwrap(detached)
         XCTAssertThrowsError(try await store.record(id: original.id))
-        let recovered = try await makeStore(root)
-        XCTAssertEqual(try await recovered.record(id: original.id).displayName, "Before")
+
+        let recovered = ContainerStore(root: root)
+        let report = try await recovered.prepare()
+
+        XCTAssertTrue(report.entries.contains { $0.containerID == original.id && $0.status == .recovered })
+        let restored = try await recovered.record(id: original.id)
+        XCTAssertEqual(restored.displayName, "Before")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: held.path))
+    }
+
+    func testRollbackRestoresOriginalAndRemovesPartialInstallation() async throws {
+        let root = try temporaryRoot()
+        let store = try await makeStore(root)
+        let original = try await store.create(displayName: "Before")
+        let detached = try await store.detachForReplacement(id: original.id)
+        let held = try XCTUnwrap(detached)
+        let target = try await store.containerURL(id: original.id)
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+        try Data("partial".utf8).write(to: target.appendingPathComponent("metadata.json"))
+
+        try await store.rollbackReplacement(held, id: original.id)
+
+        let restored = try await store.record(id: original.id)
+        XCTAssertEqual(restored.displayName, "Before")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: held.path))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: root.appendingPathComponent(".staging/\(original.id).recovery.incomplete").path
+        ))
+    }
+
+    func testFailedRollbackRetainsTheOnlyRecoverableOriginal() async throws {
+        let root = try temporaryRoot()
+        let manager = FaultingContainerFileManager(moveFailures: 1, moveSourceSuffix: ".replaced")
+        let store = try await makeStore(root, fileManager: manager)
+        let original = try await store.create(displayName: "Before")
+        let detached = try await store.detachForReplacement(id: original.id)
+        let held = try XCTUnwrap(detached)
+        let target = try await store.containerURL(id: original.id)
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+        try Data("partial".utf8).write(to: target.appendingPathComponent("metadata.json"))
+
+        do {
+            try await store.rollbackReplacement(held, id: original.id)
+            XCTFail("expected rollback failure")
+        } catch {
+            guard case ContainerError.persistenceFailed(_) = error else {
+                return XCTFail("expected persistence failure, got \(error)")
+            }
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: held.path))
+        XCTAssertEqual(try _record(at: held).displayName, "Before")
+
+        let retried = ContainerStore(root: root)
+        let report = try await retried.prepare()
+        XCTAssertTrue(report.entries.contains { $0.containerID == original.id && $0.status == .recovered })
+        let restored = try await retried.record(id: original.id)
+        XCTAssertEqual(restored.displayName, "Before")
+    }
+
+    func testRestoreSurfacesRollbackFailureAndRetainsOriginal() async throws {
+        let root = try temporaryRoot()
+        let manager = FaultingContainerFileManager(moveFailures: 1, moveSourceSuffix: ".replaced")
+        let store = try await makeStore(root, fileManager: manager)
+        let archives = ContainerArchiveService(store: store)
+        let original = try await store.create(displayName: "Before")
+        let export = try await archives.export(id: original.id, password: nil)
+        let target = try await store.containerURL(id: original.id)
+
+        do {
+            _ = try await archives.restore(
+                file: export.url,
+                password: nil,
+                authorization: .replace(id: original.id),
+                checkpoint: {
+                    if !FileManager.default.fileExists(atPath: target.path) { throw CancellationError() }
+                }
+            )
+            XCTFail("expected actionable rollback failure")
+        } catch {
+            guard case ContainerError.persistenceFailed(_) = error else {
+                return XCTFail("expected actionable rollback failure, got \(error)")
+            }
+        }
+
+        let held = root.appendingPathComponent(".staging/\(original.id).replaced", isDirectory: true)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: held.path))
+        XCTAssertEqual(try _record(at: held).displayName, "Before")
+    }
+
+    func testPrepareReportsDestinationCollisionAndPreservesBothValidCopies() async throws {
+        let root = try temporaryRoot()
+        let store = try await makeStore(root)
+        let original = try await store.create(displayName: "Before")
+        let detached = try await store.detachForReplacement(id: original.id)
+        let held = try XCTUnwrap(detached)
+        let target = try await store.containerURL(id: original.id)
+        try FileManager.default.copyItem(at: held, to: target)
+        var incoming = original
+        incoming.displayName = "Incoming"
+        try _writeRecord(incoming, to: target)
+
+        let recovering = ContainerStore(root: root)
+        let first = try await recovering.prepare()
+        let second = try await recovering.prepare()
+
+        XCTAssertTrue(first.entries.contains { $0.containerID == original.id && $0.status == .unresolved })
+        XCTAssertTrue(second.entries.contains { $0.containerID == original.id && $0.status == .unresolved })
+        let destination = try await recovering.record(id: original.id)
+        XCTAssertEqual(destination.displayName, "Incoming")
+        XCTAssertEqual(try _record(at: held).displayName, "Before")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: held.path))
+    }
+
+    func testExplicitRollbackDoesNotMoveAsideAnInaccessibleDestination() async throws {
+        let root = try temporaryRoot()
+        let initial = try await makeStore(root)
+        let original = try await initial.create(displayName: "Before")
+        let detached = try await initial.detachForReplacement(id: original.id)
+        let held = try XCTUnwrap(detached)
+        let target = try await initial.containerURL(id: original.id)
+        try FileManager.default.copyItem(at: held, to: target)
+        let denied = FaultingContainerFileManager(
+            attributeFailures: 1,
+            attributeSuffix: original.id
+        )
+        let recovering = ContainerStore(root: root, fileManager: denied)
+
+        do {
+            try await recovering.rollbackReplacement(held, id: original.id)
+            XCTFail("expected inaccessible destination to prevent rollback")
+        } catch {
+            guard case ContainerError.persistenceFailed(_) = error else {
+                return XCTFail("expected persistence failure, got \(error)")
+            }
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: held.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: target.path))
+    }
+
+    func testPrepareRollsBackPartialInstallationAndIsSafeToRepeat() async throws {
+        let root = try temporaryRoot()
+        let store = try await makeStore(root)
+        var original = try await store.create(displayName: "Before")
+        let source = try makeFile(in: root, name: "recovery-source.txt", text: "original bytes")
+        original = try await store.addResource(id: original.id, from: source, relativePath: "payload.txt")
+        let detached = try await store.detachForReplacement(id: original.id)
+        let held = try XCTUnwrap(detached)
+        let target = try await store.containerURL(id: original.id)
+        try FileManager.default.createDirectory(
+            at: target.appendingPathComponent("Resources", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        // Metadata promises a resource, but the interrupted destination does not contain it.
+        try _writeRecord(original, to: target)
+
+        let recovering = ContainerStore(root: root)
+        let first = try await recovering.prepare()
+        let second = try await recovering.prepare()
+
+        XCTAssertTrue(first.entries.contains { $0.containerID == original.id && $0.status == .recovered })
+        XCTAssertFalse(first.needsAttention)
+        XCTAssertTrue(second.entries.isEmpty)
+        let resourceURL = try await recovering.resourceURL(id: original.id, relativePath: "payload.txt")
+        XCTAssertEqual(try Data(contentsOf: resourceURL), Data("original bytes".utf8))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: held.path))
+    }
+
+    func testPrepareMoveFailureKeepsRecoverableCopyInStaging() async throws {
+        let root = try temporaryRoot()
+        let store = try await makeStore(root)
+        let original = try await store.create(displayName: "Only Copy")
+        let detached = try await store.detachForReplacement(id: original.id)
+        let held = try XCTUnwrap(detached)
+        let manager = FaultingContainerFileManager(moveFailures: 1, moveSourceSuffix: ".replaced")
+        let recovering = ContainerStore(root: root, fileManager: manager)
+
+        let report = try await recovering.prepare()
+
+        XCTAssertTrue(report.needsAttention)
+        XCTAssertTrue(report.entries.contains { $0.containerID == original.id && $0.status == .unresolved })
+        XCTAssertTrue(FileManager.default.fileExists(atPath: held.path))
+        XCTAssertEqual(try _record(at: held).displayName, "Only Copy")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent(".staging").path))
+    }
+
+    func testPrepareAcceptsCompletedRenameOnlyAfterDestinationValidation() async throws {
+        let root = try temporaryRoot()
+        let initial = try await makeStore(root)
+        let original = try await initial.create(displayName: "Rename completed")
+        let detached = try await initial.detachForReplacement(id: original.id)
+        let held = try XCTUnwrap(detached)
+        let manager = FaultingContainerFileManager(
+            failuresAfterMove: 1,
+            moveSourceSuffix: ".replaced"
+        )
+        let recovering = ContainerStore(root: root, fileManager: manager)
+
+        let report = try await recovering.prepare()
+
+        XCTAssertTrue(report.entries.contains {
+            $0.containerID == original.id && $0.status == .recovered
+        })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: held.path))
+        let restored = try await recovering.record(id: original.id)
+        XCTAssertEqual(restored.displayName, "Rename completed")
+    }
+
+    func testPrepareRemoveFailureRetainsOrphanForLaterCleanup() async throws {
+        let root = try temporaryRoot()
+        let staging = root.appendingPathComponent(".staging", isDirectory: true)
+        let orphan = staging.appendingPathComponent("resource-fixture.incomplete", isDirectory: false)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        try Data("partial".utf8).write(to: orphan)
+        let manager = FaultingContainerFileManager(removeFailures: 1, removeSuffix: ".incomplete")
+        let store = ContainerStore(root: root, fileManager: manager)
+
+        let failed = try await store.prepare()
+        XCTAssertTrue(failed.entries.contains { $0.item == orphan.lastPathComponent && $0.status == .unresolved })
+        XCTAssertTrue(FileManager.default.fileExists(atPath: orphan.path))
+
+        let retried = ContainerStore(root: root)
+        let recovered = try await retried.prepare()
+        XCTAssertTrue(recovered.entries.contains { $0.item == orphan.lastPathComponent && $0.status == .orphaned })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: orphan.path))
+    }
+
+    func testPrepareRetainsInvalidTransactionEntries() async throws {
+        let root = try temporaryRoot()
+        let invalid = root.appendingPathComponent(".staging/not-an-id.replaced", isDirectory: true)
+        try FileManager.default.createDirectory(at: invalid, withIntermediateDirectories: true)
+        try Data("recoverable".utf8).write(to: invalid.appendingPathComponent("data"))
+        let store = ContainerStore(root: root)
+
+        let report = try await store.prepare()
+
+        XCTAssertTrue(report.entries.contains { $0.item == invalid.lastPathComponent && $0.status == .invalid })
+        XCTAssertTrue(FileManager.default.fileExists(atPath: invalid.path))
+    }
+
+    func testPrepareRetainsInvalidStagedOriginalInsteadOfPublishingIt() async throws {
+        let root = try temporaryRoot()
+        let id = ContainerPathPolicy.makeIdentifier()
+        let held = root.appendingPathComponent(".staging/\(id).replaced", isDirectory: true)
+        try FileManager.default.createDirectory(at: held, withIntermediateDirectories: true)
+        try Data("not metadata".utf8).write(
+            to: held.appendingPathComponent("metadata.json", isDirectory: false)
+        )
+        let store = ContainerStore(root: root)
+
+        let report = try await store.prepare()
+
+        XCTAssertTrue(report.entries.contains { $0.containerID == id && $0.status == .invalid })
+        XCTAssertTrue(FileManager.default.fileExists(atPath: held.path))
+        let destination = root.appendingPathComponent(id, isDirectory: true)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
     }
 
     func testLegacyMetadataMigratesAndBrokenMetadataIsReported() async throws {
@@ -310,6 +667,26 @@ final class ContainerPipelineTests: XCTestCase {
 
     // MARK: - Fixtures
 
+    private func _writeRecord(_ record: AppContainerRecord, to directory: URL) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
+        try encoder.encode(record).write(
+            to: directory.appendingPathComponent("metadata.json", isDirectory: false),
+            options: .atomic
+        )
+    }
+
+    private func _record(at directory: URL) throws -> AppContainerRecord {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(
+            AppContainerRecord.self,
+            from: Data(contentsOf: directory.appendingPathComponent("metadata.json", isDirectory: false))
+        )
+    }
+
     private func _archiveReplacingManifest(export: ContainerExport, manifestData: Data, in root: URL) throws -> URL {
         let work = root.appendingPathComponent("Rewrite-\(UUID().uuidString)", isDirectory: true)
         let input = work.appendingPathComponent("input", isDirectory: true)
@@ -319,6 +696,96 @@ final class ContainerPipelineTests: XCTestCase {
         let archive = try Archive(url: archiveURL, accessMode: .create)
         try archive.addEntry(with: "manifest.json", relativeTo: input)
         return archiveURL
+    }
+}
+
+private final class FaultingContainerFileManager: FileManager, @unchecked Sendable {
+    private let stateLock = NSLock()
+    private var moveFailures: Int
+    private var failuresAfterMove: Int
+    private var removeFailures: Int
+    private var attributeFailures: Int
+    private let moveSourceSuffix: String?
+    private let removeSuffix: String?
+    private let attributeSuffix: String?
+
+    init(
+        moveFailures: Int = 0,
+        failuresAfterMove: Int = 0,
+        moveSourceSuffix: String? = nil,
+        removeFailures: Int = 0,
+        removeSuffix: String? = nil,
+        attributeFailures: Int = 0,
+        attributeSuffix: String? = nil
+    ) {
+        self.moveFailures = moveFailures
+        self.failuresAfterMove = failuresAfterMove
+        self.moveSourceSuffix = moveSourceSuffix
+        self.removeFailures = removeFailures
+        self.removeSuffix = removeSuffix
+        self.attributeFailures = attributeFailures
+        self.attributeSuffix = attributeSuffix
+        super.init()
+    }
+
+    override func moveItem(at source: URL, to destination: URL) throws {
+        if _consumeMoveFailure(for: source) {
+            throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError)
+        }
+        try super.moveItem(at: source, to: destination)
+        if _consumeFailureAfterMove(for: source) {
+            throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError)
+        }
+    }
+
+    override func removeItem(at URL: URL) throws {
+        if _consumeRemoveFailure(for: URL) {
+            throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError)
+        }
+        try super.removeItem(at: URL)
+    }
+
+    override func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any] {
+        if _consumeAttributeFailure(for: path) {
+            throw NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError)
+        }
+        return try super.attributesOfItem(atPath: path)
+    }
+
+    private func _consumeMoveFailure(for source: URL) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard moveFailures > 0,
+              moveSourceSuffix.map({ source.lastPathComponent.hasSuffix($0) }) ?? true else { return false }
+        moveFailures -= 1
+        return true
+    }
+
+    private func _consumeFailureAfterMove(for source: URL) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard failuresAfterMove > 0,
+              moveSourceSuffix.map({ source.lastPathComponent.hasSuffix($0) }) ?? true else { return false }
+        failuresAfterMove -= 1
+        return true
+    }
+
+    private func _consumeAttributeFailure(for path: String) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard attributeFailures > 0,
+              attributeSuffix.map({ path.hasSuffix($0) }) ?? true else { return false }
+        attributeFailures -= 1
+        return true
+    }
+
+    private func _consumeRemoveFailure(for item: URL) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard removeFailures > 0,
+              removeSuffix.map({ item.lastPathComponent.hasSuffix($0) }) ?? true else { return false }
+        removeFailures -= 1
+        return true
     }
 }
 
