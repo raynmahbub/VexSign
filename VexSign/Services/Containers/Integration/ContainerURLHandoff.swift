@@ -32,8 +32,9 @@ final class UIKitContainerURLOpener: ContainerURLOpening {
 final class ContainerURLHandoff {
     private let opener: any ContainerURLOpening
 
-    init(opener: any ContainerURLOpening = UIKitContainerURLOpener()) {
-        self.opener = opener
+    init(opener: (any ContainerURLOpening)? = nil) {
+        let resolved: any ContainerURLOpening = opener ?? UIKitContainerURLOpener()
+        self.opener = resolved
     }
 
     /// LiveContainer reads `livecontainer://livecontainer-launch` with these

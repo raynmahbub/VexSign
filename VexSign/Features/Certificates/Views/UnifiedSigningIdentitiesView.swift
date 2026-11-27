@@ -23,7 +23,7 @@ final class UnifiedIdentityModel: ObservableObject {
         do { inputs = try await SigningIdentityStore.snapshot() }
         catch {
             inputs = []
-            message = .localized("The signing certificate store could not be read. No identity was claimed as usable.")
+            message = String.localized("The signing certificate store could not be read. No identity was claimed as usable.")
         }
         // `CertificateRecord.id` and `SigningIdentityStore.Input.reference` are
         // both the Core Data objectID URI. Joining on that avoids guessing from
@@ -48,13 +48,13 @@ final class UnifiedIdentityModel: ObservableObject {
 
     func disconnectCommunitySource() async {
         await run {
-            try await adapter.disconnect()
-            providerStatus = try await adapter.status()
-            message = "Community source access turned off. Imported certificates were kept and are still usable."
+            try await self.adapter.disconnect()
+            self.providerStatus = try await self.adapter.status()
+            self.message = "Community source access turned off. Imported certificates were kept and are still usable."
         }
     }
 
-    func cancelProviderWork() { adapter.cancel() }
+    func cancelProviderWork() { Task { await self.adapter.cancel() } }
 
     private func run(_ operation: @escaping @MainActor () async throws -> Void) async {
         isBusy = true
@@ -71,43 +71,43 @@ struct UnifiedSigningIdentitiesView: View {
     @State private var showingVault = false
 
     var body: some View {
-        NBNavigationView(.localized("Signing Identities"), displayMode: .inline) {
+        NBNavigationView(String.localized("Signing Identities"), displayMode: .inline) {
             List {
                 if let message = model.message {
                     Section { Text(message).font(.footnote).foregroundStyle(.secondary) }
                 }
                 Section {
                     if model.identities.isEmpty {
-                        Text(.localized("No identities yet. Import a certificate or a PKCS#12 and profile pair."))
+                        Text(String.localized("No identities yet. Import a certificate or a PKCS#12 and profile pair."))
                             .foregroundStyle(.secondary)
                     }
                     ForEach(model.identities) { identity in
                         _identityRow(identity)
                     }
                 } header: {
-                    Text(.localized("Identities"))
+                    Text(String.localized("Identities"))
                 }
                 Section {
                     if let status = model.providerStatus {
-                        LabeledContent(.localized("Community source"), value: status.state.rawValue)
+                        LabeledContent(String.localized("Community source"), value: status.state.rawValue)
                         Text(status.detail).font(.footnote).foregroundStyle(.secondary)
                         if status.state != .notConfigured {
                             Button(role: .destructive) {
                                 Task { await model.disconnectCommunitySource() }
                             } label: {
-                                Text(.localized("Disconnect Community Source"))
+                                Text(String.localized("Disconnect Community Source"))
                             }
                         }
                     }
                     Button {
                         showingVault = true
                     } label: {
-                        Text(.localized("Open Keychain Certificate Vault"))
+                        Text(String.localized("Open Keychain Certificate Vault"))
                     }
                 } header: {
-                    Text(.localized("Sources"))
+                    Text(String.localized("Sources"))
                 } footer: {
-                    Text(.localized("Disconnecting turns off provider access. It does not revoke certificates or delete imported identities."))
+                    Text(String.localized("Disconnecting turns off provider access. It does not revoke certificates or delete imported identities."))
                         .font(.footnote)
                 }
             }
@@ -118,11 +118,11 @@ struct UnifiedSigningIdentitiesView: View {
             .sheet(isPresented: $showingVault) {
                 NavigationStack { CertificateVaultView() }
             }
-            .alert(.localized("Signing Identities"), isPresented: Binding(
+            .alert(String.localized("Signing Identities"), isPresented: Binding(
                 get: { model.message != nil },
                 set: { if !$0 { model.message = nil } }
             )) {
-                Button(.localized("OK"), role: .cancel) { }
+                Button(String.localized("OK"), role: .cancel) { }
             } message: {
                 Text(model.message ?? "")
             }
@@ -139,21 +139,21 @@ struct UnifiedSigningIdentitiesView: View {
                     .font(.caption)
                     .foregroundStyle(identity.canStartNativeSigning ? .green : .orange)
             }
-            LabeledContent(.localized("Source"), value: identity.source.displayName)
-            LabeledContent(.localized("Type"), value: identity.certificateType.displayName)
+            LabeledContent(String.localized("Source"), value: identity.source.displayName)
+            LabeledContent(String.localized("Type"), value: identity.certificateType.displayName)
             if let team = identity.teamIdentifier {
-                LabeledContent(.localized("Team"), value: team)
+                LabeledContent(String.localized("Team"), value: team)
             }
             if let fingerprint = identity.fingerprint {
-                LabeledContent(.localized("Fingerprint"), value: String(fingerprint.prefix(12)).uppercased())
+                LabeledContent(String.localized("Fingerprint"), value: String(fingerprint.prefix(12)).uppercased())
             }
             if let expiry = identity.notAfter {
-                LabeledContent(.localized("Expires"), value: expiry.formatted(date: .abbreviated, time: .omitted))
+                LabeledContent(String.localized("Expires"), value: expiry.formatted(date: .abbreviated, time: .omitted))
             }
-            LabeledContent(.localized("Private key"), value: identity.privateKeyAvailable
-                ? .localized("Available") : .localized("Unavailable"))
-            LabeledContent(.localized("Signing engine"), value: identity.engineReady
-                ? .localized("Ready") : .localized("Not ready (vault-only)"))
+            LabeledContent(String.localized("Private key"), value: identity.privateKeyAvailable
+                ? String.localized("Available") : String.localized("Unavailable"))
+            LabeledContent(String.localized("Signing engine"), value: identity.engineReady
+                ? String.localized("Ready") : String.localized("Not ready (vault-only)"))
             if !identity.capabilities.isEmpty {
                 Text(identity.capabilities.prefix(8).joined(separator: ", "))
                     .font(.caption2).foregroundStyle(.secondary)
