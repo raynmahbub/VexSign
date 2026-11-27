@@ -25,14 +25,14 @@ enum DeviceLifecycleOutcome: String, Sendable {
 
     var title: String {
         switch self {
-        case .submitted: .localized("Submitted, not confirmed")
-        case .installed: .localized("Confirmed installed")
-        case .removalRequested: .localized("Removal requested")
-        case .removed: .localized("Confirmed removed")
-        case .stillInstalled: .localized("Still installed")
-        case .outcomeUnknown: .localized("Outcome unknown")
-        case .refused: .localized("Not attempted")
-        case .cancelled: .localized("Cancelled")
+        case .submitted: String.localized("Submitted, not confirmed")
+        case .installed: String.localized("Confirmed installed")
+        case .removalRequested: String.localized("Removal requested")
+        case .removed: String.localized("Confirmed removed")
+        case .stillInstalled: String.localized("Still installed")
+        case .outcomeUnknown: String.localized("Outcome unknown")
+        case .refused: String.localized("Not attempted")
+        case .cancelled: String.localized("Cancelled")
         }
     }
 }
@@ -142,40 +142,40 @@ final class DeviceLifecycleCoordinator {
         guard let device else { throw DeviceLifecycleError.deviceRequired }
         guard device.supportsInstallation else {
             throw DeviceLifecycleError.operationBlocked(
-                .localized("This device has no admitted installation route. The signed IPA can be exported instead.")
+                String.localized("This device has no admitted installation route. The signed IPA can be exported instead.")
             )
         }
         if action == .reinstall || action == .update {
             guard let snapshot = try await inventory.latestSnapshot(deviceID: target.deviceID),
                   let installed = snapshot.application(bundleIdentifier: target.bundleIdentifier) else {
                 throw DeviceLifecycleError.operationBlocked(
-                    .localized("Refresh inventory before replacing an installed app. Its current bundle identity must be confirmed.")
+                    String.localized("Refresh inventory before replacing an installed app. Its current bundle identity must be confirmed.")
                 )
             }
             guard installed.bundleIdentifier == target.bundleIdentifier else {
                 throw DeviceLifecycleError.operationBlocked(
-                    .localized("The installed bundle identifier differs from the selected library app. Nothing was replaced.")
+                    String.localized("The installed bundle identifier differs from the selected library app. Nothing was replaced.")
                 )
             }
             if action == .update, let installedVersion = installed.version,
                VersionOrder.precedence(target.version, installedVersion) != .orderedDescending {
                 throw DeviceLifecycleError.invalidUpdate(
-                    .localized("The selected version is not newer than the installed version. No downgrade or reinstall was submitted.")
+                    String.localized("The selected version is not newer than the installed version. No downgrade or reinstall was submitted.")
                 )
             }
         }
         if let expiry = target.certificateExpiry, expiry <= Date() {
             throw DeviceLifecycleError.operationBlocked(
-                .localized("The certificate or provisioning authorization is expired or revoked. Use a valid identity before installing.")
+                String.localized("The certificate or provisioning authorization is expired or revoked. Use a valid identity before installing.")
             )
         }
 
         let subject = "device-lifecycle." + target.deviceID + "." + target.bundleIdentifier
         let title = action == .install ? "Install on device" : (action == .update ? "Update on device" : "Reinstall on device")
-        guard let taskID = await reporter.beginOnce(kind: .install, title: .localized(title),
+        guard let taskID = await reporter.beginOnce(kind: .install, title: String.localized(title),
                                                     subtitle: target.bundleIdentifier, subjectID: subject)
         else { throw DeviceLifecycleError.operationBlocked(
-            .localized("An operation for this app and device is already running.")
+            String.localized("An operation for this app and device is already running.")
         ) }
         do {
             await reporter.transition(id: taskID, to: .preparingInstallation)
@@ -187,15 +187,15 @@ final class DeviceLifecycleCoordinator {
             // The queue has acknowledged the request. It has not installed the app.
             guard submission == .submittedForInstallation else {
                 let message = submission == .submittedForGuestImport
-                    ? .localized("The app was staged for an embedded host import. This is not an iOS device installation.")
-                    : .localized("The request was prepared for export. No device installation was attempted.")
+                    ? String.localized("The app was staged for an embedded host import. This is not an iOS device installation.")
+                    : String.localized("The request was prepared for export. No device installation was attempted.")
                 await reporter.transition(id: taskID, to: .completed)
                 return DeviceLifecycleResult(action: action, deviceID: target.deviceID,
                     bundleIdentifier: target.bundleIdentifier, outcome: .submitted, message: message, at: submittedAt)
             }
 
             var outcome = DeviceLifecycleOutcome.submitted
-            var message = .localized("The device service accepted the request. Installation has not been confirmed; refresh inventory before retrying.")
+            var message = String.localized("The device service accepted the request. Installation has not been confirmed; refresh inventory before retrying.")
             do {
                 try await inventory.refresh(deviceID: target.deviceID,
                                             wantedBundleIdentifiers: [target.bundleIdentifier])
@@ -206,10 +206,10 @@ final class DeviceLifecycleCoordinator {
                    target.build.map({ $0 == installed.build }) ?? true,
                    installed.observedAt >= submittedAt {
                     outcome = .installed
-                    message = .localized("The device reported the exact bundle and version after the request.")
+                    message = String.localized("The device reported the exact bundle and version after the request.")
                 }
             } catch {
-                message = .localized("The request was accepted, but a same-device confirmation could not be read. Check the Home Screen before retrying.")
+                message = String.localized("The request was accepted, but a same-device confirmation could not be read. Check the Home Screen before retrying.")
             }
             await reporter.transition(id: taskID,
                 to: outcome == .installed ? .completed : .unconfirmed)
@@ -233,20 +233,20 @@ final class DeviceLifecycleCoordinator {
         }
         guard target.authorizedRemoval else {
             throw DeviceLifecycleError.operationBlocked(
-                .localized("Removal requires explicit confirmation for this exact bundle identifier.")
+                String.localized("Removal requires explicit confirmation for this exact bundle identifier.")
             )
         }
         let device = try await registry.devices().first { $0.id == target.deviceID }
         guard let device, device.supportsRemoval else {
             throw DeviceLifecycleError.operationBlocked(
-                .localized("This device does not expose a supported removal interface. Delete the app from its Home Screen instead.")
+                String.localized("This device does not expose a supported removal interface. Delete the app from its Home Screen instead.")
             )
         }
         let subject = "device-removal." + target.deviceID + "." + target.bundleIdentifier
-        guard let taskID = await reporter.beginOnce(kind: .deviceSetup, title: .localized("Remove app from device"),
+        guard let taskID = await reporter.beginOnce(kind: .deviceSetup, title: String.localized("Remove app from device"),
                                                     subtitle: target.bundleIdentifier, subjectID: subject)
         else { throw DeviceLifecycleError.operationBlocked(
-            .localized("A removal for this app is already running.")
+            String.localized("A removal for this app is already running.")
         ) }
         do {
             await reporter.transition(id: taskID, to: .queryingDevice)

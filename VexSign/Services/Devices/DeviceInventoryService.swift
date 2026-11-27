@@ -84,7 +84,7 @@ final class DeviceInventoryService {
             await reporter.report(stage: .inspectingRecord, for: taskID)
 
             let inventory = try await query.inventory(request: request) { stage in
-                Task { @MainActor [weak reporter] in
+                Task { @MainActor [weak reporter = self.reporter] in
                     await reporter?.report(stage: stage, for: taskID)
                 }
             }

@@ -113,7 +113,7 @@ final class DeviceRegistryService {
         do {
             let snapshot = try await verifier.query(expectedIdentifier: deviceID,
                                                     fingerprint: review.fingerprint) { stage in
-                Task { @MainActor [weak reporter] in
+                Task { @MainActor [weak reporter = self.reporter] in
                     await reporter?.report(stage: stage, for: taskID)
                 }
             }
