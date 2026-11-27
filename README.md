@@ -467,10 +467,12 @@ VexSign/
 canonical file at `VexSign/Resources/Templates/app-repo.json` and run
 `python3 Tools/Validation/repository-validation/sync_repo_aliases.py --write`.
 The icon lives at `VexSign/Resources/icon.png`, the repository list at
-`VexSign/Resources/Templates/repos.json`, LicensePlist configuration at
-`Config/Signing/license_plist.yml`, and the Render blueprint at
+`VexSign/Resources/Templates/repos.json`, and the Render blueprint at
 `Services/WebManager/Configuration/render.yaml`. Configure external tools to use
-these paths rather than root-level copies.
+these paths rather than root-level copies. The one exception is LicensePlist:
+its build-tool plugin reads only `license_plist.yml` from the project root, so
+that file lives at the root (`license_plist.yml`), and its `packagePaths` list the
+local packages' `Package.swift` files.
 
 Feature use cases and shared workspace contracts use injected ports. Legacy
 UI-to-storage/service coupling is still tracked, not claimed to be fully removed.

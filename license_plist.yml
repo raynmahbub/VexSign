@@ -2,7 +2,11 @@ options:
   licenseFileNames:
     - LICENSE
   packagePaths:
-    - Package.swift
+    - Packages/NimbleKit/Package.swift
+    - Packages/AltSourceKit/Package.swift
+    - Packages/Vendor/Zsign/Package.swift
+    - Packages/Vendor/IDeviceKitten/Package.swift
+    - Packages/NativeSigning/Package.swift
   prefix: com.vexsign.app
   xcworkspacePath: "*.xcworkspace"
   addVersionNumbers: false
