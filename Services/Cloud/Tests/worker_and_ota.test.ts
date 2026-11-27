@@ -12,6 +12,7 @@ import type { Infrastructure } from '../Storage/infrastructure.js';
 import { capability, seal } from '../Security/security.js';
 import { submitJobs, type Submission } from '../Signing/JobQueue/jobs.js';
 import { createWorkerRuntime } from '../Signing/Worker/processor.js';
+import { buildZip, ipaEntries } from './support/sealedIpa.js';
 
 const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const encryptionKey = randomBytes(32).toString('hex');
@@ -161,13 +162,12 @@ test('submitJobs publishes immediately to BullMQ and survives transient Redis un
   assert.equal(fallbackJob!.state, 'queued');
 });
 
-test('worker signs IPA, purges unreferenced S3 input objects, and prunes old webhook deliveries', async () => {
+async function runSignScenario(signedBytes: Buffer, expected: 'completed' | 'failed') {
   const key = Buffer.from(encryptionKey, 'hex');
   const jobId = '01234567-89ab-4def-8123-456789abcdef';
   const p12Bytes = Buffer.from('mock-p12-bytes');
   const provBytes = Buffer.from('mock-prov-bytes');
   const ipaBytes = Buffer.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4]);
-  const signedBytes = Buffer.from([0x50, 0x4b, 0x03, 0x04, 9, 8, 7, 6]);
 
   const assets: Record<string, { object_key: string; sha256: string; bytes: number; data: Buffer }> = {
     'p12-id': { object_key: 'inputs/p12-id', sha256: createHash('sha256').update(p12Bytes).digest('hex'), bytes: p12Bytes.length, data: p12Bytes },
@@ -294,7 +294,15 @@ test('worker signs IPA, purges unreferenced S3 input objects, and prunes old web
     fetchFn: async () => new Response('ok', { status: 200 }),
   });
 
-  await runtime.processJob({ data: { id: jobId }, attemptsMade: 0, opts: { attempts: 3 } } as unknown as Job<{ id: string }>);
+  const job = { data: { id: jobId }, attemptsMade: expected === 'failed' ? 2 : 0, opts: { attempts: 3 } } as unknown as Job<{ id: string }>;
+  if (expected === 'failed') {
+    // The last attempt: a refused artifact must end the job, not be requeued, and must never be uploaded.
+    await assert.rejects(runtime.processJob(job), /SIGNING_FAILED/);
+    assert.equal(jobRow.state, 'failed');
+    assert.deepEqual(uploadedOutputs, []);
+    return;
+  }
+  await runtime.processJob(job);
   assert.equal(jobRow.state, 'completed');
   assert.deepEqual(uploadedOutputs, [`outputs/${jobId}.ipa`]);
   assert.deepEqual(s3Deleted, ['inputs/ipa-id', 'inputs/prov-id']);
@@ -303,4 +311,15 @@ test('worker signs IPA, purges unreferenced S3 input objects, and prunes old web
   await runtime.deliverWebhooks();
   assert.equal(deliveredWebhookId, jobId);
   assert.equal(prunedWebhooks, true);
+}
+
+test('worker publishes a sealed IPA and purges unreferenced S3 input objects', async () => {
+  await runSignScenario(buildZip(ipaEntries('Signed App', {
+    'Info.plist': Buffer.from('<plist version="1.0"><dict/></plist>'),
+  })), 'completed');
+});
+
+test('worker refuses a launcher artifact that matches its reported hash but has no seal (F-1)', async () => {
+  // The launcher's hash and PK magic are correct; only the bundle seal is missing.
+  await runSignScenario(buildZip([{ name: 'Payload/', directory: true }, { name: 'Payload/Signed App.app/Info.plist', data: Buffer.from('x') }]), 'failed');
 });

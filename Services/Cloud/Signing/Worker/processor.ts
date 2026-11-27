@@ -12,6 +12,7 @@ import type { Config } from '../../Configuration/config.js';
 import type { Infrastructure } from '../../Storage/infrastructure.js';
 import { unseal, permittedWebhook } from '../../Security/security.js';
 import { invokeSigner as defaultInvokeSigner, type SignerInput } from '../CloudSigningCoordinator/signer.js';
+import { verifyIpaSeal } from './ipaSeal.js';
 
 /**
  * The job pipeline, separated from the process that runs it.
@@ -277,6 +278,8 @@ export async function processJob(deps: WorkerDeps, job: Job<{ id: string }>): Pr
     if (await hashFile(input.outputPath) !== signed.outputSha256) {
       throw new Error('INVALID_OUTPUT');
     }
+    // The launcher's `signatureVerified` is a claim. Check the archive's own seal before publishing it.
+    await verifyIpaSeal(input.outputPath);
     const outputKey = `outputs/${row.id}.ipa`;
     const artifact = hashingStream(createReadStream(input.outputPath));
     if (deps.uploadOutput) {

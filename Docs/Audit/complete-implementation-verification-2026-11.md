@@ -1,5 +1,7 @@
 # VexSign Complete Implementation Verification, Source Benchmark and Technical Gap Audit
 
+> **Historical.** This audit describes branch `arena/d2c05cf4-vexsign` at `2fad3a9`, not the current `main`. Its F-050 (invalid `for name where` in `InjectionTargetAuthorization.swift`) is fixed on current main. For the current signing-to-installation audit see [`signing-to-installation-audit-2026-11-27.md`](signing-to-installation-audit-2026-11-27.md).
+
 Date: 2026-11-26 (UTC). Branch: `arena/d2c05cf4-vexsign`. HEAD: `2fad3a996bd8642779f7fede484be8c94ec54037`.
 
 Evidence labels used throughout:

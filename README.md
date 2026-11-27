@@ -50,7 +50,7 @@ the source is not device acceptance — the caveats in each section still apply.
 - **Batch signing and install queues** for processing multiple apps with per-app settings.
 - **Reusable signing profiles** and named presets for repeat workflows.
 - **Signing options and entitlement management**, with preflight checks and signing logs.
-- **Local HTTPS installation** using `itms-services://`, plus paired installation through the AFC / `installd` backend.
+- **Local HTTPS installation** using `itms-services://`. Paired installation through the AFC / `installd` backend is implemented but disabled in every current build until its bridge is accepted on device; see [`Docs/DeviceTesting/paired-installation.md`](Docs/DeviceTesting/paired-installation.md).
 - **Signing Live Activities** to follow progress on supported devices.
 - **Auto-sign workflows** and **Update All** for re-signing source updates.
 - **Identity-aware unattended signing:** if Apple Account is the selected signing identity, a local download/import or Shortcut keeps the package and opens the attended provisioning review with that app preselected. Browser uploads return a review-required response. None of these paths substitutes a stored `.p12`.

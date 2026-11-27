@@ -1,5 +1,22 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync, realpathSync } from 'node:fs';
 import { z } from 'zod';
+
+/**
+ * The repository ships `Examples/mock-signer.mjs` as a protocol fixture. It never signs. A deployment that
+ * points the worker at it would complete every job, so refuse it, and refuse anything that is not an
+ * executable regular file at the time the configuration loads.
+ */
+export function isProductionSigner(path: string): boolean {
+  let resolved: string;
+  try { resolved = realpathSync(path); } catch { return false; }
+  if (/(^|\/)mock-signer(\.[a-z]+)?$/i.test(resolved) || /\/Examples\//.test(resolved)) return false;
+  try {
+    const stat = statSync(resolved);
+    return stat.isFile() && (stat.mode & 0o111) !== 0;
+  } catch {
+    return false;
+  }
+}
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1), REDIS_URL: z.url(),
@@ -16,6 +33,13 @@ const schema = z.object({
   TRUSTED_PROXIES: z.string().default(''),
 });
 export type Config = z.infer<typeof schema> & { jwtPublicKey: string };
+/** Only the worker runs the launcher, so only the worker requires a real one. The API still loads without it. */
+export function assertWorkerSigner(config: Config): void {
+  if (!isProductionSigner(config.SIGNER_EXECUTABLE)) {
+    throw new Error('SIGNER_EXECUTABLE must name the operator\'s executable signing launcher, not the non-signing example');
+  }
+}
+
 export function loadConfig(): Config {
   const config = schema.parse(process.env);
   return { ...config, PUBLIC_ORIGIN: new URL(config.PUBLIC_ORIGIN).origin, jwtPublicKey: readFileSync(config.JWT_PUBLIC_KEY_FILE, 'utf8') };

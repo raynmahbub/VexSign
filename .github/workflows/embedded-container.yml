@@ -6,6 +6,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'Services/Cloud/**'
       - 'Services/Integrations/**'
       - 'VexSign/System/DeviceCommunication/PrimaryHostEntry.swift'
       - 'Config/BuildSettings/iOS/Info.plist'
@@ -37,6 +38,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'Services/Cloud/**'
       - 'Services/Integrations/**'
       - 'VexSign/System/DeviceCommunication/PrimaryHostEntry.swift'
       - 'Config/BuildSettings/iOS/Info.plist'
