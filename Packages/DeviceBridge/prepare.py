@@ -21,7 +21,7 @@ import urllib.request
 import zipfile
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[2]
+ROOT = HERE.parents[1]  # Packages/DeviceBridge -> repository root
 WORK = ROOT / '.build/device-bridge'
 PRODUCT = ROOT / 'Packages/Vendor/IDeviceKitten/.build/ModernDevice'
 LOCK = HERE / 'inputs.lock.json'
