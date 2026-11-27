@@ -29,11 +29,12 @@ enum AppBundleInspector {
         if let plistData {
             do {
                 let parsed = try PropertyListSerialization.propertyList(from: plistData, options: [], format: nil)
-                guard let dictionary = parsed as? [String: Any] else {
+                if let dictionary = parsed as? [String: Any] {
+                    plist = dictionary
+                } else {
                     diagnostics.append(.init(severity: .error, code: "plist-not-dictionary",
                                              subject: "Info.plist", detail: .localized("The app's Info.plist is not a property-list dictionary.")))
                 }
-                plist = dictionary
             } catch {
                 diagnostics.append(.init(severity: .error, code: "plist-unreadable",
                                          subject: "Info.plist", detail: .localized("The app's Info.plist could not be parsed.")))
