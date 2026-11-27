@@ -202,6 +202,8 @@ jobs:
       - name: Diagnose source-built device bridge
         if: always()
         run: |
+          echo "::notice title=bridge-cwd::pwd=$(pwd) workspace=$GITHUB_WORKSPACE"
+          echo "::notice title=bridge-found::$(find "$GITHUB_WORKSPACE" "$HOME" -maxdepth 7 -name ModernDevice -not -path "*/node_modules/*" 2>/dev/null | head -5 | tr '\n' ' ')"
           F=Packages/Vendor/IDeviceKitten/.build/ModernDevice
           echo "::notice title=bridge-dir::$(ls -la $F 2>&1 | tr '\n' ' ' | cut -c1-900)"
           for h in $(find $F -name 'idevice.h' 2>/dev/null); do
