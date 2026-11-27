@@ -107,9 +107,15 @@ final class AppOperationRegistry: Sendable {
     /// is a leftover again then, if the run could not remove it itself.
     ///
     /// A claim is not an operation on a stored copy: it makes nothing busy and does not count in
-    /// `hasActiveOperations`.
-    func claimProduction(of uuid: String) -> Lease {
-        state.withLock { $0.producing[uuid, default: 0] += 1 }
+    /// `hasActiveOperations`. It does participate in cleanup admission, however, and is rejected
+    /// while cleanup owns the registry.
+    func claimProduction(of uuid: String) throws -> Lease {
+        try Task.checkCancellation()
+        try state.withLock { current in
+            try Task.checkCancellation()
+            guard current.cleanupOwner == nil else { throw Busy() }
+            current.producing[uuid, default: 0] += 1
+        }
         return Lease { [weak self] in
             self?.releaseProduction(of: uuid)
         }
@@ -152,12 +158,23 @@ final class AppOperationRegistry: Sendable {
     }
 
     /// Releases on `deinit`, so a caller that drops the lease cannot strand the key.
-    ///
-    /// A `final` class holding one immutable `@Sendable` closure is `Sendable` to the compiler —
-    /// the escape this type used to need was the unannotated function value, not the class.
+    /// Explicit release is available to deterministic callers and is idempotent.
     final class Lease: Sendable {
-        private let release: @Sendable () -> Void
-        fileprivate init(release: @escaping @Sendable () -> Void) { self.release = release }
+        private let releaseState: OSAllocatedUnfairLock<(@Sendable () -> Void)?>
+
+        fileprivate init(release: @escaping @Sendable () -> Void) {
+            releaseState = OSAllocatedUnfairLock(initialState: Optional(release))
+        }
+
+        func release() {
+            let action = releaseState.withLock { current -> (@Sendable () -> Void)? in
+                let action = current
+                current = nil
+                return action
+            }
+            action?()
+        }
+
         deinit { release() }
     }
 }

@@ -67,22 +67,38 @@ enum StrictTarExtractor {
         let root = directory.standardizedFileURL.path
         var entryCount = 0
         var expanded = 0
+        var outputPaths = Set<String>()
 
         do {
             for entry in container {
                 entryCount += 1
                 guard entryCount <= limits.maximumEntries else { throw StrictTarExtractorError.tooManyEntries }
-                let name = entry.info.name
-                guard _isSafeArchiveEntryName(name) else { throw StrictTarExtractorError.unsafeEntry(name) }
-                let components = name.split(separator: "/", omittingEmptySubsequences: true)
-                guard components.count <= limits.maximumDepth else { throw StrictTarExtractorError.depthExceeded(name) }
+                let rawName = entry.info.name
                 guard entry.info.type == .regular || entry.info.type == .directory else {
                     // Symlinks, hard links, FIFOs and devices are never materialised.
-                    throw StrictTarExtractorError.unsafeEntry(name)
+                    throw StrictTarExtractorError.unsafeEntry(rawName)
+                }
+                let name: String
+                if entry.info.type == .directory && rawName.hasSuffix("/") {
+                    name = String(rawName.dropLast())
+                } else {
+                    name = rawName
+                }
+                guard _isSafeArchiveEntryName(name) else { throw StrictTarExtractorError.unsafeEntry(rawName) }
+                let components = name.split(separator: "/", omittingEmptySubsequences: false)
+                guard !components.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }) else {
+                    throw StrictTarExtractorError.unsafeEntry(rawName)
+                }
+                guard components.count <= limits.maximumDepth else {
+                    throw StrictTarExtractorError.depthExceeded(rawName)
                 }
 
                 let destination = directory.appendingPathComponent(name).standardizedFileURL
-                guard destination.path.hasPrefix(root + "/") || destination.path == root else {
+                guard destination.path.hasPrefix(root + "/") else {
+                    throw StrictTarExtractorError.unsafeEntry(name)
+                }
+                let outputIdentity = destination.path.precomposedStringWithCanonicalMapping.lowercased()
+                guard outputPaths.insert(outputIdentity).inserted else {
                     throw StrictTarExtractorError.unsafeEntry(name)
                 }
 

@@ -28,7 +28,7 @@ import NimbleExtensions
 // MARK: - Package layout
 
 /// Where a Debian tweak package expects to be installed.
-enum TweakPackageLayout: String, Equatable, Sendable, CaseIterable {
+enum TweakPackageLayout: String, Codable, Equatable, Sendable, CaseIterable {
 	/// Payload at `/` — `Architecture: iphoneos-arm`.
 	case rootful
 	/// Payload under `/var/jb` — `Architecture: iphoneos-arm64`.
@@ -345,6 +345,11 @@ enum TweakCompatibility {
 					break
 				}
 			}
+			let components = path.split(separator: "/", omittingEmptySubsequences: false)
+			guard !components.isEmpty,
+			      !components.contains(""),
+			      !components.contains("."),
+			      !components.contains("..") else { continue }
 			if path.hasPrefix(TweakPackageLayout.rootlessPrefix) {
 				let inner = path.dropFirst(TweakPackageLayout.rootlessPrefix.count)
 				if TweakPackageLayout.payloadDirectories.contains(where: { inner.hasPrefix($0) }) { rootless = true }
