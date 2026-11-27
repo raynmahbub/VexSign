@@ -6,6 +6,7 @@
 // pairing query already established.
 
 import Foundation
+import IDeviceSwift
 import NimbleExtensions
 
 actor DeviceLifecycleStore {

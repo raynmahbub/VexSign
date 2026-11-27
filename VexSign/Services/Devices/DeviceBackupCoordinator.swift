@@ -116,7 +116,19 @@ protocol DeviceContainerArchiving: Sendable {
                  authorization: ContainerRestoreAuthorization) async throws -> AppContainerRecord
 }
 
-extension ContainerArchiveService: DeviceContainerArchiving {}
+extension ContainerArchiveService: DeviceContainerArchiving {
+    // The protocol witnesses take exactly the protocol's signature; the actor's
+    // methods carry an extra defaulted checkpoint parameter that protocol
+    // conformance cannot use, so these forward with no checkpoint.
+    func export(id: String, password: String?) async throws -> ContainerExport {
+        try await export(id: id, password: password, checkpoint: nil)
+    }
+
+    func restore(file: URL, password: String?,
+                 authorization: ContainerRestoreAuthorization) async throws -> AppContainerRecord {
+        try await restore(file: file, password: password, authorization: authorization, checkpoint: nil)
+    }
+}
 
 @MainActor
 final class DeviceBackupCoordinator {
