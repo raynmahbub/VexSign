@@ -15,7 +15,7 @@ import NimbleExtensions
 /// removes abandoned copies. Matching is at the temporary root, never a substring.
 enum TemporaryCleanupPolicy {
     private static let retainedPrefixes = [
-        "VexBackupOut_", "VexSignTweak_", "VexSignTweakExtract_",
+        "VexBackupOut_", "VexContainerExport_", "VexSignTweak_", "VexSignTweakExtract_",
         "VexSignZipExtract_", "VexSignSharedTweak_", "TweakAnalyze_"
     ]
 

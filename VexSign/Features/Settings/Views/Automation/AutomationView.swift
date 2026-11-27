@@ -49,6 +49,12 @@ struct AutomationView: View {
                 NavigationLink(destination: AutomationPreviewView()) {
                     Label(.localized("Automation Preview"), systemImage: "list.bullet.clipboard")
                 }
+                NavigationLink(destination: AutomationJobStatusView()) {
+                    Label(.localized("Automation Status"), systemImage: "clock.arrow.circlepath")
+                }
+                NavigationLink(destination: NotificationTopicsSettingsView()) {
+                    Label(.localized("Notification Types"), systemImage: "bell.badge")
+                }
             }
 			_runSection
             _historySection
@@ -231,6 +237,14 @@ struct AutomationView: View {
         _lastResult = nil
 		_isRunning = true
 		Task {
+            let engine = PersistentAutomationEngine.shared
+            let jobID = "com.vexsign.automation.maintenance"
+            guard await engine.claim(jobID) else {
+                _isRunning = false
+                Toast.info(.localized("An automation pass is already running. Nothing was started twice."), systemImage: "clock")
+                return
+            }
+            defer { Task { await engine.release(jobID) } }
 			let result = await BackgroundAutomation.run(fromBackground: false)
 			_lastResult = result
 			_isRunning = false

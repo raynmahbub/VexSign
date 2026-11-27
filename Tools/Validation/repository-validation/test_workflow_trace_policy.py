@@ -184,6 +184,52 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertLess(sign.index('SigningResolutionSession.prepare('), sign.index('try self.run(prepared.request)'))
         self.assertLess(sign.index('SigningIdentityStore.requireCurrent('), sign.index('try self.run(prepared.request)'))
 
+    def test_verification_report_is_verifier_evidence_not_a_stage_artifact(self):
+        # A report must come from the verifier's own accepted report, travel as
+        # a distinct event, be persisted on the task, and stay a domain value.
+        event = self.text('VexSign/Shared/Models/Results/SigningWorkflowEvent.swift')
+        self.assertIn('case verificationReport(SigningVerificationReport)', event)
+
+        handler = self.text('VexSign/Services/Signing/Execution/SigningHandler.swift')
+        verify = handler.split('private func _verifySignedBundle(', 1)[1]
+        self.assertIn('try report.requireVerified()', verify)
+        self.assertLess(handler.index('try _verifySignedBundle(at: movedAppPath'),
+                        handler.index('SigningVerificationReportBuilder.make('))
+        self.assertIn('onVerificationReport?(SigningVerificationReportBuilder.make(',
+                      handler)
+
+        pipeline = self.text('VexSign/Services/Signing/Execution/SigningPipeline.swift')
+        self.assertIn('handler.onVerificationReport = { reporting(.verificationReport($0)) }', pipeline)
+
+        coordinator = self.text('VexSign/Services/Signing/Execution/PackageSigningCoordinator.swift')
+        self.assertIn('case .verificationReport(let report):', coordinator)
+        self.assertIn('task.context?.recordSigningVerification(report)', coordinator)
+
+        trace = self.text('VexSign/Shared/Models/Entities/TaskSigningTrace.swift')
+        self.assertIn('var verificationReport: SigningVerificationReport?', trace)
+        self.assertIn('mutating func recordVerification(_ report: SigningVerificationReport)', trace)
+
+        value = self.text('VexSign/Shared/Models/Results/SigningVerificationReport.swift')
+        self.assertNotIn('Data(contentsOf:', value)
+        self.assertNotIn('FileManager', value)
+        self.assertIn('static func bounded(_ text: String)', value)
+
+    def test_library_inventory_is_real_device_evidence_without_an_absence_claim(self):
+        inventory = self.text('VexSign/Services/Installation/Transport/DeviceInstalledAppInventory.swift')
+        self.assertIn('case .notInstalled, .unknown, .installing:', inventory)
+        self.assertIn('state: .unreported', inventory)
+        self.assertIn('observed.binding == binding', inventory)
+
+        model = self.text('VexSign/Services/Installation/Transport/DeviceInventoryModel.swift')
+        self.assertIn('protocol DeviceInstalledAppQuerying', model)
+        self.assertIn('guard let binding = request.binding', model)
+        self.assertIn('LibraryStatusStore.shared.recordInstalledApplicationObservation', model)
+        self.assertIn('try Task.checkCancellation()', model)
+
+        view = self.text('VexSign/Features/Devices/Views/DeviceInventoryView.swift')
+        self.assertIn('PairingBridge.canQuery', view)
+        self.assertIn('No comparable device report', self.text('VexSign/Resources/Localizations/Localizable.xcstrings'))
+
     def test_one_shot_tweak_files_are_copied_for_a_run_and_never_replayed(self):
         handler = self.text('VexSign/Services/Signing/Transformation/TweakHandler.swift')
         self.assertIn('OneShotTweakFiles.stage(oneShotFiles, into: baseTmpDir', handler)

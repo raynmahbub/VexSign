@@ -94,18 +94,17 @@ final class BackgroundTaskManager {
 	}
 
 	private func sendExpirationNotification() {
-		let content = UNMutableNotificationContent()
-		content.title = expirationNotificationTitle
-		content.body = expirationNotificationBody
-		content.sound = .default
-
-		let request = UNNotificationRequest(
-			identifier: "\(taskName)_expiring_\(UUID().uuidString)",
-			content: content,
-			trigger: nil
+		let note = VexSignNotification(
+			identifier: "com.vexsign.background.expiration.\(VexSignNotificationService.digest(taskName))",
+			topic: .downloads,
+			title: expirationNotificationTitle,
+			body: expirationNotificationBody,
+			category: .task,
+			details: [NotificationPayloadKey.route.rawValue: "tasks"]
 		)
-
-		UNUserNotificationCenter.current().add(request)
+		Task { @MainActor in
+			await VexSignNotificationService.shared.post(note, dedupeContentKey: taskName)
+		}
 	}
 
 	deinit {

@@ -17,18 +17,28 @@ final class DiagnosticsCenterViewModel: ObservableObject {
         recentTasks: []
     )
     @Published private(set) var isExporting = false
+    /// Real checks from `SecurityDiagnosticsService`, not a stored score. An empty
+    /// array means no security provider was injected (test doubles and previews).
+    @Published private(set) var securityChecks: [SecurityCheck] = []
 
     private let provider: DiagnosticsProviding
     private let platform: PlatformSystemAdapting
+    private let securityProvider: SecurityDiagnosticsProviding?
 
-    init(provider: DiagnosticsProviding, platform: PlatformSystemAdapting) {
+    init(
+        provider: DiagnosticsProviding,
+        platform: PlatformSystemAdapting,
+        securityProvider: SecurityDiagnosticsProviding? = nil
+    ) {
         self.provider = provider
         self.platform = platform
+        self.securityProvider = securityProvider
         refresh()
     }
 
     func refresh() {
         snapshot = provider.currentSnapshot()
+        securityChecks = securityProvider?.checks() ?? []
     }
 
     func exportDiagnostics() {

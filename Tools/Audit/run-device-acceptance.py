@@ -19,6 +19,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import device_ipa_preflight
+
 ROOT = Path(__file__).resolve().parents[2]
 BUNDLE_ID = "com.vexsign.app"
 
@@ -50,10 +52,15 @@ def preflight_errors(device, identity, commit, listed_devices, identities):
     return errors
 
 
-def run(command, log):
-    print("Running:", " ".join(command), flush=True)
+def run(command, log, redactions=()):
+    """Run a tool without writing a signing identity into the console or log."""
+    rendered = " ".join(command)
+    for secret in redactions:
+        if secret:
+            rendered = rendered.replace(secret, "<signing identity>")
+    print("Running:", rendered, flush=True)
     result = subprocess.run(command, cwd=ROOT, check=False)
-    log.write(" ".join(command) + f"\nexit={result.returncode}\n\n")
+    log.write(rendered + f"\nexit={result.returncode}\n\n")
     log.flush()
     return result.returncode
 
@@ -67,6 +74,8 @@ def main():
     parser.add_argument("--commit", required=True, help="40-character commit bound to this device run")
     parser.add_argument("--log", type=Path, default=Path(".artifacts/device-acceptance.log"))
     parser.add_argument("--run-tests", action="store_true", help="Run VexSignTests on the device destination")
+    parser.add_argument("--run-ui-tests", action="store_true",
+                        help="Run hardware-only XCUITests on the device destination")
     args = parser.parse_args()
 
     xcrun = shutil.which("xcrun")
@@ -90,6 +99,14 @@ def main():
             print(f"PREFLIGHT FAIL {error}")
         parser.exit(2, "error: device runner preflight failed; no install was attempted\n")
 
+    # A connected device and a keychain identity do not prove the IPA belongs to
+    # this commit or authorizes this UDID. Refuse before devicectl sees it.
+    _, ipa_errors = device_ipa_preflight.check(args.ipa, args.commit, args.device.strip(), identity)
+    if ipa_errors:
+        for error in ipa_errors:
+            print(f"PREFLIGHT FAIL {error}")
+        parser.exit(2, "error: IPA evidence preflight failed; no install was attempted\n")
+
     ipa_hash = sha256(args.ipa)
     print(f"IPA SHA-256: {ipa_hash}")
 
@@ -97,11 +114,11 @@ def main():
     with args.log.open("a", encoding="utf-8") as log:
         log.write(f"commit={args.commit} device={args.device} ipa={args.ipa} sha256={ipa_hash}\n\n")
         status = run([xcrun, "devicectl", "device", "install", "app",
-                      "--device", args.device, str(args.ipa.resolve())], log)
+                      "--device", args.device, str(args.ipa.resolve())], log, (identity,))
         if status != 0:
             parser.exit(status, "error: device install failed; no launch is claimed\n")
         status = run([xcrun, "devicectl", "device", "process", "launch",
-                      "--device", args.device, "--bundle-id", BUNDLE_ID], log)
+                      "--device", args.device, "--bundle-id", BUNDLE_ID], log, (identity,))
         if status != 0:
             parser.exit(status, "error: device launch failed; no feature pass is claimed\n")
 
@@ -119,9 +136,35 @@ def main():
                 "CODE_SIGNING_REQUIRED=YES",
                 "CODE_SIGN_IDENTITY=" + identity,
                 "test",
-            ], log)
+            ], log, (identity,))
             if status != 0:
                 parser.exit(status, "error: native device tests failed\n")
+
+        if args.run_ui_tests:
+            # The support file skips (not passes) unless this opt-in and both
+            # controlled fixtures are present on the physical runner.
+            for key in ("VEXSIGN_TEST_IPA_PATH", "VEXSIGN_TEST_INVALID_IPA_PATH"):
+                fixture = os.environ.get(key, "")
+                if not fixture or not Path(fixture).is_file():
+                    parser.exit(2, f"error: {key} must name a controlled fixture on the runner\n")
+            os.environ["VEXSIGN_DEVICE_ACCEPTANCE"] = "1"
+            status = run([
+                xcrun, "xcodebuild",
+                "-skipPackagePluginValidation",
+                "-workspace", "VexSign.xcworkspace",
+                "-scheme", "VexSignUITests",
+                "-configuration", "Debug",
+                "-destination", f"id={args.device}",
+                "-derivedDataPath", str((ROOT / ".artifacts/DeviceUIDerivedData").resolve()),
+                "-resultBundlePath", str((ROOT / ".artifacts/VexSignDeviceUI.xcresult").resolve()),
+                "CODE_SIGNING_ALLOWED=YES",
+                "CODE_SIGNING_REQUIRED=YES",
+                "CODE_SIGN_IDENTITY=" + identity,
+                "-only-testing:VexSignUITests/PhysicalDeviceAcceptanceUITests",
+                "test",
+            ], log, (identity,))
+            if status != 0:
+                parser.exit(status, "error: hardware UI acceptance tests failed\n")
 
     if args.report:
         import importlib.util

@@ -192,12 +192,22 @@ verify: docs-check project-wiring
 	  "python3 Tools/Validation/repository-validation/test_ci_repair_agent.py" \
 	  "python3 Tools/Validation/repository-validation/test_autopilot.py" \
 	  "python3 Tools/Release/test_release_assets.py" \
+	  "python3 Tools/Release/test_release_engineering.py" \
+	  "python3 Tools/Release/validate_release_config.py --skip-secret-scan" \
+	  "python3 Tools/Audit/test_release_engineering_contracts.py" \
 	  "python3 Tools/Audit/test_device_acceptance.py" \
+	  "python3 Tools/Audit/test_device_runner_preflight.py" \
+	  "python3 Tools/Audit/device_capability_matrix.py --check" \
+	  "python3 Tools/Audit/test_notification_automation_contracts.py" \
+	  "python3 Tools/Audit/test_security_hardening_contracts.py" \
+  "python3 Tools/Audit/test_diagnostics_observability_contracts.py" \
   "python3 Tools/Audit/test_device_runner_preflight.py" \
 	  "python3 Tools/Audit/test_feature_acceptance.py" \
 	  "python3 Tools/Audit/test_quality_report.py" \
   "python3 Tools/Audit/test_combined_report.py" \
 	  "python3 Tools/Audit/test_ui_test_target.py" \
+	  "python3 Tools/Audit/test_quality_engineering_contracts.py" \
+	  "python3 Tools/Audit/test_simulator_selection.py" \
 	  "python3 Tools/Release/test_verify_ci_gate.py" \
 	  "python3 Tools/Fixtures/RenewalFixture/test_observation.py" \
 	  "python3 Tools/Build/test_install.py" \
@@ -286,6 +296,14 @@ verify: docs-check project-wiring
 	printf '❌ some gates failed:\n' >&2; \
 	printf '%s\n' "$$failed" | tr '|' '\n' | sed '/^$$/d' | sed 's/^/   /' >&2; \
 	exit 1
+
+# Offline release gate: configuration, version, manifest and checksum scripts.
+# Never publishes; `make verify` also runs the portable half of this gate.
+.PHONY: release-check
+release-check:
+	@python3 Tools/Release/validate_release_config.py
+	@python3 Tools/Release/test_release_engineering.py
+	@python3 Tools/Release/test_release_assets.py
 
 # Type-check the app target. This is the one thing `make verify` cannot do: its Swift
 # step parses syntax when a `swiftc` is installed and reports a skip when none is, and

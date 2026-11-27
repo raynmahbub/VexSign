@@ -350,6 +350,7 @@ private struct SigningLibraryTweakPicker: View {
 			HStack(spacing: 12) {
 				Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
 					.foregroundStyle(isOn ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+					.accessibilityLabel(Text(verbatim: String.localized(isOn ? "Deselect tweak %@" : "Select tweak %@", arguments: tweak.name)))
 				TweakRowLabel(tweak: tweak)
 			}
 		}

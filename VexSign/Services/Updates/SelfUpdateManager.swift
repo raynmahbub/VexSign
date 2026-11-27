@@ -110,7 +110,7 @@ struct SelfUpdateRelease: Identifiable, Equatable {
 	let isPrerelease: Bool
 	let isSemver: Bool
 
-	var isInstalled: Bool { SelfUpdateManager.compare(version, Bundle.main.version) == .orderedSame }
+	var isInstalled: Bool { SelfUpdateManager.compare(version, VexSignBuildInfo.version) == .orderedSame }
 }
 
 enum SelfUpdatePhase: Equatable {
@@ -331,7 +331,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 
 	/// The library copy an in-place update would hand to iOS, and why nothing qualified when that
 	/// is the case. Reads only the stores the caller already trusts.
-	static func localReplacement(runningVersion: String = Bundle.main.version)
+	static func localReplacement(runningVersion: String = VexSignBuildInfo.version)
 		-> (app: AppInfoPresentable?, blocker: SelfReplacementBlocker?) {
 		let apps = Storage.shared.getAllApps()
 		let candidates = apps.map {
@@ -420,8 +420,8 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	}
 
 	private func recomputeAvailable() {
-		guard let candidate = latestSemver, Self.isSemver(Bundle.main.version) else { available = nil; return }
-		let isNewer = SelfUpdateManager.compare(candidate.version, Bundle.main.version) == .orderedDescending
+		guard let candidate = latestSemver, Self.isSemver(VexSignBuildInfo.version) else { available = nil; return }
+		let isNewer = SelfUpdateManager.compare(candidate.version, VexSignBuildInfo.version) == .orderedDescending
 		available = (isNewer && !ignoredVersions.contains(candidate.version)) ? candidate : nil
 	}
 
@@ -471,7 +471,15 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		let ipa = assets.first { ($0["name"] as? String)?.lowercased().hasSuffix(".ipa") == true }
 		// `URL(string:)` spelled out: an unapplied `URL.init` grows new overloads with
 		// every SDK, and the newer ones make it ambiguous at a newer deployment target.
-		let downloadURL = (ipa?["browser_download_url"] as? String).flatMap { URL(string: $0) }
+		// A release feed is remote data. An asset URL with a userinfo, a non-HTTP
+		// scheme or plaintext HTTP is not offered to the user at all: the same
+		// policy governs repository and package links, and it must not be bypassed
+		// because this particular feed happens to come from GitHub today.
+		let downloadURL = (ipa?["browser_download_url"] as? String).flatMap { raw -> URL? in
+			guard let candidate = URL(string: raw),
+			      (try? PackageDownloadURLPolicy.validateInitialURL(candidate)) != nil else { return nil } // try? ok: a rejected asset URL is not offered to the user
+			return candidate
+		}
 
 		var published: Date?
 		if let str = json["published_at"] as? String {
@@ -563,7 +571,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
         // version is higher. `AppInstaller` re-checks the same policy, so this is the message, not
         // the guard.
         FileLogger.log(
-            "In-place update: serving library copy \(copy.version ?? "?") over \(Bundle.main.version) from this device.",
+            "In-place update: serving library copy \(copy.version ?? "?") over \(VexSignBuildInfo.version) from this device.",
             category: "update"
         )
         phase = .installing

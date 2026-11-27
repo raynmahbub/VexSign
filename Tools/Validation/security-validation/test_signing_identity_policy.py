@@ -307,15 +307,16 @@ class DeepLinkCertificateConsentTests(unittest.TestCase):
 
     def test_the_import_waits_for_a_confirmation(self) -> None:
         source = self.ROUTER.read_text()
-        self.assertIn("presentYesNoAlert(", source,
+        self.assertIn("presentImportConsentAlert(", source,
                       "a link-originated certificate import must ask the user first")
-        self.assertLess(source.index("presentYesNoAlert("), source.index("self.importCertificateFiles("),
+        self.assertLess(source.index("platform.presentImportConsentAlert("),
+                        source.index("self.importCertificateFiles("),
                         "confirmation must come before the importer runs")
 
     def test_an_invalid_pair_is_rejected_before_the_prompt(self) -> None:
         source = self.ROUTER.read_text()
         self.assertLess(source.index("guard validateCertificatePassword("),
-                        source.index("presentYesNoAlert("),
+                        source.index("platform.presentImportConsentAlert("),
                         "do not prompt for a pair that does not validate")
 
     def test_the_staged_pair_is_discarded_through_the_port(self) -> None:

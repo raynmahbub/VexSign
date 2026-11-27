@@ -36,9 +36,12 @@ enum FileLogger {
 			do {
 				let directory = url.deletingLastPathComponent()
 				let directoryExisted = _fm.fileExists(atPath: directory.path)
-				try _fm.createDirectory(at: directory, withIntermediateDirectories: true)
+				try _fm.createDirectory(at: directory, withIntermediateDirectories: true,
+				                        attributes: [.posixPermissions: 0o700])
 				if !directoryExisted { _fm.excludeFromBackup(directory, logFailure: false) }
+				_protect(directory, permissions: 0o700)
 				_rotateIfNeeded(url)
+				_protect(url, permissions: 0o600)
 				if let handle = try? FileHandle(forWritingTo: url) { // try? ok: open for append; fallback to atomic write
 					defer { try? handle.close() } // try? ok: best-effort close
 					try handle.seekToEnd()
@@ -85,6 +88,24 @@ enum FileLogger {
 	}
 
 	// MARK: Internal
+
+	/// Logs can contain file names, account hints and tool output. Documents is
+	/// intentionally shared with the user (USB file sharing and diagnostics export),
+	/// so restrict POSIX access and use Data Protection where the volume supports it.
+	/// The simulator has no protection classes; `applyProtectionAttributes` tolerates
+	/// only that specific refusal, never a permission or I/O failure.
+	private static func _protect(_ url: URL, permissions: mode_t) {
+		guard _fm.fileExists(atPath: url.path) else { return }
+		do {
+			try ProtectedCertificateFiles.applyProtectionAttributes(
+				[.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication,
+				 .posixPermissions: permissions],
+				at: url.path
+			)
+		} catch {
+			Logger.misc.error("Could not restrict diagnostic log file access: \(error.localizedDescription)")
+		}
+	}
 
 	private static func _rotateIfNeeded(_ url: URL) {
 		guard

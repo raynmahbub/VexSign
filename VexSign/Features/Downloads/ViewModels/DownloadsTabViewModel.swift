@@ -17,8 +17,8 @@ final class DownloadsTabViewModel: ObservableObject {
         securityPolicy: SecurityPolicyValidating,
         platform: PlatformSystemAdapting,
         startDownloadHandler: @escaping (URL) -> Bool = { url in
-            _ = DownloadManager.shared.startDownload(from: url)
-            return true
+            let download = DownloadManager.shared.startDownload(from: url)
+            return DownloadManager.shared.isTracked(download)
         }
     ) {
         self.downloadedFilesManager = downloadedFiles

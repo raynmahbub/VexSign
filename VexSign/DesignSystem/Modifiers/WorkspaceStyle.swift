@@ -61,3 +61,21 @@ struct VexWorkspaceAccessibility: ViewModifier {
         }
     }
 }
+
+/// Apple's HIG asks for at least a 44 × 44 pt hit region for touch controls.
+/// Compact icon buttons stay visually small; this widens the *hit* region with
+/// a clear shape, so VoiceOver and touch users get the same target without
+/// changing the design. Decorative images must not use it.
+struct VexMinimumTapTarget: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+    }
+}
+
+extension View {
+    func vexsignMinimumTapTarget() -> some View {
+        modifier(VexMinimumTapTarget())
+    }
+}

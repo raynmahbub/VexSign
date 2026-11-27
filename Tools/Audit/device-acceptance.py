@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate/check explicit human device acceptance; never simulates a device pass."""
-from datetime import datetime
+from datetime import datetime, timedelta
 import argparse
 import hashlib
 import json
@@ -66,11 +66,166 @@ CASES = ('launch', 'import_sign_verify', 'trust_profile', 'offline_local_install
          'cancel_and_timeout', 'invalid_profile_rejected')
 
 
-# On-device bootstrap acceptance. These cases describe what a human must observe
-# when an external on-device installer places the *unmodified* build on a phone.
-# They are opt-in: a report that did not exercise this route must not be able to
-# acquire these passes by accident, and a partial set reads as no result at all.
-BOOTSTRAP_CASES = ('bootstrap_accepts_unmodified_ipa', 'bootstrap_installed_app_launches')
+# On-device bootstrap acceptance. These cases describe what a human must
+# observe when the *unmodified* build is placed on a phone and VexSign completes
+# the guided bootstrap without a computer. They are opt-in: a report that did not
+# exercise this route must not acquire these passes by accident, and a partial set
+# reads as no result at all.
+BOOTSTRAP_CASES = (
+    'bootstrap_accepts_unmodified_ipa',
+    'bootstrap_no_computer_or_existing_pairing_file',
+    'bootstrap_host_advertised_with_pin_confirmation',
+    'bootstrap_device_identity_verified',
+    'bootstrap_account_authorization_confirmed',
+    'bootstrap_install_request_confirmed_on_device',
+    'bootstrap_installed_app_launches',
+    'bootstrap_cancel_recovery',
+    'bootstrap_network_failure_recovery',
+)
+
+# The report must name the exact artifact, record and target. These fields are
+# observations, not derived values: a report writer cannot reconstruct them from
+# the IPA checksum or from source inspection.
+BOOTSTRAP_EVIDENCE = {
+    'pairing_route': r'ondevice-host',
+    'pairing_fingerprint_sha256': r'[a-f0-9]{64}',
+    'device_udid': r'(?:[A-F0-9]{8}-[A-F0-9]{16}|[A-F0-9]{40})',
+    'installed_bundle_id': r'[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+',
+    'installed_version': r'.{1,64}',
+}
+
+
+def bootstrap_evidence_errors(evidence):
+    """Validate the structured bootstrap observations; never infer them."""
+    if not isinstance(evidence, dict):
+        return ['bootstrap evidence: object required']
+    errors = []
+    for key, pattern in BOOTSTRAP_EVIDENCE.items():
+        value = evidence.get(key)
+        if not isinstance(value, str) or not re.fullmatch(pattern, value):
+            errors.append(f'bootstrap evidence.{key}: missing or malformed observation')
+    # A computer-free run cannot claim to have imported a pairing file. The
+    # `computer_free_bootstrap` declaration and the evidence must agree.
+    if evidence.get('pairing_route') not in (None, 'ondevice-host'):
+        errors.append('bootstrap evidence.pairing_route: not a computer-free route')
+    return errors
+
+
+# Apple Account lifecycle. Opt-in and strictly separate from the native
+# handoff ladder used for capability promotion: a report can exercise a full
+# lifecycle without claiming an in-process CMS signer, and vice versa.
+APPLE_ACCOUNT_LIFECYCLE_CASES = (
+    'account_free_and_paid_teams_observed',
+    'account_two_factor_challenge_confirmed',
+    'account_certificate_and_profile_created',
+    'account_free_quota_observed',
+    'account_signed_artifact_installed',
+    'account_seven_day_expiry_observed',
+    'account_manual_renewal_advances_expiry',
+    'account_cancel_and_retry_recovers',
+)
+
+APPLE_ACCOUNT_EVIDENCE = {
+    'account_kind': r'free|paid',
+    'team_identifier': r'[A-Z0-9]{10}',
+    'profile_uuid': r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
+    'profile_expires_utc': r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ',
+    'signed_ipa_sha256': r'[a-f0-9]{64}',
+    'installed_bundle_id': r'[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+',
+    'install_receipt': r'.{1,128}',
+    'active_app_id_count': r'\d{1,3}',
+    'registered_device_count': r'\d{1,3}',
+}
+
+
+def apple_account_evidence_errors(evidence, report):
+    """Validate Apple Account observations and Apple's free-account constraints."""
+    if not isinstance(evidence, dict):
+        return ['apple_account evidence: object required']
+    errors = []
+    for key, pattern in APPLE_ACCOUNT_EVIDENCE.items():
+        value = evidence.get(key)
+        if not isinstance(value, str) or not re.fullmatch(pattern, value):
+            errors.append(f'apple_account evidence.{key}: missing or malformed observation')
+    if errors:
+        return errors  # Do not interpret fields that are not well formed.
+    if evidence['account_kind'] != 'free':
+        return errors  # Paid profiles are issued on a different cadence.
+    # Apple Developer > Developer account overview (Personal Team): up to
+    # 10 App IDs and 3 devices, each registered for 7 days, plus up to 3
+    # installed apps per device. These are observed portal counts, not local
+    # VexSign profile receipts.
+    if int(evidence['active_app_id_count']) > 10:
+        errors.append('apple_account evidence.active_app_id_count: free account exceeds ten App IDs')
+    if int(evidence['registered_device_count']) > 3:
+        errors.append('apple_account evidence.registered_device_count: free account exceeds three devices')
+    try:
+        observed = datetime.strptime(report.get('tested_at_utc', ''), '%Y-%m-%dT%H:%M:%SZ')
+        expires = datetime.strptime(evidence['profile_expires_utc'], '%Y-%m-%dT%H:%M:%SZ')
+    except (TypeError, ValueError):
+        return errors + ['apple_account evidence.profile_expires_utc: not a comparable UTC timestamp']
+    lifetime = expires - observed
+    if lifetime.total_seconds() <= 0 or lifetime > timedelta(days=8):
+        errors.append('apple_account evidence.profile_expires_utc: free profile is not a seven-day observation')
+    return errors
+
+
+# Paired installation. This ladder is opt-in and separate from both the
+# bootstrap and Apple Account ladders: a report must declare
+# that this exact IPA was exercised over an admitted pairing route. It does not
+# unlock the vendored installation bridge; that gate changes only after a real
+# device run and the existing security evidence gates are satisfied.
+PAIRED_INSTALLATION_CASES = (
+    'paired_route_and_bridge_admitted',
+    'paired_record_fingerprint_matches_device_query',
+    'paired_signed_artifact_validated',
+    'paired_install_request_accepted',
+    'paired_exact_version_confirmed',
+    'paired_app_launch_observed',
+    'paired_timeout_leaves_outcome_unknown',
+    'paired_cancel_and_retry_recovers',
+)
+
+PAIRED_INSTALLATION_EVIDENCE = {
+    'pairing_route': r'imported-classic|ondevice-host',
+    'pairing_fingerprint_sha256': r'[a-f0-9]{64}',
+    'device_udid': r'(?:[A-F0-9]{8}-[A-F0-9]{16}|[A-F0-9]{40})',
+    'package_sha256': r'[a-f0-9]{64}',
+    'install_receipt': r'.{1,128}',
+    'confirmation_receipt': r'.{1,128}',
+    'installed_bundle_id': r'[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+',
+    'installed_version': r'.{1,64}',
+    'submitted_at_utc': r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ',
+    'confirmed_at_utc': r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ',
+}
+
+
+def paired_installation_evidence_errors(evidence, report):
+    """Validate paired-installation observations; no inferred or synthetic install passes."""
+    if not isinstance(evidence, dict):
+        return ['paired_installation evidence: object required']
+    errors = []
+    for key, pattern in PAIRED_INSTALLATION_EVIDENCE.items():
+        value = evidence.get(key)
+        if not isinstance(value, str) or not re.fullmatch(pattern, value):
+            errors.append(f'paired_installation evidence.{key}: missing or malformed observation')
+    if errors:
+        return errors  # Do not interpret fields that are not well formed.
+    if evidence['package_sha256'] != report.get('ipa_sha256'):
+        errors.append('paired_installation evidence.package_sha256: not this exact IPA')
+    if evidence['install_receipt'] == evidence['confirmation_receipt']:
+        errors.append('paired_installation evidence.confirmation_receipt: command acknowledgement is not installed-app evidence')
+    try:
+        submitted = datetime.strptime(evidence['submitted_at_utc'], '%Y-%m-%dT%H:%M:%SZ')
+        confirmed = datetime.strptime(evidence['confirmed_at_utc'], '%Y-%m-%dT%H:%M:%SZ')
+        tested = datetime.strptime(report.get('tested_at_utc', ''), '%Y-%m-%dT%H:%M:%SZ')
+    except (TypeError, ValueError):
+        return errors + ['paired_installation evidence timestamps: not comparable UTC timestamps']
+    if confirmed < submitted:
+        errors.append('paired_installation evidence.confirmed_at_utc: confirmation precedes submission')
+    if confirmed > tested:
+        errors.append('paired_installation evidence.confirmed_at_utc: observation is after the report timestamp')
+    return errors
 
 
 NATIVE_PRIMARY_CASES = ('native_primary_bootstrap', 'host_session_switches',
@@ -172,6 +327,10 @@ def validate(report, commit, digest, architecture='standalone', require_renewal=
         errors.append('native_handoff must be true or absent')
     if report.get('computer_free_bootstrap') not in (None, True):
         errors.append('computer_free_bootstrap must be true or absent')
+    if report.get('apple_account_lifecycle') not in (None, True):
+        errors.append('apple_account_lifecycle must be true or absent')
+    if report.get('paired_installation') not in (None, True):
+        errors.append('paired_installation must be true or absent')
     required = required_cases(architecture)
     if report.get('native_handoff') is True:
         required += NATIVE_HANDOFF_CASES
@@ -181,8 +340,21 @@ def validate(report, commit, digest, architecture='standalone', require_renewal=
         errors.append('native handoff checks recorded without native_handoff: true')
     if report.get('computer_free_bootstrap') is True:
         required += BOOTSTRAP_CASES
-    elif any(case in cases for case in BOOTSTRAP_CASES):
+        errors.extend(bootstrap_evidence_errors(report.get('bootstrap')))
+    elif any(case in cases for case in BOOTSTRAP_CASES) or 'bootstrap' in report:
         errors.append('bootstrap checks recorded without computer_free_bootstrap: true')
+    if report.get('apple_account_lifecycle') is True:
+        if report.get('native_handoff') is not True:
+            errors.append('apple_account_lifecycle requires native_handoff: true')
+        required += APPLE_ACCOUNT_LIFECYCLE_CASES
+        errors.extend(apple_account_evidence_errors(report.get('apple_account'), report))
+    elif any(case in cases for case in APPLE_ACCOUNT_LIFECYCLE_CASES) or 'apple_account' in report:
+        errors.append('apple account checks recorded without apple_account_lifecycle: true')
+    if report.get('paired_installation') is True:
+        required += PAIRED_INSTALLATION_CASES
+        errors.extend(paired_installation_evidence_errors(report.get('paired_installation_evidence'), report))
+    elif any(case in cases for case in PAIRED_INSTALLATION_CASES) or 'paired_installation' in report:
+        errors.append('paired installation checks recorded without paired_installation: true')
     for case in required:
         item = cases.get(case, {})
         if not isinstance(item, dict) or item.get('result') != 'pass' or not isinstance(item.get('notes'), str) or not item['notes'].strip():
@@ -201,12 +373,21 @@ def main():
                         help='init: also record the Free Apple ID handoff ladder cases')
     parser.add_argument('--include-computer-free-bootstrap', action='store_true',
                         help='init: also record on-device bootstrap acceptance for this exact IPA')
+    parser.add_argument('--include-apple-account-lifecycle', action='store_true',
+                        help='init: also record the full Apple Account lifecycle ladder')
+    parser.add_argument('--include-paired-installation', action='store_true',
+                        help='init: also record the paired installation acceptance ladder')
     parser.add_argument('--renewal', action='store_true',
                         help='Include (init) or require (check) in-place renewal observations')
     args = parser.parse_args()
-    if args.mode == 'check' and (args.include_native_handoff or args.include_computer_free_bootstrap):
-        option = '--include-native-handoff' if args.include_native_handoff else '--include-computer-free-bootstrap'
-        parser.exit(1, f'{option} applies to init only; a report declares itself\n')
+    init_only = [name for name, enabled in (
+        ('--include-native-handoff', args.include_native_handoff),
+        ('--include-computer-free-bootstrap', args.include_computer_free_bootstrap),
+        ('--include-apple-account-lifecycle', args.include_apple_account_lifecycle),
+        ('--include-paired-installation', args.include_paired_installation),
+    ) if enabled]
+    if args.mode == 'check' and init_only:
+        parser.exit(1, f'{init_only[0]} applies to init only; a report declares itself\n')
 
     try:
         commit = resolve_commit(args.commit)
@@ -226,6 +407,10 @@ def main():
             cases += NATIVE_HANDOFF_CASES
         if args.include_computer_free_bootstrap:
             cases += BOOTSTRAP_CASES
+        if args.include_apple_account_lifecycle:
+            cases += APPLE_ACCOUNT_LIFECYCLE_CASES
+        if args.include_paired_installation:
+            cases += PAIRED_INSTALLATION_CASES
         report = dict(architecture=architecture, commit=commit, ipa_sha256=digest, tester='', device_model='',
                       os_version='', tested_at_utc='', checks={
                           case: dict(result='pending', notes='') for case in cases})
@@ -233,6 +418,13 @@ def main():
             report['native_handoff'] = True
         if args.include_computer_free_bootstrap:
             report['computer_free_bootstrap'] = True
+            report['bootstrap'] = {key: '' for key in BOOTSTRAP_EVIDENCE}
+        if args.include_apple_account_lifecycle:
+            report['apple_account_lifecycle'] = True
+            report['apple_account'] = {key: '' for key in APPLE_ACCOUNT_EVIDENCE}
+        if args.include_paired_installation:
+            report['paired_installation'] = True
+            report['paired_installation_evidence'] = {key: '' for key in PAIRED_INSTALLATION_EVIDENCE}
         if args.renewal:
             report['renewal'] = renewal_template()
         with args.report.open('x') as handle:
@@ -240,7 +432,9 @@ def main():
             handle.write('\n')
         print('Pending report created. No device checks have passed.'
               + (' Native handoff ladder included.' if args.include_native_handoff else '')
-              + (' On-device bootstrap cases included.' if args.include_computer_free_bootstrap else ''))
+              + (' On-device bootstrap cases included.' if args.include_computer_free_bootstrap else '')
+              + (' Apple Account lifecycle ladder included.' if args.include_apple_account_lifecycle else '')
+              + (' Paired installation ladder included.' if args.include_paired_installation else ''))
         return
     errors = validate(json.loads(args.report.read_text()), commit, digest, architecture, args.renewal)
     if errors:

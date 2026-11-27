@@ -17,9 +17,13 @@ Usage:
     python3 select_simulator.py                 # "iPhone 16 (26.0) <UDID>"
     python3 select_simulator.py --print-id      # just the UDID
     python3 select_simulator.py --json-file f   # parse a saved simctl payload
+    python3 select_simulator.py --min-runtime 17.0  # oldest supported runtime
 
 Exit status is non-zero (with a message on stderr) when no iPhone simulator is
-available, which is the only case where the caller should give up.
+available (or none meets `--min-runtime`), which is the only case where the
+caller should give up. The deployment target is iOS 17.0; asking the runner for
+that minimum lets a manual dispatch cover an older supported runtime without
+hard-coding a device name that changes with every Xcode release.
 """
 
 from __future__ import annotations
@@ -97,6 +101,20 @@ def iphone_generation(name: str) -> tuple[int, ...]:
     return tuple(numbers)
 
 
+def parse_runtime(value: str) -> tuple[int, ...]:
+    """Parse a dotted runtime such as 17 or 17.0 into a comparable tuple."""
+    parts = value.strip().split(".")
+    if not parts or any(not part.isdigit() for part in parts) or len(parts) > 2:
+        fail(f"Invalid --min-runtime '{value}': use a major or major.minor iOS version (e.g. 17.0).")
+    return tuple(int(part) for part in parts)
+
+
+def runtime_at_least(version: tuple[int, ...], minimum: tuple[int, ...]) -> bool:
+    """Compare major/minor only: 17.5 satisfies 17.0; 16.4 does not."""
+    major_minor = version[:2]
+    return major_minor >= minimum[:2]
+
+
 def candidates(payload: dict) -> list[tuple[tuple, dict, str, str]]:
     found = []
     for runtime_key, devices in (payload.get("devices") or {}).items():
@@ -121,12 +139,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--print-id", action="store_true", help="print only the simulator UDID")
     parser.add_argument("--json-file", default=None, help="parse a saved simctl JSON payload instead of running xcrun")
+    parser.add_argument(
+        "--min-runtime", default=None, metavar="VERSION",
+        help="only consider iOS runtimes at or above this version (e.g. 17.0)",
+    )
     args = parser.parse_args()
 
+    minimum = parse_runtime(args.min_runtime) if args.min_runtime else None
     found = candidates(load_devices(args.json_file))
+    if minimum is not None:
+        found = [item for item in found if runtime_at_least(item[0][0], minimum)]
     if not found:
+        detail = f" at or above iOS {args.min_runtime}" if minimum else ""
         fail(
-            "No available iPhone simulator found. Install an iOS runtime in "
+            f"No available iPhone simulator found{detail}. Install an iOS runtime in "
             "Xcode → Settings → Components, or run `xcrun simctl list devices available` to inspect."
         )
 

@@ -31,6 +31,7 @@ enum PackageSigningCoordinator {
         isCancellationRequested: @escaping @MainActor () -> Bool = { false },
         onStage: (@MainActor (SigningStage) -> Void)? = nil,
         onVerified: (@MainActor () -> Void)? = nil,
+        onVerificationReport: (@MainActor (SigningVerificationReport) -> Void)? = nil,
         onCompatibilityRemoved: (@MainActor ([String]) -> Void)? = nil,
         completion: @escaping @MainActor (Result<Signed, Error>) -> Void
     ) {
@@ -173,6 +174,10 @@ enum PackageSigningCoordinator {
                 case .signatureVerified:
                     onVerified?()
                     task.context?.recordSigningVerification()
+
+                case .verificationReport(let report):
+                    onVerificationReport?(report)
+                    task.context?.recordSigningVerification(report)
 
                 case .compatibilityRemoved(let components):
                     onCompatibilityRemoved?(components)

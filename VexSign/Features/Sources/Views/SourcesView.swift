@@ -19,6 +19,7 @@ struct SourcesView: View {
 	#endif
 	@EnvironmentObject var viewModel: SourcesViewModel
 	@State private var _isAddingPresenting = false
+	@State private var _isCatalogPresenting = false
 	@State private var _addingSourceLoading = false
 	@State private var _searchText = ""
 	@State private var _shouldNavigateToAllRepos = false
@@ -173,6 +174,13 @@ struct SourcesView: View {
 		)
 		.toolbar {
 			NBToolbarButton(
+				systemImage: "square.grid.2x2",
+				style: .icon,
+				placement: .topBarTrailing
+			) {
+				_isCatalogPresenting = true
+			}
+			NBToolbarButton(
 				systemImage: "plus",
 				style: .icon,
 				placement: .topBarTrailing,
@@ -183,6 +191,10 @@ struct SourcesView: View {
 		}
 		.sheet(isPresented: $_isAddingPresenting) {
 			SourcesAddView()
+				.adaptiveSheetSizing()
+		}
+		.sheet(isPresented: $_isCatalogPresenting) {
+			CatalogWorkspaceView()
 				.adaptiveSheetSizing()
 		}
 	}
@@ -280,7 +292,11 @@ struct SourcesView: View {
                 HStack {
                     allRepositoriesLabel
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    // a11y: decorative—the row label already names the destination.
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
             }
@@ -376,6 +392,7 @@ struct SourcesView: View {
 				Image(systemName: "lock.fill")
 					.font(.title3)
 					.foregroundColor(.secondary.opacity(0.5))
+					.accessibilityLabel(Text(verbatim: String.localized(isSelected ? "Deselect premium source %@" : "Select premium source %@", arguments: source.name ?? "")))
 			} else {
 				Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
 					.font(.title3)
@@ -395,7 +412,11 @@ struct SourcesView: View {
             HStack {
                 SourcesCellView(source: source, isEditMode: false)
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                // a11y: decorative—the row label already names the destination.
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
             }
             .contentShape(Rectangle())
         }
@@ -468,6 +489,7 @@ struct SourcesView: View {
 						_isAddingPresenting = true
 					} label: {
 						Image(systemName: "plus")
+							.accessibilityLabel(Text(.localized("Add source")))
 					}
 					.disabled(_addingSourceLoading)
 				}

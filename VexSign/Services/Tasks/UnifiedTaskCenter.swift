@@ -97,6 +97,34 @@ final class UnifiedTaskCenter: ObservableObject {
 		return task
 	}
 
+	/// Sendable handles for callers that live on another actor. Passing a
+	/// `UnifiedTask` object across isolation would leak mutable UI state; these
+	/// helpers keep every mutation on the main actor and transfer only its id.
+	@discardableResult
+	func beginTaskID(
+		kind: UnifiedTaskKind,
+		title: String,
+		subtitle: String? = nil,
+		subjectID: String? = nil
+	) -> String {
+		begin(kind: kind, title: title, subtitle: subtitle, subjectID: subjectID).id
+	}
+
+	func transitionTask(
+		id: String,
+		to phase: UnifiedTaskPhase,
+		progress: Double? = nil,
+		error: String? = nil
+	) {
+		guard let task = tasks.first(where: { $0.id == id }) else { return }
+		transition(task, to: phase, progress: progress, error: error)
+	}
+
+	func updateTask(id: String, progress: Double) {
+		guard let task = tasks.first(where: { $0.id == id }) else { return }
+		update(task, progress: progress)
+	}
+
 	func transition(_ task: UnifiedTask, to phase: UnifiedTaskPhase, progress: Double? = nil, error: String? = nil) {
 		let previousPhase = task.phase
         guard task.move(to: phase) else { return }
@@ -112,6 +140,32 @@ final class UnifiedTaskCenter: ObservableObject {
 			)
 		)
 		task.errorText = error.map(LogRedaction.redact)
+        // Task history is the user-visible source of truth; the diagnostic journal
+        // only mirrors terminal transitions so a failure can be correlated with
+        // the task ID in an export. Text is already redacted here and again at
+        // the journal boundary.
+        if phase == .failed || phase == .cancelled {
+            let taskID = task.id
+            let kind = task.kind.rawValue
+            let detail = task.errorText
+            let failedStage = task.failureStage?.rawValue
+            let elapsed = task.updatedAt.timeIntervalSince(task.createdAt)
+            let event = DiagnosticEvent.make(
+                code: phase == .failed ? DiagnosticEventCode.taskFailed : DiagnosticEventCode.taskCancelled,
+                severity: phase == .failed ? .error : .warning,
+                category: .app,
+                operationID: taskID,
+                userMessage: phase == .failed ? "A task failed." : "A task was cancelled.",
+                developerDetail: detail,
+                recoverySuggestion: DiagnosticRecoveryGuide.suggestion(for: .unknown),
+                metadata: [
+                    "taskKind": kind,
+                    "failureStage": failedStage ?? "none",
+                    "elapsedMs": String(format: "%.1f", max(0, elapsed) * 1000)
+                ]
+            )
+            Task { await DiagnosticRecorder.fileRecorder.record(event) }
+        }
         if phase == .failed, task.context?.confirmationReason == nil { task.context?.confirmationReason = "operation-failed" }
         if phase == .cancelled, task.context?.confirmationReason != "monitoring-stopped-install-may-continue" { task.context?.confirmationReason = "cancelled" }
 		task.updatedAt = Date()

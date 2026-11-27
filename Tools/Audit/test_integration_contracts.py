@@ -231,5 +231,67 @@ class DeepLinkBase64ContractTests(unittest.TestCase):
             self.assertIn(name, tests)
 
 
+class CrossSubsystemStateContractTests(unittest.TestCase):
+    """Guards for defects where a subsystem reported success without owning the result."""
+
+    def test_download_admission_uses_object_identity_at_every_public_entry(self):
+        sources = {
+            name: (ROOT / path).read_text()
+            for name, path in {
+                "manager": "VexSign/Services/Download/DownloadManager.swift",
+                "catalog": "VexSign/Features/Sources/ViewModels/CatalogWorkspaceModel.swift",
+                "device": "VexSign/Services/Devices/DeviceUpdatePlanner.swift",
+                "downloads": "VexSign/Features/Downloads/ViewModels/DownloadsTabViewModel.swift",
+                "home": "VexSign/DesignSystem/Components/VexHomeComponents.swift",
+            }.items()
+        }
+        self.assertIn("DownloadAdmission.isAccepted(download, in: downloads)", sources["manager"])
+        for name in ("catalog", "device", "downloads", "home"):
+            source = sources[name]
+            self.assertTrue(
+                "DownloadManager.shared.isTracked(download)" in source
+                or "manager.isTracked(download)" in source
+                or "DownloadAdmission.isAccepted" in source,
+                f"{name} bypasses download admission",
+            )
+        self.assertNotIn("return download.url == request.url", sources["device"])
+        self.assertNotIn("return true\n        }", sources["downloads"])
+        tests = (ROOT / "VexSignTests/UnitTests/Application/DownloadAdmissionTests.swift").read_text()
+        for case in ("testRegisteredObjectIsAccepted", "testPlaceholderWithTheSameURLIsRejected",
+                     "testEmptyManagerListNeverReportsSuccess",
+                     "testARefusedRowWithAnExistingIDDoesNotBorrowItsAdmission"):
+            self.assertIn(case, tests)
+
+    def test_certificate_usability_has_one_rule_for_updates_and_installs(self):
+        helper = ROOT / "VexSign/Services/Signing/Identity/SigningIdentityAvailability.swift"
+        self.assertTrue(helper.is_file())
+        source = helper.read_text()
+        self.assertIn("!certificate.revoked", source)
+        self.assertIn("expiration > now", source)
+        self.assertIn("installationExpiry", source)
+        container = (ROOT / "VexSign/App/Composition/AppContainer.swift").read_text()
+        catalog = (ROOT / "VexSign/Features/Sources/ViewModels/CatalogWorkspaceModel.swift").read_text()
+        self.assertIn("SigningIdentityAvailability.hasUsableIdentity", container)
+        self.assertIn("SigningIdentityAvailability.hasUsableIdentity", catalog)
+        self.assertIn("SigningIdentityAvailability.installationExpiry(for: certificate)", container)
+        self.assertNotIn("$0.expiration.map { $0 > Date() } ?? true", container)
+        self.assertNotIn("!$0.revoked && ($0.expiration.map", catalog)
+        tests = (ROOT / "VexSignTests/UnitTests/Signing/SigningIdentityAvailabilityTests.swift").read_text()
+        for case in ("testRevokedIdentityIsNeverUsableEvenWithoutExpiry",
+                     "testOnlyRevokedOrExpiredIdentitiesDoNotAdvertiseAnUpdate"):
+            self.assertIn(case, tests)
+
+    def test_cancelled_device_operation_cannot_release_the_lifecycle_early(self):
+        source = (ROOT / "VexSign/Features/Devices/ViewModels/DeviceLifecycleWorkspaceModel.swift").read_text()
+        cancel = source.split("func cancel() {", 1)[1].split("\n    }", 1)[0]
+        self.assertIn("operation?.cancel()", cancel)
+        self.assertIn("operationGeneration = UUID()", cancel)
+        self.assertNotIn("operation = nil", cancel)
+        self.assertNotIn("isWorking = false", cancel)
+        run_block = source.split("private func run(title:", 1)[1]
+        self.assertIn("catch is CancellationError", run_block)
+        self.assertIn("guard self.operationGeneration == generation", run_block)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3,7 +3,15 @@ import { z } from 'zod';
 import { artifactMetadata, certificateResult } from '../../API/DTOs/contracts.js';
 
 export const signerResult = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('sign'), signatureVerified: z.literal(true), metadata: artifactMetadata }).strict(),
+  // The launcher remains the trusted signing engine, but it must name the exact
+  // bytes it produced. The worker hashes the output independently and refuses a
+  // mismatch, so a stale or swapped artifact cannot inherit a success report.
+  z.object({
+    kind: z.literal('sign'),
+    signatureVerified: z.literal(true),
+    outputSha256: z.string().regex(/^[0-9a-f]{64}$/),
+    metadata: artifactMetadata,
+  }).strict(),
   z.object({ kind: z.literal('check-cert'), certificate: certificateResult }).strict(),
 ]);
 export type SignerInput = {

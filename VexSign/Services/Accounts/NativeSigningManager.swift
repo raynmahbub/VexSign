@@ -645,6 +645,9 @@ final class NativeSigningManager: ObservableObject {
                         p12Password: password, certificateName: name) { continuation.resume(with: $0) }
                 }
             })
+            // Provenance is written only after the importer commits this UUID.
+            // No display name, team string or file path participates.
+            SigningIdentityProvenanceStore.record(.appleAccountHandoff, uuid: certificateUUID)
             lastError = nil
             return certificateUUID
         } catch {

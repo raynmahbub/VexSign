@@ -148,6 +148,27 @@ enum SigningIdentityStore {
               let identity = SigningIdentity(SecCertificateCopyData(certificate) as Data) else {
             throw InspectionFailure.certificateMissing
         }
+        return try prove(reference, certificate: certificate, identity: identity)
+    }
+
+    /// Proves that the private key behind an already-resolved `SecIdentity` really
+    /// matches its leaf certificate. Used by the certificate vault, whose identities
+    /// live in the Keychain rather than in a staged PKCS#12 file. No key bytes are
+    /// exported, and no password is involved.
+    static func probe(_ reference: SecIdentity) throws -> Proof {
+        var certificate: SecCertificate?
+        guard SecIdentityCopyCertificate(reference, &certificate) == errSecSuccess, let certificate,
+              let identity = SigningIdentity(SecCertificateCopyData(certificate) as Data) else {
+            throw InspectionFailure.certificateMissing
+        }
+        return try prove(reference, certificate: certificate, identity: identity)
+    }
+
+    private static func prove(
+        _ reference: SecIdentity,
+        certificate: SecCertificate,
+        identity: SigningIdentity
+    ) throws -> Proof {
         let nativeSigningSupported = VexNativeSupportsSigningCertificate(SecCertificateCopyData(certificate) as Data)
         var privateKey: SecKey?
         let keyStatus = SecIdentityCopyPrivateKey(reference, &privateKey)

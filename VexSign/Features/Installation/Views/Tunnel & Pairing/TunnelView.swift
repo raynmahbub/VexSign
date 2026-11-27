@@ -5,6 +5,7 @@ import NimbleViews
 import NimbleExtensions
 
 struct TunnelView: View {
+    @EnvironmentObject private var app: AppContainer
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model = DeviceBootstrapModel()
     @State private var hasVPNURLHandler = false
@@ -15,6 +16,10 @@ struct TunnelView: View {
 
     var body: some View {
         Group {
+            BootstrapWizardSection(deviceIdentifier: $model.expectedIdentifier) {
+                Task { await model.refresh() }
+            }
+
             Section {
                 Text(.localized("VexSign must already be installed and launched through a legitimate development build, an eligible existing installer, or authorized distribution. It cannot self-install before bootstrap. A CI IPA is a build artifact, not an installation."))
                     .font(.footnote)
@@ -107,6 +112,13 @@ struct TunnelView: View {
                 .disabled(!model.canReadApplication)
                 Text(.localized("Experimental read-only CoreDevice metadata. The existing VexSign app identifier is prefilled for a harmless self-query. Missing results do not prove absence; this check cannot unlock installation gates."))
                     .font(.caption).foregroundStyle(.secondary)
+                NavigationLink(destination: DeviceInventoryView(expectedIdentifier: model.expectedIdentifier)) {
+                    Label(.localized("Read library-app inventory from this device"), systemImage: "list.bullet.rectangle")
+                }
+                NavigationLink(destination: DeviceLifecycleWorkspaceView(model: app.deviceLifecycle)) {
+                    Label(.localized("Open device and app lifecycle"), systemImage: "iphone.and.arrow.forward")
+                }
+                .accessibilityIdentifier("device.lifecycle.entry")
                 if let summary = model.inventorySummary {
                     Label(summary, systemImage: "doc.text").font(.footnote)
                 }

@@ -88,7 +88,9 @@ class Swift6NativeRegressions(unittest.TestCase):
         settings = source("VexSign/Features/Settings/ViewModels/SettingsAndSecurityViewModels.swift")
         mock = source("VexSignTests/UnitTests/Application/CleanArchitectureLayerTests.swift")
 
-        self.assertIn("static func createDiagnosticBundle(outcomes: OperationOutcomeJournal? = nil) async -> URL?", exporter)
+        self.assertIn("static func createDiagnosticBundle(", exporter)
+        self.assertIn("filter: DiagnosticExportFilter? = nil", exporter)
+        self.assertIn(") async -> URL? {", exporter)
         self.assertIn("await (outcomes ?? OperationOutcomeJournal()).exportJSON()", exporter)
         self.assertIn("func exportDiagnosticArchiveURL() async -> URL?", protocol)
         self.assertIn("await DiagnosticBundleExporter.createDiagnosticBundle", adapter)

@@ -225,6 +225,7 @@ struct TweakExtractionView: View {
 			} label: {
 				Image(systemName: allSelected ? "checkmark.circle.fill" : (selectedInFolder > 0 ? "minus.circle.fill" : "circle"))
 					.font(.system(size: 18))
+					.accessibilityLabel(Text(verbatim: String.localized(allSelected ? "Deselect all tweaks in folder" : "Select all tweaks in folder")))
 					.foregroundStyle(selectedInFolder > 0 ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
 			}
 			.buttonStyle(.plain)

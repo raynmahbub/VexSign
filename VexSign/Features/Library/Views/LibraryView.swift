@@ -29,6 +29,7 @@ struct LibraryView: View {
     @State private var _alertDownloadString: String = "" // for _isDownloadingPresenting
     @State private var _isExplorerPresenting = false
     @State private var _isDirectInstallPresenting = false
+    @State private var _isContainersPresenting = false
     @State private var _isGitHubImportPresenting = false
 
     // MARK: Selection State
@@ -212,6 +213,12 @@ struct LibraryView: View {
 
                     ToolbarItem(placement: .topBarTrailing) {
                         if !_editMode.isEditing {
+                            Button {
+                                _isContainersPresenting = true
+                            } label: {
+                                Image(systemName: "shippingbox")
+                            }
+                            .accessibilityLabel(Text(.localized("Application containers")))
                             Menu {
                                 Picker(.localized("Library layout"), selection: $libraryLayout) {
                                     Label(.localized("Compact list"), systemImage: "list.bullet").tag("list")
@@ -261,6 +268,9 @@ struct LibraryView: View {
                 }
                 .sheet(isPresented: $_isDirectInstallPresenting) {
                     DirectInstallSheet()
+                }
+                .sheet(isPresented: $_isContainersPresenting) {
+                    ContainerWorkspaceView()
                 }
                 .fullScreenCover(item: $_batchRequest, onDismiss: InstallCleanup.flush) { request in
                     BatchSignView(apps: request.apps, mode: request.mode)

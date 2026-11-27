@@ -222,6 +222,7 @@ struct SettingsView: View {
                     NavigationLink(destination: DiagnosticsCenterView()) {
                         Label(.localized("Diagnostics Center"), systemImage: "cross.case.fill")
                     }
+                    .accessibilityIdentifier(A11y.Diagnostics.center)
                     NavigationLink(destination: StorageView()) {
                         Label(.localized("Storage Breakdown"), systemImage: "internaldrive.fill")
                     }
@@ -400,7 +401,7 @@ private extension SettingsView {
                         Label(.localized("By Rayn Mahbub"), systemImage: "person.crop.circle")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(verbatim: .localized("Version %@", arguments: Bundle.main.version))
+                        Text(verbatim: .localized("Version %@", arguments: VexSignBuildInfo.version))
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(.tertiary)
                     }
@@ -529,7 +530,7 @@ private extension SettingsView {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(verbatim: .localized("About %@", arguments: Bundle.main.name))
                                     .font(.headline)
-                                Text(String.localized("Version %@", arguments: Bundle.main.version))
+                                Text(String.localized("Version %@", arguments: VexSignBuildInfo.version))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }

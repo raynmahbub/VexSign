@@ -15,6 +15,19 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 
+def complete_bootstrap(report):
+    """A synthetic fixture for validator tests only — never device evidence."""
+    report['computer_free_bootstrap'] = True
+    report['bootstrap'] = dict(pairing_route='ondevice-host',
+                               pairing_fingerprint_sha256='a' * 64,
+                               device_udid='00008120-001A2B3C4D5E6F70',
+                               installed_bundle_id='com.vexsign.app',
+                               installed_version='1.0')
+    for case in module.BOOTSTRAP_CASES:
+        report['checks'][case] = dict(result='pass', notes='Observed on the test iPhone')
+    return report
+
+
 class AcceptanceTests(unittest.TestCase):
     def report(self):
         return dict(commit='a' * 40, ipa_sha256='b' * 64, tester='Tester',
@@ -118,17 +131,37 @@ class AcceptanceTests(unittest.TestCase):
         self.assertTrue(module.validate(report, report['commit'], report['ipa_sha256']))
         report['computer_free_bootstrap'] = True
         self.assertTrue(module.validate(report, report['commit'], report['ipa_sha256']))
-        for case in module.BOOTSTRAP_CASES:
-            report['checks'][case] = dict(result='pass', notes='Observed on device')
+        complete_bootstrap(report)
         self.assertEqual(module.validate(report, report['commit'], report['ipa_sha256']), [])
         report['computer_free_bootstrap'] = 'yes'
         self.assertTrue(module.validate(report, report['commit'], report['ipa_sha256']))
 
+    def test_bootstrap_evidence_cannot_be_partial_forged_or_implied(self):
+        report = complete_bootstrap(self.report())
+        self.assertEqual(module.validate(report, report['commit'], report['ipa_sha256']), [])
+        for key, value in [('pairing_route', 'pairing-file'),
+                           ('pairing_fingerprint_sha256', 'A' * 64),
+                           ('device_udid', 'not-a-udid'),
+                           ('installed_bundle_id', 'no-dots'),
+                           ('installed_version', '')]:
+            with self.subTest(key=key):
+                original = report['bootstrap'][key]
+                report['bootstrap'][key] = value
+                self.assertTrue(module.validate(report, report['commit'], report['ipa_sha256']))
+                report['bootstrap'][key] = original
+        del report['bootstrap']
+        self.assertTrue(module.validate(report, report['commit'], report['ipa_sha256']))
+        report['bootstrap'] = []
+        self.assertTrue(module.validate(report, report['commit'], report['ipa_sha256']))
+
+    def test_bootstrap_evidence_without_declaration_is_rejected(self):
+        report = complete_bootstrap(self.report())
+        del report['computer_free_bootstrap']
+        errors = module.validate(report, report['commit'], report['ipa_sha256'])
+        self.assertTrue(any('without computer_free_bootstrap: true' in error for error in errors), errors)
+
     def test_bootstrap_report_is_bound_to_the_exact_unmodified_artifact(self):
-        report = self.report()
-        report['computer_free_bootstrap'] = True
-        for case in module.BOOTSTRAP_CASES:
-            report['checks'][case] = dict(result='pass', notes='Observed on device')
+        report = complete_bootstrap(self.report())
         self.assertEqual(module.validate(report, 'a' * 40, 'b' * 64), [])
         self.assertIn('Report IPA checksum differs from supplied artifact',
                       module.validate(report, 'a' * 40, 'c' * 64))
@@ -147,6 +180,8 @@ class AcceptanceTests(unittest.TestCase):
             report = json.loads(report_path.read_text())
             self.assertTrue(report['computer_free_bootstrap'])
             self.assertTrue(all(case in report['checks'] for case in module.BOOTSTRAP_CASES))
+            self.assertEqual(set(report['bootstrap']), set(module.BOOTSTRAP_EVIDENCE))
+            self.assertTrue(all(value == '' for value in report['bootstrap'].values()))
             self.assertTrue(all(value == {'result': 'pending', 'notes': ''} for value in report['checks'].values()))
             check = subprocess.run([sys.executable, str(Path(module.__file__)), 'check', '--ipa', str(ipa),
                                     '--report', str(report_path), '--commit', 'f' * 40],
@@ -394,6 +429,209 @@ class PendingAcceptanceClaimsTests(unittest.TestCase):
         for case in self.PENDING_CASES:
             report['checks'][case] = dict(result='pending', notes='Not yet exercised')
         self.assertTrue(module.validate(report, 'a' * 40, 'b' * 64))
+
+
+class AppleAccountLifecycleReportTests(unittest.TestCase):
+    """Apple Account ladder: lifecycle evidence stays separate from capability promotion."""
+
+    def report(self):
+        cases = module.CASES + module.NATIVE_HANDOFF_CASES + module.APPLE_ACCOUNT_LIFECYCLE_CASES
+        return dict(commit='a' * 40, ipa_sha256='b' * 64, tester='Tester',
+                    device_model='Test iPhone', os_version='27',
+                    tested_at_utc='2026-11-26T10:00:00Z', native_handoff=True,
+                    apple_account_lifecycle=True,
+                    checks={case: dict(result='pass', notes='Observed on the test iPhone')
+                            for case in cases},
+                    apple_account=dict(account_kind='free', team_identifier='ABCDEFGHIJ',
+                                       profile_uuid='B1B2B3B4-C5D6-4789-9ABC-DEF012345678',
+                                       profile_expires_utc='2026-12-03T10:00:00Z',
+                                       signed_ipa_sha256='b' * 64,
+                                       installed_bundle_id='com.vexsign.app',
+                                       install_receipt='task-123',
+                                       active_app_id_count='2',
+                                       registered_device_count='1'))
+
+    def errors(self, report):
+        return module.validate(report, report['commit'], report['ipa_sha256'])
+
+    def test_declared_lifecycle_is_complete_and_bound_to_native_handoff(self):
+        report = self.report()
+        self.assertEqual(self.errors(report), [])
+        del report['checks']['account_manual_renewal_advances_expiry']
+        self.assertTrue(self.errors(report))
+        report = self.report()
+        del report['native_handoff']
+        self.assertTrue(any('requires native_handoff' in error for error in self.errors(report)))
+        report = self.report()
+        report['apple_account_lifecycle'] = 'yes'
+        self.assertTrue(any('apple_account_lifecycle must be true or absent' in error
+                            for error in self.errors(report)))
+
+    def test_free_account_enforces_apple_app_id_and_device_limits(self):
+        report = self.report()
+        report['apple_account']['active_app_id_count'] = '11'
+        self.assertTrue(any('exceeds ten App IDs' in error for error in self.errors(report)))
+        report = self.report()
+        report['apple_account']['registered_device_count'] = '4'
+        self.assertTrue(any('exceeds three devices' in error for error in self.errors(report)))
+        report = self.report()
+        report['apple_account']['profile_expires_utc'] = '2026-12-31T10:00:00Z'
+        self.assertTrue(any('seven-day' in error for error in self.errors(report)))
+        report = self.report()
+        report['apple_account']['profile_expires_utc'] = '2026-11-25T10:00:00Z'
+        self.assertTrue(any('seven-day' in error for error in self.errors(report)))
+
+    def test_paid_account_keeps_identity_and_artifact_but_skips_free_limits(self):
+        report = self.report()
+        report['apple_account']['account_kind'] = 'paid'
+        report['apple_account']['active_app_id_count'] = '12'
+        report['apple_account']['profile_expires_utc'] = '2027-11-26T10:00:00Z'
+        self.assertEqual(self.errors(report), [])
+
+    def test_partial_or_undeclared_evidence_cannot_pass(self):
+        report = self.report()
+        for key in module.APPLE_ACCOUNT_EVIDENCE:
+            with self.subTest(key=key):
+                original = report['apple_account'][key]
+                report['apple_account'][key] = ''
+                self.assertTrue(self.errors(report))
+                report['apple_account'][key] = original
+        del report['apple_account']
+        self.assertTrue(self.errors(report))
+        report = self.report()
+        del report['apple_account_lifecycle']
+        self.assertTrue(any('without apple_account_lifecycle: true' in error
+                            for error in self.errors(report)))
+
+    def test_cli_creates_lifecycle_template_only_when_asked(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            ipa = Path(temporary) / 'fixture.ipa'
+            with zipfile.ZipFile(ipa, 'w') as archive:
+                archive.writestr('Payload/Fixture.app/Info.plist', plistlib.dumps({}))
+            command = [sys.executable, str(Path(module.__file__)), 'init', '--ipa', str(ipa),
+                       '--commit', 'f' * 40]
+            plain = Path(temporary) / 'plain.json'
+            lifecycle = Path(temporary) / 'lifecycle.json'
+            subprocess.run(command + ['--report', str(plain)], check=True, capture_output=True)
+            result = subprocess.run(command + ['--report', str(lifecycle),
+                                               '--include-native-handoff',
+                                               '--include-apple-account-lifecycle'],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Apple Account lifecycle ladder included.', result.stdout)
+            without = json.loads(plain.read_text())
+            with_ladder = json.loads(lifecycle.read_text())
+            self.assertNotIn('apple_account', without)
+            self.assertTrue(with_ladder['apple_account_lifecycle'])
+            self.assertEqual(set(with_ladder['apple_account']), set(module.APPLE_ACCOUNT_EVIDENCE))
+            self.assertTrue(all(value == '' for value in with_ladder['apple_account'].values()))
+            for case in module.APPLE_ACCOUNT_LIFECYCLE_CASES:
+                self.assertEqual(with_ladder['checks'][case], {'result': 'pending', 'notes': ''})
+            check = subprocess.run([sys.executable, str(Path(module.__file__)), 'check',
+                                    '--ipa', str(ipa), '--report', str(lifecycle),
+                                    '--commit', 'f' * 40,
+                                    '--include-apple-account-lifecycle'],
+                                   capture_output=True, text=True)
+            self.assertNotEqual(check.returncode, 0)
+            self.assertIn('applies to init only', check.stderr)
+
+
+class PairedInstallationReportTests(unittest.TestCase):
+    """Paired-installation ladder: a submitted request is never an installed or launched app."""
+
+    def report(self):
+        cases = module.CASES + module.PAIRED_INSTALLATION_CASES
+        return dict(commit='a' * 40, ipa_sha256='b' * 64, tester='Tester',
+                    device_model='Test iPhone', os_version='27',
+                    tested_at_utc='2026-11-26T12:00:00Z', paired_installation=True,
+                    checks={case: dict(result='pass', notes='Observed on the test iPhone')
+                            for case in cases},
+                    paired_installation_evidence=dict(
+                        pairing_route='ondevice-host',
+                        pairing_fingerprint_sha256='c' * 64,
+                        device_udid='A' * 40,
+                        package_sha256='b' * 64,
+                        install_receipt='task-submitted',
+                        confirmation_receipt='task-confirmed',
+                        installed_bundle_id='com.vexsign.app',
+                        installed_version='1.0',
+                        submitted_at_utc='2026-11-26T11:00:00Z',
+                        confirmed_at_utc='2026-11-26T11:05:00Z'))
+
+    def errors(self, report):
+        return module.validate(report, report['commit'], report['ipa_sha256'])
+
+    def test_declared_ladder_is_complete(self):
+        report = self.report()
+        self.assertEqual(self.errors(report), [])
+        del report['checks']['paired_app_launch_observed']
+        self.assertTrue(self.errors(report))
+        report = self.report()
+        report['paired_installation'] = 'yes'
+        self.assertTrue(any('paired_installation must be true or absent' in error
+                            for error in self.errors(report)))
+
+    def test_evidence_binds_the_exact_artifact_and_separates_outcomes(self):
+        report = self.report()
+        report['paired_installation_evidence']['package_sha256'] = 'd' * 64
+        self.assertTrue(any('not this exact IPA' in error for error in self.errors(report)))
+        report = self.report()
+        report['paired_installation_evidence']['confirmation_receipt'] = 'task-submitted'
+        self.assertTrue(any('acknowledgement is not installed-app evidence' in error
+                            for error in self.errors(report)))
+        report = self.report()
+        report['paired_installation_evidence']['confirmed_at_utc'] = '2026-11-26T10:59:00Z'
+        self.assertTrue(any('precedes submission' in error for error in self.errors(report)))
+        report = self.report()
+        report['paired_installation_evidence']['confirmed_at_utc'] = '2026-11-26T13:00:00Z'
+        self.assertTrue(any('after the report timestamp' in error for error in self.errors(report)))
+
+    def test_partial_or_undeclared_evidence_cannot_pass(self):
+        report = self.report()
+        for key in module.PAIRED_INSTALLATION_EVIDENCE:
+            with self.subTest(key=key):
+                original = report['paired_installation_evidence'][key]
+                report['paired_installation_evidence'][key] = ''
+                self.assertTrue(self.errors(report))
+                report['paired_installation_evidence'][key] = original
+        del report['paired_installation_evidence']
+        self.assertTrue(self.errors(report))
+        report = self.report()
+        del report['paired_installation']
+        self.assertTrue(any('without paired_installation: true' in error
+                            for error in self.errors(report)))
+
+    def test_cli_creates_paired_template_only_when_asked(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            ipa = Path(temporary) / 'fixture.ipa'
+            with zipfile.ZipFile(ipa, 'w') as archive:
+                archive.writestr('Payload/Fixture.app/Info.plist', plistlib.dumps({}))
+            command = [sys.executable, str(Path(module.__file__)), 'init', '--ipa', str(ipa),
+                       '--commit', 'f' * 40]
+            plain = Path(temporary) / 'plain.json'
+            paired = Path(temporary) / 'paired.json'
+            subprocess.run(command + ['--report', str(plain)], check=True, capture_output=True)
+            result = subprocess.run(command + ['--report', str(paired),
+                                               '--include-paired-installation'],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Paired installation ladder included.', result.stdout)
+            without = json.loads(plain.read_text())
+            with_ladder = json.loads(paired.read_text())
+            self.assertNotIn('paired_installation', without)
+            self.assertTrue(with_ladder['paired_installation'])
+            self.assertEqual(set(with_ladder['paired_installation_evidence']),
+                             set(module.PAIRED_INSTALLATION_EVIDENCE))
+            self.assertTrue(all(value == '' for value in with_ladder['paired_installation_evidence'].values()))
+            for case in module.PAIRED_INSTALLATION_CASES:
+                self.assertEqual(with_ladder['checks'][case], {'result': 'pending', 'notes': ''})
+            check = subprocess.run([sys.executable, str(Path(module.__file__)), 'check',
+                                    '--ipa', str(ipa), '--report', str(paired),
+                                    '--commit', 'f' * 40,
+                                    '--include-paired-installation'],
+                                   capture_output=True, text=True)
+            self.assertNotEqual(check.returncode, 0)
+            self.assertIn('applies to init only', check.stderr)
 
 
 if __name__ == '__main__':

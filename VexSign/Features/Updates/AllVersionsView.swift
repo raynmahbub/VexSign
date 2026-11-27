@@ -129,7 +129,7 @@ struct AllVersionsView: View {
 
 	@ViewBuilder
 	private func _badge(_ release: SelfUpdateRelease) -> some View {
-		let cmp = SelfUpdateManager.compare(release.version, Bundle.main.version)
+		let cmp = SelfUpdateManager.compare(release.version, VexSignBuildInfo.version)
 		if cmp == .orderedSame {
 			Label(.localized("Installed"), systemImage: "checkmark.circle.fill")
 				.labelStyle(.titleAndIcon)

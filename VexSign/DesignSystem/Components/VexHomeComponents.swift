@@ -25,7 +25,7 @@ enum VexHomeSetup {
 /// Identity matters: an older row with the same URL or ID is not that placeholder.
 enum VexHomeDownloadFeedback {
     static func isTracked(_ result: Download, in downloads: [Download]) -> Bool {
-        downloads.contains { $0 === result }
+        DownloadAdmission.isAccepted(result, in: downloads)
     }
 }
 

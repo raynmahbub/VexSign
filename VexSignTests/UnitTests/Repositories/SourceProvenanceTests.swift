@@ -101,14 +101,32 @@ final class SourceProvenanceTests: XCTestCase {
 
 		XCTAssertEqual(provenance, .verified(publisher: "Example"))
 		XCTAssertTrue(provenance.isAcceptable)
-		XCTAssertEqual(provenance.badgeTitle, "Signed by Example")
+		XCTAssertEqual(provenance.badgeTitle, "Self-signed by Example")
+	}
+
+	func testAFreshKeyCannotClaimTrustedPublisherIdentity() throws {
+		// The key travels with the document. A different signer can therefore still
+		// produce a valid self-signature; the UI must not present that as identity.
+		let attackerKey = Curve25519.Signing.PrivateKey()
+		let raw = try data(document())
+		let canonical = try XCTUnwrap(SourceProvenanceVerifier.canonicalBytes(raw))
+		var forged = document()
+		forged["vexsign"] = [
+			"algorithm": "ed25519",
+			"publicKey": attackerKey.publicKey.rawRepresentation.base64EncodedString(),
+			"signature": try attackerKey.signature(for: canonical).base64EncodedString(),
+			"publisher": "Trusted Publisher"
+		]
+		let provenance = SourceProvenanceVerifier.evaluate(try data(forged))
+		XCTAssertEqual(provenance, .verified(publisher: "Trusted Publisher"))
+		XCTAssertEqual(provenance.badgeTitle, "Self-signed by Trusted Publisher")
 	}
 
 	func testASignedDocumentWithoutAPublisherStillVerifies() throws {
 		let provenance = SourceProvenanceVerifier.evaluate(try signed(document(), publisher: nil))
 
 		XCTAssertEqual(provenance, .verified(publisher: nil))
-		XCTAssertEqual(provenance.badgeTitle, "Signed")
+		XCTAssertEqual(provenance.badgeTitle, "Self-signed")
 	}
 
 	// MARK: - Tampering

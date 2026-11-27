@@ -249,11 +249,12 @@ class DownloadManager: NSObject, ObservableObject {
 	}
 
 	private func requestNotificationPermissions() {
-		// The prompt is the whole point; the answer is read back from
-		// `getNotificationSettings` when the UI actually needs it.
-		UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge, .providesAppNotificationSettings]) { _, _ in }
-		
-		UNUserNotificationCenter.current().delegate = self
+		// The central service owns authorization and the UNUserNotificationCenter
+		// delegate. DownloadManager used to prompt on every launch and overwrite
+		// that delegate; asking is now an explicit action in notification settings.
+		Task { @MainActor in
+            VexSignNotificationService.shared.refreshAuthorizationStatus()
+        }
 	}
 	
 	@objc private func appDidEnterBackground() {
@@ -280,7 +281,9 @@ class DownloadManager: NSObject, ObservableObject {
 		backgroundTaskManager?.stop()
 		backgroundTaskManager = nil
 
-		UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+		Task { @MainActor in
+            VexSignNotificationService.shared.clearDownloadNotifications()
+        }
 
 		let hasActiveDownloads = downloads.contains { download in
 			(download.isActive && !download.isPaused) ||
@@ -448,7 +451,9 @@ class DownloadManager: NSObject, ObservableObject {
 		}
 
 		guard !activeDownloads.isEmpty || !pausedDownloads.isEmpty else {
-			UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["merged_download_progress"])
+			Task { @MainActor in
+                VexSignNotificationService.shared.cancel(identifier: "merged_download_progress")
+            }
 
 			guard processingDownloads.isEmpty else {
 				updateLiveActivity(activeDownloads: [])
@@ -477,26 +482,45 @@ class DownloadManager: NSObject, ObservableObject {
 			if downloadActivity == nil && !isCreatingLiveActivity {
 				startLiveActivityIfNeeded()
 			}
-			UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["merged_download_progress"])
+			Task { @MainActor in
+                VexSignNotificationService.shared.cancel(identifier: "merged_download_progress")
+            }
 			return
 		}
 
 		// Network downloads only — imports must not produce a stuck 0% notification.
         guard let request = DownloadNotificationBuilder.progress(forActiveDownloads: activeDownloads) else {
-            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["merged_download_progress"])
+            Task { @MainActor in
+                VexSignNotificationService.shared.cancel(identifier: "merged_download_progress")
+            }
             return
         }
-        UNUserNotificationCenter.current().add(request)
+        Task { @MainActor in
+            await VexSignNotificationService.shared.post(request: request, topic: .downloads)
+        }
 	}
 
 	func sendSystemNotification(title: String, body: String, identifier: String) {
-        UNUserNotificationCenter.current().add(
-            DownloadNotificationBuilder.system(title: title, body: body, identifier: identifier)
-        )
+        let request = DownloadNotificationBuilder.system(title: title, body: body, identifier: identifier)
+        Task { @MainActor in
+            await VexSignNotificationService.shared.post(request: request, topic: .downloads)
+        }
 	}
 
+	/// Called only from the download/import delegate paths that already have a
+	/// final service result. The event is the notification: no optimistic
+	/// "installed" banner is possible from a progress callback.
 	func sendCompletionNotification(for download: Download, status: String) {
-        UNUserNotificationCenter.current().add(DownloadNotificationBuilder.completion(for: download, status: status))
+        let succeeded = status.hasPrefix("✅")
+        AutomationDomainEvent.post(AutomationDomainEvent(
+            kind: .downloadCompleted,
+            referenceID: download.id,
+            summary: String("\(download.fileName): \(status)".prefix(200)),
+            details: [
+                AutomationEventDetailKey.referenceID.rawValue: download.id,
+                AutomationEventDetailKey.outcome.rawValue: succeeded ? "succeeded" : "failed"
+            ]
+        ))
 	}
 
 	func showUIErrorMessage(for download: Download, error: NSError) {
@@ -512,6 +536,16 @@ class DownloadManager: NSObject, ObservableObject {
 	
 	// MARK: - Public Methods
 	
+	/// True only when `download` is the same object the manager registered. Callers of
+	/// `startDownload` must use this before reporting "started": a refused request still
+	/// returns a placeholder with the same URL.
+	func isTracked(_ download: Download) -> Bool {
+		if !Thread.isMainThread {
+			return DispatchQueue.main.sync { self.isTracked(download) }
+		}
+		return DownloadAdmission.isAccepted(download, in: downloads)
+	}
+
 	func startDownload(
 		from url: URL,
 		id: String = UUID().uuidString,

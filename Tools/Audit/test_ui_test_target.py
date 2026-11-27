@@ -63,7 +63,7 @@ class UITestTargetTests(unittest.TestCase):
 
     def test_ui_sources_cover_interactions_and_attach_evidence(self):
         sources = sorted(UI.glob("*.swift"))
-        self.assertEqual(len(sources), 4)
+        self.assertEqual(len(sources), 7)
         combined = "\n".join(path.read_text() for path in sources)
         self.assertIn("XCUIApplication()", combined)
         self.assertIn("XCTAttachment(screenshot:", combined)
@@ -90,6 +90,17 @@ class UITestTargetTests(unittest.TestCase):
         settings = (ROOT / "VexSign/Features/Settings/Views/SettingsView.swift").read_text()
         self.assertIn(".accessibilityIdentifier(A11y.Settings.installationEngine)", settings)
         self.assertIn("scroll.swipeUp()", combined)
+
+    def test_hardware_cases_are_explicitly_opt_in_and_skipped_elsewhere(self):
+        support = (UI / "HardwareAcceptanceSupport.swift").read_text()
+        hardware = (UI / "PhysicalDeviceAcceptanceUITests.swift").read_text()
+        self.assertIn('static let optInKey = "VEXSIGN_DEVICE_ACCEPTANCE"', support)
+        self.assertIn("#if targetEnvironment(simulator)", support)
+        self.assertIn("throw XCTSkip(", support)
+        self.assertIn("try HardwareAcceptanceSupport.requireHardware()", hardware)
+        self.assertIn("testInstalledIdentityAndRelaunchOnHardware", hardware)
+        self.assertIn("testSanitizedDiagnosticExportIsReachableOnHardware", hardware)
+        self.assertIn("A skip is not a pass", hardware)
 
     def test_launch_flag_only_dismisses_onboarding(self):
         app = (ROOT / "VexSign/App/VexSignApp.swift").read_text()

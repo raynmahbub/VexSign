@@ -2,6 +2,9 @@ import UIKit
 import NimbleExtensions
 
 class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegate {
+    /// Retained for the process lifetime; MetricKit owns the callback registration.
+    private let metricKitDiagnostics = MetricKitDiagnosticsService()
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -27,6 +30,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
         EcosystemMaintenance.schedule()
         scheduleAutomationMaintenance()
 
+        // Notification categories, preferences and routing are configured before
+        // any subsystem can post. The window below is deliberately detached:
+        // it must not block the launch path or request permission implicitly.
+        Task { @MainActor in
+            VexSignNotificationService.shared.configure()
+            AutomationEventCoordinator.shared.start()
+            await ExpiryReminderScheduler().reconcile(ExpiryReminderSource.subjects())
+        }
+
         // Apple Watch companion: a no-op unless the user switched it on.
         CompanionBridge.shared.activateIfNeeded()
 
@@ -37,6 +49,27 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
         RepositoryCatalogService.registerRepositoryKeyProvider()
 
         DownloadManager.shared.errorDelegate = self
+
+        // System diagnostics are opt-in-free and local: no crash SDK, no upload.
+        // Delivery stays under iOS control and never happens in a simulator.
+        metricKitDiagnostics.start()
+        Task {
+            await PersistentAutomationEngine.shared.setDiagnostics(.fileRecorder)
+            await DiagnosticRecorder.fileRecorder.record(.make(
+                code: DiagnosticEventCode.appLaunched,
+                severity: .info,
+                category: .app,
+                userMessage: "VexSign finished launching.",
+                developerDetail: "Launch recorded after store recovery and background registration.",
+                metadata: [
+                    "appVersion": VexSignBuildInfo.version,
+                    "appBuild": VexSignBuildInfo.build,
+                    "buildChannel": VexSignBuildInfo.configuration,
+                    "sourceCommit": VexSignBuildInfo.commit,
+                    "scheduledTasksAvailable": EmbeddedContainerRuntime.supportsScheduledGuestTasks ? "yes" : "no"
+                ]
+            ))
+        }
 
         return true
     }

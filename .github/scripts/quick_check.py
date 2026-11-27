@@ -25,6 +25,9 @@ away, and written as JSON for other tooling.
 
     python3 quick_check.py [--root .] [--json out.json] [--no-swiftc]
 
+The compiler-free pass also rejects the malformed `for name where ...` loop that
+slipped through the portable gate when Swift parsing was unavailable.
+
 Exit status: 0 = clean, 1 = at least one error.
 """
 
@@ -155,6 +158,10 @@ DECL_RE = re.compile(
     r"(?:(?:public|internal|private|fileprivate|open|package|final|indirect|nonisolated|dynamic)\s+)*"
     r"(?P<kind>class|struct|enum|actor|protocol|typealias|macro)\s+(?P<name>[A-Za-z_]\w*)"
 )
+# Swift 5.9+ never accepts `for x where ...`; the sequence operator is required.
+# A real `swiftc -parse` catches this, but portable gates often run without a
+# toolchain, so keep the compiler-free check too.
+MALFORMED_FOR_RE = re.compile(r"\bfor\s+[A-Za-z_]\w*\s+where\b")
 IF_RE = re.compile(r"^\s*#if\b")
 ELSE_RE = re.compile(r"^\s*#(elseif|else)\b")
 ENDIF_RE = re.compile(r"^\s*#endif\b")
@@ -359,6 +366,33 @@ def swift_files_for(root: Path, module_dir: str) -> list[Path]:
     if not base.is_dir():
         return []
     return [p for p in iter_files(base, {".swift"})]
+
+
+def check_swift_for_loops(root: Path, report: Report) -> None:
+    """Reject malformed `for x where ...` loops even without a Swift toolchain.
+
+    This is a narrow syntactic guard for a bug that reached the tree while
+    `swiftc` was absent. It does not replace `-parse`; it only ensures the
+    portable gate can still fail on the mistake that motivated it.
+    """
+    scanned = 0
+    for module_dir in [*SWIFT_MODULES.values(), *(p for paths in PARSE_ONLY_MODULES.values() for p in paths)]:
+        for path in swift_files_for(root, module_dir):
+            scanned += 1
+            text = path.read_text(encoding="utf-8")
+            text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+            text = re.sub(r"//.*", "", text)
+            for match in MALFORMED_FOR_RE.finditer(text):
+                line = text.count("\n", 0, match.start()) + 1
+                report.add(Finding(
+                    "swift-syntax",
+                    "error",
+                    "malformed Swift loop: use `for x in sequence where ...`",
+                    file=str(path.relative_to(root)),
+                    line=line,
+                ))
+    if scanned:
+        report.stats["swift_loops_scanned"] = scanned
 
 
 def check_swift_syntax(root: Path, report: Report, swiftc: str | None, *,
@@ -800,6 +834,23 @@ def run_self_tests() -> int:
                 expected = 2 if shutil.which("bash") else 1
                 self.assertEqual(len(report.errors), expected)
 
+        def test_malformed_for_loop_is_an_error_without_swiftc(self):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "VexSign/Services").mkdir(parents=True)
+                source = root / "VexSign/Services/Fixture.swift"
+                source.write_text("let names: [String] = []\nfor name where name.hasSuffix(\".appex\") { }\n")
+                report = Report(root)
+                check_swift_for_loops(root, report)
+                self.assertEqual(len(report.errors), 1)
+                self.assertIn("malformed Swift loop", report.errors[0].message)
+                self.assertEqual(report.errors[0].line, 2)
+
+                source.write_text("let names: [String] = []\nfor name in names where name.hasSuffix(\".appex\") { }\n")
+                clean = Report(root)
+                check_swift_for_loops(root, clean)
+                self.assertEqual(clean.errors, [])
+
         def test_security_settings_catch_ats_and_debug_entitlements(self):
             with tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
@@ -869,6 +920,7 @@ def main() -> int:
     paths = check_repository_layout(root, report)
     check_tool_syntax(root, paths, report)
     check_conflict_markers(root, report)
+    check_swift_for_loops(root, report)
     check_swift_syntax(root, report, swiftc,
                        intentionally_skipped=args.no_swiftc,
                        require_swiftc=args.require_swiftc)

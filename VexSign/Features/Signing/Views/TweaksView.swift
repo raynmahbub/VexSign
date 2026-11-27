@@ -47,6 +47,7 @@ struct TweakLibraryList: View {
 		case move(Set<UUID>)
 		case repository
 		case injectionDefaults
+		case modificationWorkspace
 
 		var id: String {
 			switch self {
@@ -55,6 +56,7 @@ struct TweakLibraryList: View {
 			case .move: 			return "move"
 			case .repository: 		return "repository"
 			case .injectionDefaults: return "injectionDefaults"
+			case .modificationWorkspace: return "modificationWorkspace"
 			}
 		}
 	}
@@ -292,6 +294,8 @@ struct TweakLibraryList: View {
 			TweakIPAExtractView(ipaURL: url)
 		case .extractLibrary:
 			TweakAppExtractPickerView()
+		case .modificationWorkspace:
+			NavigationStack { TweakModificationWorkspaceView() }
 		case .injectionDefaults:
 			// every "inject by default" flag in one place.
 			TweakInjectionDefaultsView()
@@ -452,6 +456,11 @@ extension TweakLibraryList {
 						Label(.localized("Extract from IPA"), systemImage: "shippingbox")
 					}
 					Button {
+						_show(.modificationWorkspace)
+					} label: {
+						Label(.localized("Modify App with Tweaks"), systemImage: "wrench.and.screwdriver")
+					}
+					Button {
 						_show(.injectionDefaults)
 					} label: {
 						Label(.localized("Inject by Default"), systemImage: "wand.and.rays")
@@ -569,6 +578,7 @@ extension TweakLibraryList {
 				HStack(spacing: 12) {
 					Image(systemName: _selection.contains(tweak.id) ? "checkmark.circle.fill" : "circle")
 						.foregroundStyle(_selection.contains(tweak.id) ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+						.accessibilityLabel(Text(verbatim: String.localized(_selection.contains(tweak.id) ? "Deselect tweak %@" : "Select tweak %@", arguments: tweak.name)))
 					TweakRowLabel(tweak: tweak)
 				}
 			}

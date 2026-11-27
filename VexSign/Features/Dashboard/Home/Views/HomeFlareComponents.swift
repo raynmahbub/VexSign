@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import NimbleExtensions
 
 enum FlarePalette {
     private static var visualTheme: VexSignVisualTheme {
@@ -114,7 +115,8 @@ struct HomeMetricCard: View {
                     .foregroundStyle(FlarePalette.muted)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 104)
+            .frame(minHeight: 104)
+            .fixedSize(horizontal: false, vertical: true)
             .background(FlarePalette.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -122,7 +124,7 @@ struct HomeMetricCard: View {
             }
         }
         .buttonStyle(VexSignFlareButtonStyle())
-        .accessibilityLabel(Text("\(value) \(title)"))
+        .accessibilityLabel(Text(verbatim: String.localized("%@ %@", arguments: value, title)))
     }
 }
 

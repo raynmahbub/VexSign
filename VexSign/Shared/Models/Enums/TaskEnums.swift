@@ -97,6 +97,8 @@ enum TaskRecoveryGuide: Equatable {
             case .install: return .installation
             case .deviceSetup: return .deviceSetup
             case .update, .export: return .general
+            case .sourceRefresh: return .download
+            case .containerOperation: return .archive
             }
         }
     }

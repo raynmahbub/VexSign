@@ -27,6 +27,7 @@ enum LogRedaction {
 	private static let sensitiveKeys: [String] = [
 		// Imported certificate/session payloads.
 		"certificateP12", "certificatePassword", "adiPb", "appleID",
+		"p12", "mobileprovision", "provisioningProfile",
 		"anisetteAdiBlob", "anisetteIdentifier", "adi_pb", "cpim", "spim", "ptm", "tk",
 		// Pairing and lockdown secrets.
 		"private_key", "public_key", "alt_irk", "altIRK", "HostPrivateKey", "RootPrivateKey", "EscrowBag",
@@ -60,7 +61,13 @@ enum LogRedaction {
 		for rule in rules {
 			result = rule.apply(to: result)
 		}
+		// One log source may be attacker-controlled (deep-link payloads, tool output).
+		// Folding embedded newlines keeps a single failure from forging unrelated
+		// log lines or hiding a redacted value behind a line boundary.
 		return result
+			.replacingOccurrences(of: "\r\n", with: " ↵ ")
+			.replacingOccurrences(of: "\n", with: " ↵ ")
+			.replacingOccurrences(of: "\r", with: " ↵ ")
 	}
 
 	// MARK: - Rules
@@ -122,6 +129,13 @@ enum LogRedaction {
 		Rule(
 			pattern: "([A-Za-z][A-Za-z0-9+.\\-]*://)([^/\\s:@]+):([^/\\s@]+)@",
 			template: "$1\(marker)@"
+		),
+		// `vexsign://import-certificate?p12=<base64>&mobileprovision=<base64>` and the same
+		// keys in an HTTP query. The payload is a private key or an Apple-issued profile;
+		// only the presence of the parameter is useful in a diagnostic.
+		Rule(
+			pattern: #"(?i)([?&;](?:p12|mobileprovision|certificate_p12|provisioning_profile)=)([^&\s"'<>]{8,})"#,
+			template: "$1\(marker)"
 		),
 		// `password=…`, `p12Password: "…"`, `token=…`, `api-key=…`, `secret=…`, `passphrase=…`.
 		Rule(

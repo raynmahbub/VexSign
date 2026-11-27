@@ -95,6 +95,7 @@ extension SigningEntitlementsView {
 				Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
 					.foregroundStyle(isSelected ? Color.accentColor : .secondary)
 					.imageScale(.large)
+					.accessibilityLabel(Text(verbatim: String.localized(isSelected ? "Deselect entitlement file %@" : "Select entitlement file %@", arguments: file.name)))
 			}
 			.buttonStyle(.plain)
 

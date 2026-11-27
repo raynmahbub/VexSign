@@ -37,12 +37,12 @@ struct AboutView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    Text(verbatim: "Source commit: " + BuildIdentity.commit)
+                    Text(verbatim: String.localized("Source commit: %@", arguments: VexSignBuildInfo.commit))
                         .font(.caption.monospaced())
                         .textSelection(.enabled)
                         .foregroundStyle(.secondary)
 
-                    Text(verbatim: "Version \(Bundle.main.version)\(Bundle.main.buildNumber.isEmpty ? "" : " (\(Bundle.main.buildNumber))")")
+                    Text(verbatim: String.localized("Version %@ (%@) · %@", arguments: VexSignBuildInfo.version, VexSignBuildInfo.build, VexSignBuildInfo.configuration))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()

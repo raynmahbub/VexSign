@@ -12,6 +12,7 @@ import NimbleExtensions
 private enum CertificateAddSheet: String, Identifiable {
 	case certificateFiles
 	case community
+	case identities
 
 	var id: String { rawValue }
 }
@@ -24,6 +25,7 @@ struct CertificatesView: View {
 	@State private var _coordinator: CertificatesViewCoordinator?
 
 	@State private var _addSheet: CertificateAddSheet?
+	@State private var _isVaultPresenting = false
 	@State private var _isRenamingPresenting = false
 	@State private var _isSelectedInfoPresenting: CertificateRecord?
 	@State private var _certToRename: CertificateRecord?
@@ -109,6 +111,7 @@ struct CertificatesView: View {
 								ProgressView()
 							} else {
 								Image(systemName: "arrow.triangle.2.circlepath")
+								    .accessibilityLabel(Text(.localized("Check all certificates")))
 							}
 						}
 						.disabled(_isBatchChecking)
@@ -120,6 +123,9 @@ struct CertificatesView: View {
 						Image(systemName: "plus")
 					}
 				}
+		}
+		.sheet(isPresented: $_isVaultPresenting) {
+			NavigationStack { CertificateVaultView() }
 		}
 		.sheet(item: $_isSelectedInfoPresenting) { cert in
 			CertificatesInfoView(cert: cert)
@@ -161,6 +167,15 @@ struct CertificatesView: View {
 extension CertificatesView {
 	@ViewBuilder
 	private func _addOptions() -> some View {
+		if _bindingSelectedCert == nil {
+			Button("Certificate Vault") {
+				_isVaultPresenting = true
+			}
+			Button(.localized("Signing Identities")) {
+				_addSheet = .identities
+			}
+		}
+
 		Button(.localized("Community Certificates (Unofficial)")) {
 			_addSheet = .community
 		}
@@ -178,6 +193,9 @@ extension CertificatesView {
 				.presentationDetents([.medium])
 		case .community:
 			CommunityCertificatesView()
+				.presentationDetents([.large])
+		case .identities:
+			NavigationStack { UnifiedSigningIdentitiesView() }
 				.presentationDetents([.large])
 		}
 	}

@@ -9,7 +9,7 @@ import Foundation
 import Vapor
 
 extension WebManagerServer {
-	private static let davAllow = "OPTIONS, GET, HEAD, PUT, DELETE, PROPFIND, PROPPATCH, MKCOL, MOVE, COPY, LOCK, UNLOCK"
+	private static let davAllow = "OPTIONS, GET, HEAD, PUT, DELETE, PROPFIND, PROPPATCH, MKCOL, MOVE, COPY"
 
 	func _configureWebDAV(_ app: Application) {
 		let catchall: [PathComponent] = ["**"]
@@ -92,24 +92,15 @@ extension WebManagerServer {
 			self?._moveOrCopy(req, move: false) ?? Response(status: .forbidden)
 		}
 
-		// LOCK / UNLOCK — stubbed to keep Finder happy
-		app.on(.init(rawValue: "LOCK"), catchall) { req -> Response in
-			let token = "opaquelocktoken:\(UUID().uuidString)"
-			let xml = """
-			<?xml version="1.0" encoding="utf-8"?>
-			<D:prop xmlns:D="DAV:"><D:lockdiscovery><D:activelock>\
-			<D:locktype><D:write/></D:locktype><D:lockscope><D:exclusive/></D:lockscope>\
-			<D:depth>infinity</D:depth><D:timeout>Second-3600</D:timeout>\
-			<D:locktoken><D:href>\(token)</D:href></D:locktoken>\
-			</D:activelock></D:lockdiscovery></D:prop>
-			"""
-			var headers = HTTPHeaders()
-			headers.contentType = .xml
-			headers.replaceOrAdd(name: "Lock-Token", value: "<\(token)>")
-			return Response(status: .ok, headers: headers, body: .init(string: xml))
-		}
-		app.on(.init(rawValue: "UNLOCK"), catchall) { _ -> Response in
-			Response(status: .noContent)
+		// WebDAV locking is not implemented. Returning a fresh token with no stored
+		// owner made two clients believe they each held the same write lock; refuse
+		// the methods instead and say which verbs this subset actually supports.
+		for verb in ["LOCK", "UNLOCK"] {
+			app.on(.init(rawValue: verb), catchall) { _ -> Response in
+				var headers = HTTPHeaders()
+				headers.replaceOrAdd(name: .allow, value: Self.davAllow)
+				return Response(status: .methodNotAllowed, headers: headers)
+			}
 		}
 	}
 

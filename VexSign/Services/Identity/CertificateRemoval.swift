@@ -51,6 +51,17 @@ enum CertificateRemoval {
             }
             return false
         }
+        // The row is gone: cancel reminders keyed to the old identity. No
+        // password, file path or key material is included in the event.
+        AutomationDomainEvent.post(AutomationDomainEvent(
+            kind: .certificateRemoved,
+            referenceID: cert.uuid ?? "",
+            summary: cert.nickname ?? "Certificate",
+            details: [
+                AutomationEventDetailKey.referenceID.rawValue: cert.uuid ?? "",
+                AutomationEventDetailKey.displayName.rawValue: cert.nickname ?? "Certificate"
+            ]
+        ))
 		guard let (snapshot, token) = offer else { return true }
 
 		UndoableRemoval.announce(UndoableRemoval(

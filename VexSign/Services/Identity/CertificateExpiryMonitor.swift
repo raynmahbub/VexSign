@@ -10,7 +10,6 @@
 
 import Foundation
 import CoreData
-import UserNotifications
 import NimbleExtensions
 
 enum CertificateExpiryMonitor {
@@ -28,8 +27,8 @@ enum CertificateExpiryMonitor {
 	static func checkOnLaunch() async {
 		guard UserDefaults.standard.bool(forKey: enabledKey) else { return }
 
-		let settings = await UNUserNotificationCenter.current().notificationSettings()
-		guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
+		let authorization = await VexSignNotificationService.shared.currentAuthorization()
+		guard VexSignNotificationService.allowsDelivery(authorization) else { return }
 
 		let threshold = UserDefaults.standard.object(forKey: daysKey) as? Int ?? ImportedCertificateRefreshPolicy.noticeDays
 
@@ -56,7 +55,7 @@ enum CertificateExpiryMonitor {
 			if let notified = states[certificate.uuid], notified <= level { continue }
 
 			await post(uuid: certificate.uuid, nickname: certificate.nickname,
-			           days: certificate.days, warning: certificate.warning, level: level)
+			           warning: certificate.warning)
 			states[certificate.uuid] = level
 			didChange = true
 		}
@@ -71,28 +70,29 @@ enum CertificateExpiryMonitor {
 	@discardableResult
 	static func checkNow() async -> Int {
 		await checkOnLaunch()
-		let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
-		return requests.filter { $0.identifier.hasPrefix("cert-") }.count
+		let service = VexSignNotificationService.shared
+		let pending = await service.pendingIdentifiers()
+		return pending.filter {
+			$0.hasPrefix("cert-") || $0.hasPrefix(ExpiryReminderScheduler.prefix)
+		}.count
 	}
 
-	private static func post(uuid: String, nickname: String?, days: Int,
-	                         warning: ImportedCertificateWarning, level: Int) async {
-		let content = UNMutableNotificationContent()
+	private static func post(uuid: String, nickname: String?,
+	                         warning: ImportedCertificateWarning) async {
+		// Date warnings are owned by `ExpiryReminderScheduler`. This path is
+		// reserved for a verified revocation, which is not a date and needs an
+		// immediate, explicit warning.
+		guard warning == .revoked else { return }
 		let name = nickname ?? String.localized("Certificate")
-		switch warning {
-		case .revoked:
-			content.title = String.localized("Certificate Revoked")
-			content.body = String.localized("“%@” was revoked. Replace it; re-signing cannot repair a revocation.", arguments: name)
-		case .expired:
-			content.title = String.localized("Certificate Expired")
-			content.body = String.localized("“%@” has expired. Renew it to keep signing.", arguments: name)
-		default:
-			content.title = String.localized("Certificate Expiring")
-			content.body = String.localized("“%@” expires in %lld day(s).", arguments: name, days)
-		}
-		content.sound = .default
-
-		let request = UNNotificationRequest(identifier: "cert-\(uuid)-\(level)", content: content, trigger: nil)
-		try? await UNUserNotificationCenter.current().add(request)
+		let note = VexSignNotification(
+			identifier: "com.vexsign.expiry.revoked.\(VexSignNotificationService.digest(uuid))",
+			topic: .certificateExpiry,
+			title: String.localized("Certificate Revoked"),
+			body: String.localized("“%@” was revoked. Replace it; re-signing cannot repair a revocation.", arguments: name),
+			category: .expiry,
+			details: [NotificationPayloadKey.route.rawValue: "certificates"],
+			isTimeSensitive: true
+		)
+		await VexSignNotificationService.shared.post(note, dedupeContentKey: "revoked|\(uuid)")
 	}
 }

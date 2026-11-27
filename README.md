@@ -225,7 +225,8 @@ privacy stance.
 
 This repository also contains optional services and experimental tooling beyond the everyday signing workflow:
 
-- **Native account provisioning:** experimental Apple-account authentication/provisioning and anisette-provider configuration; not a complete, device-validated Apple ID signer.
+- **Native account provisioning:** experimental Apple-account authentication, two-factor/team selection, certificate/App ID/profile provisioning and receipt-bound handoff into the ordinary certificate store. Apple's documented Personal Team limits (10 App IDs and 3 devices for 7 days, 3 apps per device, seven-day profiles) are enforced from Apple-observed preflight counts with a fail-closed check before any portal mutation; renewal stays attended and manual. See [`Docs/DeviceTesting/apple-account.md`](Docs/DeviceTesting/apple-account.md) for the device acceptance ladder. Despite the wired lifecycle, this is not a complete, device-validated Apple ID signer and no in-process Apple Account CMS signer is claimed until the separate promotion evidence passes.
+- **Unified signing identities:** one read-only projection over the existing certificate store and Keychain vault, with explicit provenance, compatibility and lifecycle policy. Imported PKCS#12/profile pairs and the existing Zsign engine remain the only native signing path. No paid provider API is claimed; see [`Docs/Signing/paid-certificate-providers.md`](Docs/Signing/paid-certificate-providers.md).
 - **Guest-host packaging:** a separately built LiveContainer/SideStore prototype with pinned inputs; not the normal VexSign IPA. Scope and validation status are recorded in the commit history rather than in a maintained document.
 
 - **Python backend:** premium key validation, device binding, recovery, gated feeds, admin key management and IPA catalog endpoints. See [`Services/WebManager/API/`](Services/WebManager/API).
@@ -334,19 +335,28 @@ promise to the user and, for a distributed build, to App Review.
 
 - **Import actions follow the saved signing state.** The Get/import button now says
   Add to Library, Sign or Sign & Install according to auto-sign and the saved
-  install option, matching the Feather-family workflow. An Apple Account identity
-  still opens the attended review instead of substituting a stored certificate.
+  install option. An Apple Account identity still opens the attended review instead
+  of substituting a stored certificate.
 - **Combined repository news** merges every source, removes duplicate identifiers and
   shows the newest bounded set. It is no longer limited to the first source.
 - **Paired AFC / `installd` installation** is present in code but stays behind the
   inventory-bridge and exact-installed-version gates. A pairing file or an active
   VPN does not unlock it, and it is tracked as `needsDevice` in Feature Status.
+  The paired-installation ladder in [`Docs/DeviceTesting/paired-installation.md`](Docs/DeviceTesting/paired-installation.md)
+  defines route/pairing, artifact validation, request acknowledgement, exact
+  installed-app evidence and launch as separate observations; it does not enable
+  the bridge or become a runtime recorder by itself.
 - **Local activity analytics are opt-in and off by default.** No new counts are
   stored while off, and stored counts never leave the device. Turning the toggle off
   gives the same no-analytics behaviour as a build without the counters.
 - **Computer-free bootstrap** is an acceptance path, not a claim. The local report
   binds a human observation to one exact IPA SHA-256; nothing is advertised as
-  device-verified until that report passes.
+  device-verified until that report passes. The guided flow in Installation →
+  Tunnel & Pairing records pairing, device, account, signing and installation
+  evidence through one `BootstrapJourney`; see the
+  [computer-free bootstrap acceptance procedure](Docs/DeviceTesting/bootstrap.md). iOS 27+ with an
+  available on-device RPPairing host is the only computer-free route; earlier
+  supported releases still need a pairing file and are not a computer-free pass.
 
 ### Distribution risks a beta must accept explicitly
 
@@ -371,7 +381,19 @@ portable gates, simulator evidence and skipped device jobs.
 | Linux gates (`quick_check`, `Tools/`) | Pass locally and in CI's `quick` job; these read source and never compile Swift |
 | iOS build and simulator tests | **Unverified here.** No Swift/Xcode toolchain was available locally. The last merged validation run (PR #282) had a failed `build` job and a failed simulator-test job, so it is not evidence of a green native build. |
 | XCUITest interactions (`VexSignTests/UITests/`) | **Unverified here.** A separate `VexSignUITests` target, scheme and `ui-tests` CI job exist, but no simulator run has been observed. Screenshots are attached to each test and uploaded with the `xcresult`; an install is never claimed from a simulator tap. |
-| Physical-device acceptance | **Pending.** [`Tools/Audit/device-acceptance.py`](Tools/Audit/device-acceptance.py) covers 12 baseline checks plus optional native-handoff, bootstrap and renewal cases; its 28 Python tests validate report structure only. [`Tools/Audit/feature-acceptance.py`](Tools/Audit/feature-acceptance.py) adds one bound case for each of the 41 registered features. No device result has been observed. |
+| Physical-device acceptance | **Pending.** [`Tools/Audit/device-acceptance.py`](Tools/Audit/device-acceptance.py) covers 12 baseline checks plus optional native-handoff, nine computer-free bootstrap/renewal, eight Apple Account lifecycle and eight paired-installation cases; its Python tests validate report structure only. [`Tools/Audit/feature-acceptance.py`](Tools/Audit/feature-acceptance.py) adds one bound case for each registered feature. [`Docs/DeviceTesting/device-capability-matrix.md`](Docs/DeviceTesting/device-capability-matrix.md) lists every capability with its prerequisites and honest verification label. No device result has been observed. |
+
+A physical run is opt-in and uses a self-hosted iPhone runner. Set
+`VEXSIGN_DEVICE_RUNNER=true`, `VEXSIGN_DEVICE_UDID`, `VEXSIGN_DEVICE_IPA` (a
+development-signed IPA for that UDID) and the `VEXSIGN_DEVICE_SIGNING_IDENTITY`
+secret. `VEXSIGN_DEVICE_RUN_TESTS=true` runs native tests on the device;
+`VEXSIGN_DEVICE_RUN_UI_TESTS=true` also runs the hardware-only XCUITests and
+requires `VEXSIGN_TEST_IPA_PATH` and `VEXSIGN_TEST_INVALID_IPA_PATH` fixtures.
+The runner preflights the IPA's commit, platform, bundle, team, profile expiry
+and device UDID before `devicectl` sees it. XCUITests skip with an explicit
+reason on a simulator or without the opt-in; a skip is never a pass. See
+[`Docs/DeviceTesting/real-device-acceptance-2026-11.md`](Docs/DeviceTesting/real-device-acceptance-2026-11.md)
+for the exact acceptance steps and evidence boundaries.
 
 ## Build & test
 

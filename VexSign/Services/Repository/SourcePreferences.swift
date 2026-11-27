@@ -20,6 +20,7 @@ enum SourcePreferences {
 	private static let failureCountKey = "VexSign.sources.failureCount"
 	private static let rateLimitUntilKey = "VexSign.sources.rateLimitUntil"
 	private static let autoUpdatesKey = "VexSign.sources.autoUpdates"
+	private static let enabledKey = "VexSign.sources.enabled"
 
 	/// Health of one repository, as consumed by the Source Health dashboard.
 	struct Health {
@@ -68,6 +69,19 @@ enum SourcePreferences {
 	static func autoUpdatesEnabled(for id: String) -> Bool {
 		let values: [String: Bool] = _dictionary(autoUpdatesKey)
 		return values[id] ?? true
+	}
+
+	/// Whether a source participates in refreshes. Absence means enabled so an
+	/// existing configuration is unchanged. This is a local choice, not a health verdict.
+	static func isEnabled(_ id: String) -> Bool {
+		let values: [String: Bool] = _dictionary(enabledKey)
+		return values[id] ?? true
+	}
+
+	static func setEnabled(_ enabled: Bool, for id: String) {
+		var values: [String: Bool] = _dictionary(enabledKey)
+		if enabled { values.removeValue(forKey: id) } else { values[id] = false }
+		UserDefaults.standard.set(values, forKey: enabledKey)
 	}
 
 	static func setAutoUpdatesEnabled(_ enabled: Bool, for id: String) {

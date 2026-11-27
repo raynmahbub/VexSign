@@ -51,6 +51,7 @@ final class SigningWorkspaceBoundaryTests: XCTestCase {
         switch event {
         case .stage(let stage): stage.rawValue
         case .signatureVerified: "verified"
+        case .verificationReport: "report"
         case .compatibilityRemoved: "compatibility"
         case .finished(.success): "artifact"
         case .finished(.failure): "failure"

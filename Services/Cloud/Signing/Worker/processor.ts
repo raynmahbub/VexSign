@@ -63,6 +63,13 @@ export function hashingStream(source: Readable): { body: Readable; hex: () => st
   return { body, hex: () => digest.digest('hex') };
 }
 
+/** Independent SHA-256 of the bytes on disk, used to bind a signer report to its artifact. */
+export async function hashFile(path: string): Promise<string> {
+  const digest = createHash('sha256');
+  for await (const chunk of createReadStream(path)) digest.update(chunk as Buffer);
+  return digest.digest('hex');
+}
+
 export async function fetchAsset(
   deps: WorkerDeps,
   id: string,
@@ -266,6 +273,9 @@ export async function processJob(deps: WorkerDeps, job: Job<{ id: string }>): Pr
       if (!prefix.equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) throw new Error('INVALID_OUTPUT');
     } finally {
       await file.close();
+    }
+    if (await hashFile(input.outputPath) !== signed.outputSha256) {
+      throw new Error('INVALID_OUTPUT');
     }
     const outputKey = `outputs/${row.id}.ipa`;
     const artifact = hashingStream(createReadStream(input.outputPath));

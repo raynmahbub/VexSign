@@ -124,6 +124,7 @@ private extension StorageDetailView {
 				HStack(spacing: 12) {
 					Image(systemName: _selection.contains(entry.id) ? "checkmark.circle.fill" : "circle")
 						.foregroundStyle(_selection.contains(entry.id) ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+						.accessibilityLabel(Text(verbatim: String.localized(_selection.contains(entry.id) ? "Deselect %@" : "Select %@", arguments: entry.name)))
 					StorageEntryLabel(entry: entry)
 				}
 			}

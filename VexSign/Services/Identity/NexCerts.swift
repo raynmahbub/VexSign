@@ -46,7 +46,7 @@ enum NexCerts {
 		let validFrom: String
 		let validTo: String
 		let folderName: String
-		fileprivate let order: Int
+		let order: Int
 
 		var stringID: String {
 			"\(id)-\(name)"
@@ -189,6 +189,7 @@ enum NexCerts {
 		case emptyCatalog
 		case invalidPassword
 		case downloadTooLarge(URL)
+		case rateLimited(retryAfterSeconds: TimeInterval?)
 
 		var errorDescription: String? {
 			switch self {
@@ -202,6 +203,8 @@ enum NexCerts {
 				String.localized("The downloaded certificate password is invalid.")
 			case .downloadTooLarge(let url):
 				String.localized("%@ returned a file larger than this catalogue can contain.", arguments: url.lastPathComponent)
+			case .rateLimited:
+				String.localized("The community catalogue is rate-limiting requests. VexSign stopped instead of retrying indefinitely.")
 			}
 		}
 	}
@@ -209,14 +212,33 @@ enum NexCerts {
 
 // MARK: - Catalog
 extension NexCerts {
-	static func fetchCatalog() async throws -> [CatalogSection] {
-		let entries = try await _fetchCatalogFromAPI()
+	/// Injectable seam used by the provider adapter and deterministic tests.
+	static func catalogFromAPI() async throws -> [CatalogItem] { try await _fetchCatalogFromAPI() }
 
-		guard !entries.isEmpty else {
-			throw NexCertsError.emptyCatalog
+	/// Idempotent catalogue reads may be retried once or twice with a capped
+	/// delay. Certificate downloads and imports are never retried here.
+	static func fetchCatalog(
+		attempts: Int = 1,
+		load: @escaping () async throws -> [CatalogItem] = { try await _fetchCatalogFromAPI() },
+		sleep: @escaping (TimeInterval) async throws -> Void = { interval in
+			try await Task.sleep(nanoseconds: UInt64(max(0, interval) * 1_000_000_000))
 		}
-
-		return _buildSections(from: entries)
+	) async throws -> [CatalogSection] {
+		let policy = ProviderRetryPolicy(maximumAttempts: min(max(attempts, 1), 3), maximumDelay: 5)
+		var attempt = 0
+		while true {
+			do {
+				let entries = try await load()
+				guard !entries.isEmpty else { throw NexCertsError.emptyCatalog }
+				return _buildSections(from: entries)
+			} catch let error as NexCertsError {
+				guard case .rateLimited(let retryAfter) = error,
+				      let delay = policy.delay(for: attempt, retryAfter: retryAfter) else { throw error }
+				attempt += 1
+				try Task.checkCancellation()
+				try await sleep(delay)
+			}
+		}
 	}
 
 	private static func _fetchCatalogFromAPI() async throws -> [CatalogItem] {
@@ -242,7 +264,10 @@ extension NexCerts {
 			CatalogItem(
 				id: cert.id,
 				name: cert.name,
-				certificateType: "Development",
+				// The catalogue has no certificate-type field. Do not turn its
+				// display name or folder name into a signing claim; the type is
+				// established from the downloaded profile after validation.
+				certificateType: "Unknown",
 				status: Status(apiValue: cert.status, validTo: cert.valid_to),
 				rawStatusText: cert.status,
 				validFrom: cert.valid_from,
@@ -332,22 +357,20 @@ extension NexCerts {
 				throw NexCertsError.invalidPassword
 			}
 
-			try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-				CertificateManagementService.importCertificateFiles(
+			let importedUUID = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+				CertificateManagementService.importCertificateFilesIdentified(
 					p12URL: p12URL,
 					provisionURL: provisionURL,
 					p12Password: password,
 					certificateName: certificate.name
-				) { error in
+				) { result in
 					try? fileManager.removeFileIfNeeded(at: temporaryDirectory)
-
-					if let error = error {
-						continuation.resume(throwing: error)
-					} else {
-						continuation.resume()
-					}
+					continuation.resume(with: result)
 				}
 			}
+			// Recorded only after the importer commits. Names and catalogue
+			// badges are never used to infer this.
+			SigningIdentityProvenanceStore.record(.communityNexCerts, uuid: importedUUID)
 		} catch {
 			try? fileManager.removeFileIfNeeded(at: temporaryDirectory)
 			throw error
@@ -384,6 +407,12 @@ extension NexCerts {
 		request.setValue("VexSign/App/iOS/VexSign/1.0", forHTTPHeaderField: "User-Agent")
 
 		let (data, response) = try await BoundedResponseFetch.fetch(request, maximumBytes: Int64(maxDownloadBytes))
+		if let limited = response as? HTTPURLResponse, (limited.statusCode == 429 || limited.statusCode == 503),
+		   limited.url?.host?.lowercased() == sourceHost {
+			let header = limited.value(forHTTPHeaderField: "Retry-After")
+			let retryAfter = header.flatMap(Double.init) ?? 5
+			throw NexCertsError.rateLimited(retryAfterSeconds: min(max(retryAfter, 0), 300))
+		}
 		// `response.url` is the final URL after any redirects. `sourceHost` is a
 		// promise made to the user and repeated in the UI, so the host that
 		// actually answered is checked, not the one that was requested.

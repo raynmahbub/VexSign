@@ -36,6 +36,7 @@ struct SigningPipeline: SigningWork, Sendable {
         handler.appIconData = request.iconData
         handler.onStage = { reporting(.stage($0)) }
         handler.onSignatureVerified = { reporting(.signatureVerified) }
+        handler.onVerificationReport = { reporting(.verificationReport($0)) }
         handler.onCompatibilityRemoved = { reporting(.compatibilityRemoved($0)) }
         handler.overridesBlockingPreflightIssues = request.overridesBlockingPreflightIssues
 

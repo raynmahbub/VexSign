@@ -114,14 +114,22 @@ struct VexSignError: LocalizedError, Sendable {
     }
     
     var errorDescription: String? {
-        var parts = [message]
+        // This string can reach an alert, a task row and a shared export. Apply the
+        // same redaction as the log path; an underlying OS error frequently carries
+        // a container path or an account hint.
+        let safeMessage = LogRedaction.redact(message)
+        var parts = [safeMessage]
         
         if let underlying = underlyingError {
-            parts.append("Underlying: \(underlying.localizedDescription)")
+            let safeUnderlying = LogRedaction.redact(underlying.localizedDescription)
+            parts.append("Underlying: \(safeUnderlying)")
         }
         
         if !context.isEmpty {
-            let ctx = context.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
+            let ctx = context.map { pair in
+                let safeValue = LogRedaction.redact(pair.value)
+                return "\(pair.key)=\(safeValue)"
+            }.joined(separator: ", ")
             parts.append("Context: [\(ctx)]")
         }
         
@@ -195,13 +203,17 @@ struct VexSignError: LocalizedError, Sendable {
 
 extension VexSignError {
     func log(category: String = "error", level: OSLogType = .error) {
-        let logMessage = "VexSignError[\(code.rawValue)]: \(message)"
-        Logger.misc.log(level: level, "\(logMessage, privacy: .public)")
+        // The code and category are fixed identifiers and stay public. Everything
+        // derived from an error, a context dictionary or a caller-supplied message
+        // is private after redaction: Console and a shared log must not become a
+        // side channel for credentials or private paths.
+        Logger.misc.log(level: level, "VexSignError[\(code.rawValue, privacy: .public)][\(LogRedaction.redact(category), privacy: .public)]: \(LogRedaction.redact(message), privacy: .private)")
         if let underlying = underlyingError {
-            Logger.misc.log(level: level, "  Underlying: \(underlying.localizedDescription, privacy: .public)")
+            Logger.misc.log(level: level, "  Underlying: \(LogRedaction.redact(underlying.localizedDescription), privacy: .private)")
         }
         if !context.isEmpty {
-            Logger.misc.log(level: level, "  Context: \(context, privacy: .public)")
+            let redactedContext = context.mapValues { LogRedaction.redact($0) }
+            Logger.misc.log(level: level, "  Context: \(redactedContext, privacy: .private)")
         }
         #if DEBUG
         Logger.misc.log(level: level, "  Ref: \(file):\(function):\(line)")

@@ -142,6 +142,7 @@ extension SigningInfoPlistView {
 				} label: {
 					Image(systemName: "line.3.horizontal.decrease")
 						.foregroundStyle(changedCount == 0 ? Color.secondary : (_changedOnly ? Color.accentColor : Color.primary))
+						.accessibilityLabel(Text(verbatim: String.localized(_changedOnly ? "Show all Info.plist keys" : "Show changed Info.plist keys")))
 				}
 				.disabled(changedCount == 0)
 			}
@@ -291,6 +292,7 @@ extension SigningInfoPlistView {
 			HStack {
 				Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
 					.foregroundStyle(isSelected ? Color.accentColor : .secondary)
+					.accessibilityLabel(Text(verbatim: String.localized(isSelected ? "Deselect key %@" : "Select key %@", arguments: key)))
 				_label(key: key, value: value, status: status)
 			}
 		}

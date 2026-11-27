@@ -156,6 +156,25 @@ extension ProvisioningFlowView {
                 deviceUDID: deviceIdentifier
             )
 
+            // Show the same source-labelled, source-checked rule the adapter
+            // enforces before any portal mutation. The local profile count is
+            // never presented as Apple's App ID quota.
+            if case .signedIn(let context) = manager.snapshot?.phase,
+               context.team.membership == .free {
+                let limits = AppleAccountLifecyclePolicy.limits(for: .free)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(verbatim: limits.appIdentifierSummary)
+                    Text(verbatim: limits.deviceSummary)
+                    Text(.localized("Renewing an existing Apple-issued profile does not register another App ID. If Apple's portal inventory cannot be read, VexSign refuses a new registration before changing the portal."))
+                    if !manager.freeAccountInventoryAvailable {
+                        Text(.localized("Local profile history is unavailable. It does not affect Apple's quota; the portal preflight decides whether a new registration is allowed."))
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
             if refreshReview {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(.localized("This runs six attended stages: provision, import the exact identity, re-sign the retained copy, hand it to your chosen delivery route, then verify. Each approval below still applies; nothing starts without it."))

@@ -10,6 +10,9 @@ enum SigningWorkflowEvent<Artifact: Sendable>: Sendable {
 	/// registered — neither one says the signature itself was verified, and "modify without
 	/// signing" runs reach `.registering` without verifying anything at all.
 	case signatureVerified
+	/// The verifier's bounded, non-secret result. Emitted only after the real
+	/// verification pass, never inferred from a stage or a finished run.
+	case verificationReport(SigningVerificationReport)
 	/// Compatibility mode removed these profile-incompatible app extensions before signing.
 	case compatibilityRemoved([String])
 	case finished(Artifact)
@@ -18,7 +21,7 @@ enum SigningWorkflowEvent<Artifact: Sendable>: Sendable {
 
 	var isTerminal: Bool {
 		switch self {
-		case .stage, .signatureVerified, .compatibilityRemoved:
+		case .stage, .signatureVerified, .verificationReport, .compatibilityRemoved:
 			false
 		case .finished, .cancelled, .failed:
 			true

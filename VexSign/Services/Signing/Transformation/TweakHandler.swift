@@ -58,23 +58,14 @@ class TweakHandler {
 		try TweakPlacement.move(url, to: destination, fileManager: _fileManager)
 	}
 
-	/// Suffixes `-2`, `-3`… so two tweaks can ship the same dylib name.
-	private func _uniqueDylibDestination(_ destination: URL) -> URL {
-		guard _fileManager.fileExists(atPath: destination.path) else { return destination }
-
-		let directory = destination.deletingLastPathComponent()
-		let base = destination.deletingPathExtension().lastPathComponent
-		let ext = destination.pathExtension
-
-		var index = 2
-		var candidate = destination
-		repeat {
-			candidate = directory.appendingPathComponent("\(base)-\(index).\(ext)")
-			index += 1
-		} while _fileManager.fileExists(atPath: candidate.path)
-
-		SigningLog.shared.info(.localized("Renamed %1$@ to %2$@ — that name was already taken", arguments: destination.lastPathComponent, candidate.lastPathComponent))
-		return candidate
+	/// Two packages claiming the same installed file name are a conflict, not a
+	/// reason to rename one silently: a renamed payload can break the dylib's own
+	/// install name and the dependency graph the plan was built from.
+	private func _reservedDylibDestination(_ destination: URL) throws -> URL {
+		guard !_fileManager.fileExists(atPath: destination.path) else {
+			throw TweakHandlerError.destinationConflict(destination.lastPathComponent)
+		}
+		return destination
 	}
 
 	private func _findEllekitURL() -> URL? {
@@ -156,6 +147,33 @@ class TweakHandler {
 		Logger.misc.info("Attempting to inject")
 
 		let filePickerFix = try _filePickerFixURL
+
+		// A structured plan must name an authorized target explicitly. The gate runs
+		// before ElleKit or any payload is placed, so a refusal leaves the working
+		// copy untouched and never produces a signed tweak build.
+		if !_options.injectionConfigurations.isEmpty {
+			let evaluation = InjectionTargetAuthorization.evaluate(
+				configurations: _options.injectionConfigurations,
+				in: _app,
+				bundleIdentifier: _options.effectiveAppIdentifier
+			)
+			guard evaluation.outcome == .compatible, !evaluation.selections.isEmpty else {
+				throw TweakHandlerError.authorizedTargetNotSelected(
+					evaluation.explanations.prefix(2).joined(separator: " ")
+				)
+			}
+
+			let probePath = "@executable_path/Frameworks/VexSignLayoutProbe.dylib"
+			if let executable = Bundle(url: _app)?.executableURL {
+				try InjectionBinaryAdmission.validate(executableAt: executable, proposedLoadPath: probePath)
+			}
+			let plugins = _app.appendingPathComponent("PlugIns")
+			for name in (try? _fileManager.contentsOfDirectory(atPath: plugins.path)) ?? [] where name.hasSuffix(".appex") { // try? ok: no PlugIns directory means no nested targets to validate
+				if let executable = Bundle(url: plugins.appendingPathComponent(name))?.executableURL {
+					try InjectionBinaryAdmission.validate(executableAt: executable, proposedLoadPath: probePath)
+				}
+			}
+		}
 
 		if !_options.experiment_replaceSubstrateWithEllekit {
 			guard _hasAnyInjection || filePickerFix != nil else { return }
@@ -438,6 +456,12 @@ class TweakHandler {
 				findings: [TweakCompatibility.Finding(code: .loadCommandNotAdded)]
 			)
 		}
+		// The native engine is the only writer; re-read its result before the app
+		// is signed. No load command means no tweak, and no tweak is silently
+		// accepted just because the engine returned success.
+		if !_options.injectionConfigurations.isEmpty {
+			try InjectionBinaryAdmission.verify(executableAt: executable, expectedLoadPath: loadPath)
+		}
 	}
 
 	// MARK: - Inject (main binary)
@@ -464,7 +488,7 @@ class TweakHandler {
 			injectFolder = .root
 		}
 
-		destinationURL = _uniqueDylibDestination(destinationURL.appendingPathComponent(url.lastPathComponent))
+		destinationURL = try _reservedDylibDestination(destinationURL.appendingPathComponent(url.lastPathComponent))
 
 		guard let appexe = Bundle(url: _app)?.executableURL else {
 			throw TweakCompatibility.Rejected(
@@ -826,6 +850,8 @@ enum TweakHandlerError: LocalizedError, Equatable {
 	case missingFile(String)
 	case noAccess
 	case filePickerFixUnavailable
+	case destinationConflict(String)
+	case authorizedTargetNotSelected(String)
 
 	var errorDescription: String? {
 		switch self {
@@ -848,6 +874,10 @@ enum TweakHandlerError: LocalizedError, Equatable {
 			return .localized("The tweak could not be read because access to it was denied. Copy it into VexSign's folder and try again.")
 		case .filePickerFixUnavailable:
 			return .localized("This build does not include the bundled file-picker fix, and signing without it would leave the picker broken. Update VexSign, or turn off Fix file picker and sign again.")
+		case .destinationConflict(let name):
+			return .localized("Two tweaks claim the same payload name (%@). One was not renamed; remove the conflicting tweak and rebuild the plan.", arguments: name)
+		case .authorizedTargetNotSelected(let reason):
+			return .localized("No authorized application target matched this modification plan: %@", arguments: reason)
 		}
 	}
 }

@@ -19,6 +19,12 @@ enum UIID {
     static let settingsInstallation = "vexsign.settings.installationengine"
     static let freeAppleID = "vexsign.signing.method.freeappleid"
     static let identityDelivery = "vexsign.signing.identitydelivery"
+    static let diagnosticsCenter = "vexsign.diagnostics.center"
+    static let troubleshooting = "vexsign.diagnostics.troubleshooting"
+    static let events = "vexsign.diagnostics.events"
+    static let categoryFilter = "vexsign.diagnostics.categoryfilter"
+    static let operationFilter = "vexsign.diagnostics.operationfilter"
+    static let exportFiltered = "vexsign.diagnostics.exportfiltered"
 }
 
 class VexSignUITestCase: XCTestCase {

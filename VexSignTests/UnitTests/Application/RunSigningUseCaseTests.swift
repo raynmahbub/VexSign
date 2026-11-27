@@ -21,6 +21,7 @@ final class RunSigningUseCaseTests: XCTestCase {
     func testProgressKeepsOrderAndOnlyTheUseCaseEmitsTheVerdict() async {
         let work = Work(events: [
             .stage(.copying), .failed(Failure.refused), .signatureVerified,
+            .verificationReport(SigningVerificationReport.empty),
             .finished("untrusted verdict"), .compatibilityRemoved(["Widget.appex"])
         ], result: .success("registered artifact"))
         var events: [Event] = []
@@ -28,7 +29,7 @@ final class RunSigningUseCaseTests: XCTestCase {
         await RunSigningUseCase(work: work).execute("request") { events.append($0) }
 
         XCTAssertEqual(events.map(Self.label), [
-            "copying", "verified", "compatibility:Widget.appex", "finished:registered artifact"
+            "copying", "verified", "report:unsupported", "compatibility:Widget.appex", "finished:registered artifact"
         ])
         XCTAssertEqual(events.filter(\.isTerminal).count, 1)
     }
@@ -84,6 +85,7 @@ final class RunSigningUseCaseTests: XCTestCase {
         switch event {
         case .stage(let stage): stage.rawValue
         case .signatureVerified: "verified"
+        case .verificationReport(let report): "report:" + report.verdict
         case .compatibilityRemoved(let components): "compatibility:" + components.joined(separator: ",")
         case .finished(let artifact): "finished:" + artifact
         case .cancelled: "cancelled"

@@ -242,7 +242,7 @@ final class SigningWorkflowTraceTests: XCTestCase {
 	func testTheTraceSurvivesTaskHistorySerialization() throws {
 		var context = TaskContext()
 		for stage in SigningStage.allCases { context.recordSigningStage(stage) }
-		context.recordSigningVerification()
+		context.recordSigningVerification(_VerificationWork.report)
 		context.recordSigningOutcome(.completed)
 
 		let task = UnifiedTask(kind: .sign, title: "Fixture App", phase: .signing, subjectID: "app-1")
@@ -254,6 +254,7 @@ final class SigningWorkflowTraceTests: XCTestCase {
 
 		XCTAssertEqual(trace.stages, SigningStage.allCases)
 		XCTAssertEqual(trace.verified, true)
+		XCTAssertEqual(trace.verificationReport, _VerificationWork.report)
 		XCTAssertEqual(trace.outcome, .completed)
 
 		let snapshot = SigningWorkflowSnapshot(trace: trace)
@@ -392,6 +393,7 @@ final class SigningWorkflowTraceTests: XCTestCase {
 			switch event {
 			case .stage(let stage): context.recordSigningStage(stage)
 			case .signatureVerified: context.recordSigningVerification()
+			case .verificationReport(let report): context.recordSigningVerification(report)
 			case .finished: context.recordSigningOutcome(.completed)
 			case .cancelled: context.recordSigningOutcome(.cancelled)
 			case .failed: context.recordSigningOutcome(.failed)
@@ -407,9 +409,11 @@ final class SigningWorkflowTraceTests: XCTestCase {
 		let trace = try XCTUnwrap(context.signingTrace)
 		XCTAssertEqual(trace.stages, [.copying, .signing, .verifying, .registering])
 		XCTAssertEqual(trace.verified, true)
+		XCTAssertEqual(trace.verificationReport, _VerificationWork.report)
 		XCTAssertEqual(trace.outcome, .completed)
 
 		let snapshot = SigningWorkflowSnapshot(trace: trace)
+		XCTAssertEqual(snapshot.verificationReport?.verdict, "valid")
 		for step in [SigningWorkspaceStep.prepare, .sign, .verify] {
 			XCTAssertEqual(step.status(snapshot), .completed)
 		}
@@ -468,6 +472,10 @@ final class SigningWorkflowTraceTests: XCTestCase {
 /// the stage callbacks coming from off the main actor the way the pipeline's do.
 private final class _VerificationWork: SigningWork, Sendable {
 	private let artifact: LibraryAppReference
+	static let report = SigningVerificationReport(
+		verdict: "valid", summary: "Signature structure checked in 3 ms.", failureCount: 0,
+		warningCount: 0, issues: [], signerFingerprints: ["AA:BB:CC"], architectureCount: 2,
+		componentCount: 3, durationMilliseconds: 3, verifiedAt: Date(timeIntervalSince1970: 1_700_000_000))
 
 	@MainActor
 	init(signed: Signed) {
@@ -481,6 +489,7 @@ private final class _VerificationWork: SigningWork, Sendable {
 			reporting(.stage(.signing))
 			reporting(.stage(.verifying))
 			reporting(.signatureVerified)
+			reporting(.verificationReport(_VerificationWork.report))
 			reporting(.stage(.registering))
 		}.value
 		return .success(artifact)

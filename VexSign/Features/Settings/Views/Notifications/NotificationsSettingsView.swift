@@ -55,6 +55,19 @@ struct NotificationsSettingsView: View {
                     statusPill(isOn: pushEnabled)
                 }
                 .padding(.vertical, 2)
+
+                NavigationLink(destination: NotificationTopicsSettingsView()) {
+                    HStack {
+                        Image(systemName: "bell.badge")
+                            .foregroundStyle(.purple)
+                        Text(.localized("VexSign notification types and reminders"))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .font(.subheadline)
+                }
             }
 
             // MARK: - Delivery Settings

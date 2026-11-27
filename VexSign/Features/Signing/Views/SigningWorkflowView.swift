@@ -124,6 +124,8 @@ struct SigningWorkflowSnapshot: Equatable {
     var succeeded = false
     /// The engine's own signature-verification result. Distinct from `succeeded`.
     var verified = false
+    /// The verifier's bounded report, when the final pass actually ran.
+    var verificationReport: SigningVerificationReport?
     var failed = false
     var cancelled = false
 
@@ -133,6 +135,7 @@ struct SigningWorkflowSnapshot: Equatable {
         running: Bool = false,
         succeeded: Bool = false,
         verified: Bool = false,
+        verificationReport: SigningVerificationReport? = nil,
         failed: Bool = false,
         cancelled: Bool = false
     ) {
@@ -141,6 +144,7 @@ struct SigningWorkflowSnapshot: Equatable {
         self.running = running
         self.succeeded = succeeded
         self.verified = verified
+        self.verificationReport = verificationReport
         self.failed = failed
         self.cancelled = cancelled
     }
@@ -155,6 +159,7 @@ struct SigningWorkflowSnapshot: Equatable {
         self.running = running
         self.succeeded = trace.outcome == .completed
         self.verified = trace.verified ?? false
+        self.verificationReport = trace.verificationReport
         self.failed = trace.outcome == .failed
         self.cancelled = trace.outcome == .cancelled
     }
@@ -163,6 +168,7 @@ struct SigningWorkflowSnapshot: Equatable {
     /// has to render as.
     var isEmpty: Bool {
         reached.isEmpty && current == nil && !running && !succeeded && !failed && !cancelled && !verified
+            && verificationReport == nil
     }
 
     func status(of step: SigningWorkspaceStep) -> SigningWorkspaceStep.Status { step.status(self) }
@@ -230,6 +236,28 @@ struct SigningWorkflowView: View {
                         }
                     }
                     .accessibilityElement(children: .combine)
+                }
+                if let report = snapshot.verificationReport {
+                    DisclosureGroup("Signature verification report") {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
+                            Text("Verdict: \(report.verdict) · Failures: \(report.failureCount) · Warnings: \(report.warningCount)")
+                                .font(.caption)
+                            Text("Architectures verified: \(report.architectureCount) · Signed components: \(report.componentCount)")
+                                .font(.caption2).foregroundStyle(.secondary)
+                            if !report.signerFingerprints.isEmpty {
+                                Text("Accepted signers: \(report.signerFingerprints.joined(separator: ", "))")
+                                    .font(.caption2.monospaced()).textSelection(.enabled)
+                            }
+                            ForEach(report.issues, id: \.self) { issue in
+                                Text("\(issue.severity): \(issue.detail)")
+                                    .font(.caption2)
+                                    .foregroundStyle(issue.severity == "failure" ? .red : .orange)
+                            }
+                            Text("This report describes signature verification only. It is not evidence that the app was installed or launched on a device.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                    .font(.caption)
                 }
                 Text(.localized("Only observed signing stages are marked complete. Installation is tracked separately; signing does not confirm that the app is installed."))
                     .font(.caption).foregroundStyle(.secondary)

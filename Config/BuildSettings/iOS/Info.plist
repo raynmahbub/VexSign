@@ -4,6 +4,8 @@
 <dict>
     <key>VexSignSourceCommit</key>
     <string>$(VEXSIGN_SOURCE_COMMIT)</string>
+    <key>VexSignBuildChannel</key>
+    <string>$(VEXSIGN_BUILD_CHANNEL)</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

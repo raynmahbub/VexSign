@@ -25,7 +25,7 @@ enum FeatureStatus: String, CaseIterable {
 
 	var title: String {
 		switch self {
-		case .implemented: .localized("Implemented")
+		case .implemented: .localized("Source present")
 		case .needsDevice: .localized("Needs device validation")
 		}
 	}
@@ -358,15 +358,15 @@ enum FeatureStatusRegistry {
 			name: "Paired AFC / installd installation",
 			setting: "Settings → Installation → Direct transport → idevice",
 			persistedAs: "VexSign.installationMethod = 1 · pairing record · inventory-bridge acceptance",
-			consumer: "DeviceTransportPolicy → InstallationAppProxy → InstalledAppProbe → InstallQueue",
+			consumer: "DeviceTransportPolicy → InstallationAppProxy → InstallQueue → PairedInstallationJourney → InstallConfirmation / InstalledAppProbe; device-acceptance.py --include-paired-installation",
 			status: .needsDevice
 		),
 		FeatureStatusEntry(
 			id: "computer-free-bootstrap",
 			name: "Computer-free bootstrap of VexSign itself",
-			setting: "Documentation → Deployment → computer-free installation",
+			setting: "Installation → Tunnel & Pairing → Guided computer-free bootstrap",
 			persistedAs: "device-acceptance.local.json (local, never committed) bound to one IPA SHA-256",
-			consumer: "device-acceptance.py init/check with --include-computer-free-bootstrap",
+			consumer: "BootstrapJourney → BootstrapOrchestrator → PairingHostBridge / PairingBridge; device-acceptance.py init/check with --include-computer-free-bootstrap",
 			status: .needsDevice
 		),
 		FeatureStatusEntry(

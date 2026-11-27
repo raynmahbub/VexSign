@@ -19,6 +19,9 @@ struct TaskSigningTrace: Codable, Equatable, Sendable {
 	var stoppedAt: SigningStage?
 	/// Set only by `.signatureVerified`. Never inferred from the run succeeding.
 	var verified: Bool?
+	/// Bounded result of the verifier's own final pass, when one ran. A finished
+	/// run without this value has no persisted signature report to show.
+	var verificationReport: SigningVerificationReport?
 	/// Absent while the run is in flight.
 	var outcome: Outcome?
 
@@ -35,6 +38,7 @@ struct TaskSigningTrace: Codable, Equatable, Sendable {
 		case stages
 		case stoppedAt
 		case verified
+		case verificationReport
 		case outcome
 	}
 
@@ -60,6 +64,13 @@ struct TaskSigningTrace: Codable, Equatable, Sendable {
 		stoppedAt = try container.decodeIfPresent(String.self, forKey: .stoppedAt)
 			.flatMap(SigningStage.init(rawValue:))
 		verified = try container.decodeIfPresent(Bool.self, forKey: .verified)
+		// A report written by a newer build that this build cannot decode is
+		// treated as absent, not as a reason to discard the whole task history.
+		do {
+			verificationReport = try container.decodeIfPresent(SigningVerificationReport.self, forKey: .verificationReport)
+		} catch {
+			verificationReport = nil
+		}
 		outcome = try container.decodeIfPresent(String.self, forKey: .outcome)
 			.flatMap(Outcome.init(rawValue:))
 	}
@@ -74,10 +85,17 @@ struct TaskSigningTrace: Codable, Equatable, Sendable {
 		verified = true
 	}
 
+	mutating func recordVerification(_ report: SigningVerificationReport) {
+		verified = true
+		verificationReport = report
+	}
+
 	mutating func record(outcome: Outcome) {
 		self.outcome = outcome
 	}
 
 	/// True when nothing was ever observed, so a caller can tell "no evidence" from "no stages".
-	var isEmpty: Bool { stages.isEmpty && stoppedAt == nil && outcome == nil && verified == nil }
+	var isEmpty: Bool {
+		stages.isEmpty && stoppedAt == nil && outcome == nil && verified == nil && verificationReport == nil
+	}
 }

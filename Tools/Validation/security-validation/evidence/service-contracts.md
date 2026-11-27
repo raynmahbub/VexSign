@@ -91,7 +91,7 @@ The share root is the same library directory, under `/` and `/webdav`:
 | `MKCOL` | Create a directory. |
 | `DELETE` | Delete a file or directory. |
 | `MOVE`, `COPY` | Rename/copy inside the share. |
-| `LOCK`, `UNLOCK` | Accepted so Finder's write path works; locks are not enforced across connections. |
+| `LOCK`, `UNLOCK` | Refused with `405 Method Not Allowed`; this subset does not implement WebDAV locks. |
 
 Every path is resolved through `WebDAVTransferPolicy.isContained(_:in:allowRoot:)`
 and every name through `WebManagerFilenamePolicy.sanitizedFilename(_:)`, which

@@ -168,7 +168,31 @@ final class AppleAccountWorkspaceAdapter: AppleAccountWorkspaceProviding {
         try await manager.requireProfileOperations()
         progress(.init(stage: .preflight, fraction: 0.1))
         let preflight = try NativeAccountProvisioningRequest(deviceIdentifier: deviceID, bundleIdentifiers: [bundleID])
-        _ = try await manager.provisioningPreflight(contextID: contextID, request: preflight)
+        let plan = try await manager.provisioningPreflight(contextID: contextID, request: preflight)
+        try Task.checkCancellation()
+        // The membership and inventory come from the current, context-checked
+        // session. Enforce Apple's free-account ceiling before any certificate,
+        // device or App ID mutation is requested from the portal.
+        guard case .signedIn(let context) = manager.snapshot?.phase else {
+            throw AppleAccountWorkspaceError.noActiveContext
+        }
+        let kind = AppleAccountKind(Self.team(context.team).membership)
+        // Only counts returned by this preflight's Apple portal reads are
+        // eligible. The local profile journal count is advisory UI metadata,
+        // not portal quota. A renewal does not register its existing device.
+        let observation = AppleAccountPortalObservation(
+            activeAppIdentifierCount: plan.observedActiveAppIdentifierCount,
+            registeredDeviceCount: plan.observedRegisteredDeviceCount
+        )
+        try AppleAccountLifecyclePolicy.requireProvisioning(
+            kind: kind,
+            observation: observation,
+            requestedAlreadyActive: plan.existingAppIdentifiers.contains {
+                $0.caseInsensitiveCompare(bundleID) == .orderedSame
+            },
+            newAppIdentifierCount: plan.appIDsToRegister.count,
+            requiresDeviceRegistration: plan.requiresDeviceRegistration && !request.approveRegeneration
+        )
         try Task.checkCancellation()
         progress(.init(stage: .identity, fraction: 0.25))
         let identityID: UUID
@@ -214,6 +238,11 @@ final class AppleAccountWorkspaceAdapter: AppleAccountWorkspaceProviding {
         try requireContext(contextID)
         let currentApp = try repository.storage.managedApp(matching: request.app)
         guard currentApp.identifier == bundleID, profile.expiresAt > Date() else { throw AppleAccountWorkspaceError.missingReceipt }
+        // An advisory classification only: a longer free-account profile is not
+        // rejected here, but a malformed or already-lapsed one cannot be handed on.
+        guard AppleAccountLifecyclePolicy.profileLifetime(
+            kind: kind, expiresAt: profile.expiresAt, now: Date()
+        ).isUsableForHandoff else { throw AppleAccountWorkspaceError.missingReceipt }
         if let baseline, profile.expiresAt <= baseline.expiry { throw AppleAccountWorkspaceError.expiryNotAdvanced }
         let receipt = AppleAccountProvisioningReceipt(id: UUID(), profileUUID: profile.profileUUID, expiresAt: profile.expiresAt)
         // Keep only current, unexpired metadata; no key or password is retained here.

@@ -54,6 +54,25 @@ final class UIKitPlatformAdapter: PlatformSystemAdapting {
         )
     }
 
+    func presentImportConsentAlert(
+        title: String,
+        message: String,
+        confirmTitle: String,
+        onConfirm: @escaping () -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        guard let presenter = UIApplication.topViewController() else {
+            // No presenter means no consent. Fail closed: report the decline so
+            // staged private-key bytes are removed instead of left on disk.
+            onCancel()
+            return
+        }
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: confirmTitle, style: .destructive) { _ in onConfirm() })
+        alert.addAction(UIAlertAction(title: .localized("Cancel"), style: .cancel) { _ in onCancel() })
+        presenter.present(alert, animated: true)
+    }
+
     func presentErrorWithCopy(title: String, message: String) {
         UIAlertController.showErrorWithCopy(title: title, message: message)
     }

@@ -278,6 +278,7 @@ test('worker signs IPA, purges unreferenced S3 input objects, and prunes old web
       return {
         kind: 'sign',
         signatureVerified: true,
+        outputSha256: createHash('sha256').update(signedBytes).digest('hex'),
         metadata: {
           name: 'Signed App',
           bundleIdentifier: 'com.my_org.signed_app',

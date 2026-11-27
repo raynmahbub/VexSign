@@ -50,6 +50,8 @@ struct SigningView: View {
     @State private var _signingSucceeded = false
     /// Set only by the engine's own signature verification.
     @State private var _signatureVerified = false
+    /// The verifier's own bounded report for this run, when one was produced.
+    @State private var _verificationReport: SigningVerificationReport?
     @State private var _signingError: String?
     @State private var _compatibilityRemovedComponents: [String] = []
     @State private var _readiness = SigningReadiness.checking(requiresIdentity: true)
@@ -106,7 +108,7 @@ struct SigningView: View {
 	/// Update All or a batch job no longer reports every step as "Not run".
 	private var _workflowSnapshot: SigningWorkflowSnapshot {
 		let hasLiveRun = _isSigning || !_reachedStages.isEmpty || _signingSucceeded
-			|| _signatureVerified || _signingError != nil || _wasCancelled
+			|| _signatureVerified || _verificationReport != nil || _signingError != nil || _wasCancelled
 		if hasLiveRun {
 			return SigningWorkflowSnapshot(
 				reached: _reachedStages,
@@ -114,6 +116,7 @@ struct SigningView: View {
 				running: _isSigning,
 				succeeded: _signingSucceeded,
 				verified: _signatureVerified,
+				verificationReport: _verificationReport,
 				failed: _signingError != nil,
 				cancelled: _wasCancelled
 			)
@@ -541,6 +544,7 @@ extension SigningView {
         _wasCancelled = false
         _signingSucceeded = false
         _signatureVerified = false
+        _verificationReport = nil
         _currentStage = nil
         _reachedStages = []
         let requestID = UUID().uuidString
@@ -577,6 +581,9 @@ extension SigningView {
                 // The engine's own verification accepted the bundle. This is what marks Verify
                 // complete — not the run finishing, which can happen without verifying at all.
                 _signatureVerified = true
+            },
+            onVerificationReport: { report in
+                _verificationReport = report
             },
             onCompatibilityRemoved: { components in
                 _compatibilityRemovedComponents.append(contentsOf: components)

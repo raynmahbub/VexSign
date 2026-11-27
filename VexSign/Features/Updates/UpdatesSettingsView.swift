@@ -85,7 +85,7 @@ struct UpdatesSettingsView: View {
 			HStack {
 				Text(.localized("Installed"))
 				Spacer()
-				Text(Bundle.main.version).foregroundStyle(.secondary)
+				Text(VexSignBuildInfo.version).foregroundStyle(.secondary)
 			}
 			if _manager.isChecking {
 				Label(.localized("Checking for updates…"), systemImage: "arrow.clockwise")
@@ -108,8 +108,8 @@ struct UpdatesSettingsView: View {
 						.font(.subheadline.bold())
 				}
 			} else if _manager.hasChecked, let latest = _manager.latestSemver {
-				let comparison = SelfUpdateManager.compare(latest.version, Bundle.main.version)
-				let isComparableBuild = SelfUpdateManager.isSemver(Bundle.main.version)
+				let comparison = SelfUpdateManager.compare(latest.version, VexSignBuildInfo.version)
+				let isComparableBuild = SelfUpdateManager.isSemver(VexSignBuildInfo.version)
 				let isIgnoredUpdate = isComparableBuild
 					&& comparison == .orderedDescending
 					&& _manager.ignoredVersions.contains(latest.version)

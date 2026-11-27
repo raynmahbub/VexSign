@@ -7,11 +7,18 @@ actor EcosystemDatabase {
     static let shared = EcosystemDatabase()
     private var database: OpaquePointer?
     private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+    /// Isolated root used by deterministic tests. Production always leaves this nil.
+    private let testRoot: URL?
+
+    init(root: URL? = nil) {
+        self.testRoot = root
+    }
 
     private func connection() throws -> OpaquePointer {
         if let database { return database }
-        let directory = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-            .appendingPathComponent("Ecosystem", isDirectory: true)
+        let base = try testRoot.map { try FileManager.default.createDirectory(at: $0, withIntermediateDirectories: true) }
+            ?? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let directory = base.appendingPathComponent("Ecosystem", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                                               attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
         var handle: OpaquePointer?
@@ -52,6 +59,15 @@ actor EcosystemDatabase {
         }
         guard result == SQLITE_DONE else { throw failure(db) }
     }
+    func delete(_ key: String) throws {
+        let db = try connection()
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "DELETE FROM records WHERE key=?", -1, &stmt, nil) == SQLITE_OK else { throw failure(db) }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, key, -1, transient)
+        guard sqlite3_step(stmt) == SQLITE_DONE else { throw failure(db) }
+    }
+
     private func failure(_ db: OpaquePointer) -> Error {
         RepositoryError.invalid("Cache error: \(String(cString: sqlite3_errmsg(db)))")
     }
