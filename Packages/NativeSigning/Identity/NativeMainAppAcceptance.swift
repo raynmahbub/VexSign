@@ -128,7 +128,7 @@ struct NativeMainAppAcceptance {
                 guard let end = xml[start.lowerBound...].firstIndex(of: ">") else { throw NativeSigningAcceptanceError.invalidInput }
                 let range = start.lowerBound...end
                 let declaration = xml[range].components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
-                guard declaration == "<!DOCTYPE plist PUBLIC \"-//VexSign/System//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">" else { throw NativeSigningAcceptanceError.invalidInput }
+                guard declaration == "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">" else { throw NativeSigningAcceptanceError.invalidInput }
                 xml.removeSubrange(range)
                 guard xml.range(of: "<!DOCTYPE", options: .caseInsensitive) == nil else { throw NativeSigningAcceptanceError.invalidInput }
                 parserData = Data(xml.utf8)
