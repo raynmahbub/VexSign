@@ -197,6 +197,20 @@ jobs:
         run: |
           set -euo pipefail
           python3 Packages/DeviceBridge/prepare.py --build 2>&1 | tee "$RUNNER_TEMP/device-bridge-build.log"
+      # Temporary diagnostics: the job log is not downloadable, so report the facts as
+      # annotations. Remove once the symbol-resolution failure is understood.
+      - name: Diagnose source-built device bridge
+        if: always()
+        run: |
+          F=Packages/Vendor/IDeviceKitten/.build/ModernDevice
+          echo "::notice title=bridge-dir::$(ls -la $F 2>&1 | tr '\n' ' ' | cut -c1-900)"
+          for h in $(find $F -name 'idevice.h' 2>/dev/null); do
+            echo "::notice title=bridge-header::$h vexsign_mentions=$(grep -c vexsign "$h") bytes=$(wc -c < "$h")"
+          done
+          for lib in $(find $F -name '*.a' 2>/dev/null); do
+            echo "::notice title=bridge-lib::$lib $(nm -gU "$lib" 2>/dev/null | grep -c vexsign_device) vexsign_device symbols"
+          done
+          echo "::notice title=bridge-log::$(tail -c 600 "$RUNNER_TEMP/device-bridge-build.log" 2>/dev/null | tr '\n' ' ')"
       - name: Build standalone VexSign native input
         id: native_input
         env:
