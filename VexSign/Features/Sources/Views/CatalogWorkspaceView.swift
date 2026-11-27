@@ -11,13 +11,13 @@ import NimbleExtensions
 struct CatalogWorkspaceView: View {
     @EnvironmentObject private var container: AppContainer
     @State private var model: CatalogWorkspaceModel?
-    @State private var section: Section = .sources
+    @State private var section: CatalogSection = .sources
     @State private var isAddingSource = false
     @State private var selectedApp: CatalogAppRecord?
     @State private var selectedSource: CatalogSourceRecord?
     @State private var editingSource: CatalogSourceRecord?
 
-    private enum Section: String, CaseIterable, Identifiable {
+    private enum CatalogSection: String, CaseIterable, Identifiable {
         case sources, discover, updates
         var id: String { rawValue }
         var title: String {
@@ -45,7 +45,7 @@ struct CatalogWorkspaceView: View {
     private func content(model: CatalogWorkspaceModel) -> some View {
             VStack(spacing: 0) {
                 Picker(.localized("Section"), selection: $section) {
-                    ForEach(Section.allCases) { Text($0.title).tag($0) }
+                    ForEach(CatalogSection.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)

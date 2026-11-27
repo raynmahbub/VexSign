@@ -90,7 +90,7 @@ struct NotificationTopicsSettingsView: View {
                     Text(.localized("No notifications delivered yet."))
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(history.entries.suffix(10)) { entry in
+                    ForEach(history.entries.suffix(10), id: \.identifier) { entry in
                         VStack(alignment: .leading, spacing: 3) {
                             Text(entry.title).font(.subheadline.weight(.semibold))
                             Text(entry.body).font(.caption)

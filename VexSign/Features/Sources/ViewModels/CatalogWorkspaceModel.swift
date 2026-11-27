@@ -195,7 +195,7 @@ final class CatalogWorkspaceModel: ObservableObject {
     }
 
     private func applySearch() {
-        hits = Array(CatalogSearch.search(snapshots: snapshots, query: query).prefix(pageSize))
+        hits = Array(CatalogSearch.search(snapshots: snapshots.sorted { $0.key < $1.key }.map(\.value), query: query).prefix(pageSize))
     }
 
     private func applyUpdates() {

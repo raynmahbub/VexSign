@@ -325,7 +325,7 @@ private struct ContainerDetailView: View {
     @ViewBuilder
     private var resourcesSection: some View {
         Section(String.localized("Resources")) {
-            ForEach(container.resources) { resource in
+            ForEach(container.resources, id: \.relativePath) { resource in
                 HStack {
                     VStack(alignment: .leading) {
                         Text(resource.fileName).font(.subheadline)

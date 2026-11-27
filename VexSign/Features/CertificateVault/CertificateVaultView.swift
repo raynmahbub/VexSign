@@ -118,7 +118,7 @@ struct CertificateVaultView: View {
                     .font(.caption)
                     .foregroundStyle(keyColor)
             }
-            Text("\(certificate.shortFingerprint) · \(certificate.fingerprintIdentifier)")
+            Text(certificate.shortFingerprint)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
             Text(expiryText(certificate.notAfter, prefix: "Certificate"))
@@ -166,14 +166,14 @@ struct CertificateVaultView: View {
             if model.snapshot.state.associations.isEmpty {
                 Text("No certificate/profile pairs have been evaluated. Open a certificate to associate one.").foregroundStyle(.secondary)
             }
-            ForEach(model.snapshot.state.associations) { association in
+            ForEach(model.snapshot.state.associations, id: \.id) { association in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(association.outcome.rawValue)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(outcomeColor(association.outcome))
                         Spacer()
-                        Text(association.evaluatedAt, style: .shortened)
+                        Text(association.evaluatedAt, style: .date)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
